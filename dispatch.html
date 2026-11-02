@@ -28,7 +28,7 @@
         const result = readSheets(sheets, name);
         const metadata = new Map();
         for (const record of result.records) {
-          if (record.vendor !== 'C' && String(record.rawCost ?? '').trim()==='')record.cost=null;
+          if (record.vendor !== 'C' && String(record.rawCost ?? '').trim()==='')record.cost=record.vendor==='A'?0:null;
           if (record.vendor !== 'C') continue;
           if (!metadata.has(record.sheet)) {
             const sheet = sheets.find(sheet => sheet.name === record.sheet);
@@ -73,7 +73,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
     const history = new Map();
     for (const file of files) for (const record of file.records || []) {
       const r={...record};
-      if(r.vendor!=='C' && 'rawCost' in r && String(r.rawCost ?? '').trim()==='')r.cost=null;
+      if(r.vendor!=='C' && 'rawCost' in r && String(r.rawCost ?? '').trim()==='')r.cost=r.vendor==='A'?0:null;
       if(!history.has(r.plate))history.set(r.plate,[]);
       history.get(r.plate).push(r);
     }
@@ -262,7 +262,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
       button.onclick=()=>{activateFilter(button.dataset.filter);redraw();};
     }
     const extraStyle = doc.createElement('style');
-    extraStyle.textContent = 'button:disabled,input:disabled,select:disabled{cursor:default}body.busy button:disabled{cursor:progress}.stats{grid-template-columns:repeat(5,minmax(0,1fr))}@media(max-width:1000px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}.dispatch-tools{padding:16px;border-bottom:1px solid #e2e9e4;display:flex;flex-wrap:wrap;gap:10px;align-items:center}.dispatch-tools .hint{font-size:12px;color:#607477;width:100%}.dispatch-tools select{max-width:100%;padding:8px}.dispatch-totals{font-weight:650;width:100%;font-size:13px;line-height:1.8}.dispatch-check{width:18px;height:18px;accent-color:#397956;cursor:pointer}.dispatch-selected{background:#edf8f1}.dispatch-processed .plate{text-decoration:line-through;color:#73847a}.badge.carrier{background:#edf0ff;color:#4a4090}.badge.conflict{background:#fff0ed;color:#b42318}.record-history{min-width:190px;max-width:320px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.7}.record-history p{margin:8px 0}.dispatch-tools button{white-space:normal}.fuel-review-cell{min-width:240px;max-width:340px;white-space:normal;font-size:12px}.fuel-review-cell p{margin:6px 0;line-height:1.6}.fuel-review-cell form{display:grid;gap:6px;margin-top:8px}.fuel-review-cell input{max-width:100%;padding:7px}.fuel-review-cell button{padding:6px;cursor:pointer}';
+    extraStyle.textContent = 'button:disabled,input:disabled,select:disabled{cursor:default}body.busy button:disabled{cursor:progress}.stats{grid-template-columns:repeat(5,minmax(0,1fr))}@media(max-width:1000px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}.dispatch-tools{padding:16px;border-bottom:1px solid #e2e9e4;display:flex;flex-wrap:wrap;gap:10px;align-items:center}.dispatch-tools .hint{font-size:12px;color:#607477;width:100%}.dispatch-tools select{max-width:100%;padding:8px}.dispatch-totals{font-weight:650;width:100%;font-size:13px;line-height:1.8}.dispatch-check{width:18px;height:18px;accent-color:#397956;cursor:pointer}.dispatch-selected{background:#edf8f1}.dispatch-processed .plate{text-decoration:line-through;color:#73847a}.badge.carrier{background:#edf0ff;color:#4a4090}.fuel-needs .badge,.fuel-needs .fuel-review-cell>strong{background:#fff4db;color:#8a5700}.fuel-needs .fuel-review-cell>strong{display:inline-block;padding:5px 7px;border-radius:5px}.record-history{min-width:190px;max-width:320px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.7}.record-history p{margin:8px 0}.dispatch-tools button{white-space:normal}.fuel-review-cell{min-width:240px;max-width:340px;white-space:normal;font-size:12px}.fuel-review-cell p{margin:6px 0;line-height:1.6}.fuel-review-cell form{display:grid;gap:6px;margin-top:8px}.fuel-review-cell input{max-width:100%;padding:7px}.fuel-review-cell button{padding:6px;cursor:pointer}';
     doc.head.append(extraStyle);
     const tools = doc.createElement('div');tools.className='dispatch-tools';
     tools.innerHTML='<label>캐리어 분류 <select id="carrierFilter"><option value="all">전체 분류</option><option value="carrier">캐리어만</option><option value="other">캐리어 제외</option></select></label><label>처리 상태 <select id="processingFilter"><option value="all">전체</option><option value="pending">미처리만</option><option value="done">처리 완료만</option></select></label><button type="button" id="selectedPlates" class="button compact">선택 차량번호 복사</button><button type="button" id="selectedAmounts" class="button compact">선택 차량번호+금액 복사</button><button type="button" id="markDone" class="button compact">선택 처리 완료</button><button type="button" id="markPending" class="button compact">선택 미처리로</button><button type="button" id="copyInquiry" class="button compact">렌톡 문의 목록 복사</button><div id="dispatchTotals" class="dispatch-totals" role="status"></div><div class="hint">체크박스는 차량번호 단위로 선택합니다. 전체 선택·선택 저장은 현재 필터에 맞는 차량 기준입니다. 선택 저장은 하단 저장 범위에서 「선택한 차량」을 고르세요. 렌톡 메모·비고 등에 「캐리어」가 포함된 차량은 완료 여부와 무관하게 분류하며 렌톡 문의 목록에서는 제외합니다. 처리 표시는 현재 페이지에서만 유지되며 전체 초기화 시 지워집니다.</div>';
@@ -281,7 +281,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
     }
     fuelFilter.append(fuelSelect);tools.prepend(fuelFilter);
     const diagnostics=doc.createElement('div');diagnostics.className='hint';diagnostics.id='fuelDiagnostics';diagnostics.setAttribute('role','status');tools.append(diagnostics);
-    const fuelHint=doc.createElement('div');fuelHint.className='hint';fuelHint.textContent='날짜가 있는 입력은 같은 날짜의 기록만 조회합니다. 날짜가 없으면 최신일 기준입니다. 빈 금액은 미입력, 숫자 0은 주유비 없음으로 구분합니다. 서로 다른 운행은 자동 합산하지 않습니다. 수동확인은 사유와 함께 이 브라우저에 최대 500건 저장되며 원본 기록이 바뀌면 다시 확인합니다.';tools.append(fuelHint);
+    const fuelHint=doc.createElement('div');fuelHint.className='hint';fuelHint.textContent='날짜가 있는 입력은 같은 날짜의 기록만 조회합니다. 날짜가 없으면 최신일 기준입니다. 한빛탁송의 주유/부대비용 빈칸은 0원으로 처리합니다. 오픈마일의 빈 금액은 미입력, 숫자 0은 주유비 없음으로 구분합니다. 비용 확인 필요 표시는 주황색입니다. 서로 다른 운행은 자동 합산하지 않습니다. 수동확인은 사유와 함께 이 브라우저에 최대 500건 저장되며 원본 기록이 바뀌면 다시 확인합니다.';tools.append(fuelHint);
     const eraseConfirmations=doc.createElement('button');eraseConfirmations.type='button';eraseConfirmations.className='button compact';eraseConfirmations.textContent='저장된 수동확인 전체 삭제';tools.append(eraseConfirmations);
     eraseConfirmations.onclick=()=>{
       if(!Object.keys(fuelSaved).length){notify('저장된 수동확인이 없습니다.');return;}
@@ -386,6 +386,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
         }
         tr.querySelector('.vehicle-select').checked=selected.has(plate);tr.querySelector('.vehicle-done').checked=processed.has(key(r));
         appendFuelCell(tr,r);
+        tr.classList.toggle('fuel-needs',r.fuelState==='needs');
         tr.classList.toggle('dispatch-selected',selected.has(plate));tr.classList.toggle('dispatch-processed',processed.has(key(r)));
       }
       updateControls();
@@ -425,7 +426,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
     });
     new MutationObserver(updateFuelDiagnostics).observe($('fileList'),{childList:true});
     $('input').addEventListener('input',updateFuelDiagnostics);
-    $('help').onclick=()=>frame.contentWindow.alert('차량목록의 날짜가 있으면 같은 운행일만 조회하고, 날짜가 없으면 업체 전체 최신일을 적용합니다.\n금액 빈칸은 미입력, 숫자 0은 주유비 없음입니다.\n동일 내용의 중복 기록은 제외합니다. 같은 날 금액 충돌이나 서로 다른 운행번호·출발지가 있으면 확인이 필요합니다.\n주유비 확인 필터에서 확인 필요 차량을 모아 보고, 완료된 건은 확인 금액과 사유를 수동 저장할 수 있습니다.\n수동확인은 이 브라우저에만 저장되고 원본 내용이 달라지면 다시 확인합니다.\n저장 범위의 주유비 확인 완료 차량은 금액이 확인된 차량만 포함합니다.\n원본 금액은 기존대로 10원 단위 반올림하며 수동 입력 금액은 그대로 적용합니다.\n렌톡 캐리어 분류와 제주 출발 판정은 기존 기준을 유지합니다.');
+    $('help').onclick=()=>frame.contentWindow.alert('차량목록의 날짜가 있으면 같은 운행일만 조회하고, 날짜가 없으면 업체 전체 최신일을 적용합니다.\n한빛탁송 주유/부대비용 빈칸은 0원입니다. 오픈마일 금액 빈칸은 미입력, 숫자 0은 주유비 없음입니다. 비용 확인 필요 표시는 주황색입니다.\n동일 내용의 중복 기록은 제외합니다. 같은 날 금액 충돌이나 서로 다른 운행번호·출발지가 있으면 확인이 필요합니다.\n주유비 확인 필터에서 확인 필요 차량을 모아 보고, 완료된 건은 확인 금액과 사유를 수동 저장할 수 있습니다.\n수동확인은 이 브라우저에만 저장되고 원본 내용이 달라지면 다시 확인합니다.\n저장 범위의 주유비 확인 완료 차량은 금액이 확인된 차량만 포함합니다.\n원본 금액은 기존대로 10원 단위 반올림하며 수동 입력 금액은 그대로 적용합니다.\n렌톡 캐리어 분류와 제주 출발 판정은 기존 기준을 유지합니다.');
     new MutationObserver(enhance).observe(body,{childList:true});
     enhance();
 
