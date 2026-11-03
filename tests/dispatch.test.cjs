@@ -94,3 +94,36 @@ test('vendor bulk selection matches current visible rows including shared vendor
  assert.deepEqual([...selected],['B']);
  assert.equal(helpers.vendorSelectionRows(rows,'없는업체').length,0);
 });
+
+function rentokSheet(flag,memo='',state='완료',startRow=1){
+ return [{name:'렌톡자료',startRow,rows:[
+  ['출발지 차량번호','운행상태','출발지 주소(현재차량 상세위치)','출발시각','','','','','','캐리어탁송','메모'],
+  ['123가4567',state,'서울','2026-11-03','','','','','',flag,memo]
+ ]}];
+}
+test('Rentok J-column Y marks carrier and excludes inquiry regardless of completion',()=>{
+ for(const flag of ['Y',' y ','Ｙ'])for(const state of ['완료','진행중']){
+  const core=setup(),file=core.readSheets(rentokSheet(flag,'',state,5),'렌톡.xlsx');
+  assert.equal(file.records[0].carrier,true);
+  const row=core.match(input,[file])[0];
+  assert.equal(row.status,'carrier');assert.equal(row.carrier,true);assert.equal(row.cInquiry,false);
+  assert.equal(row.amount,null);assert.equal(row.fuelState,'exempt');
+  assert.match(row.carrierMemo,/캐리어탁송\(J열\): Y/);
+ }
+});
+test('Rentok N and blank flags are not carriers even when memo mentions carrier',()=>{
+ for(const flag of ['N','',null,'YES',1]){
+  const core=setup(),file=core.readSheets(rentokSheet(flag,'캐리어 문의'),'렌톡.xlsx');
+  assert.equal(file.records[0].carrier,false);
+  const row=core.match(input,[file])[0];
+  assert.equal(row.carrier,false);assert.equal(row.cInquiry,true);assert.notEqual(row.status,'carrier');
+ }
+});
+test('carrier flag changes invalidate review identity and remain sheet-specific',()=>{
+ const core=setup(),yes=core.readSheets(rentokSheet('Y'),'렌톡.xlsx'),no=core.readSheets(rentokSheet('N'),'렌톡.xlsx');
+ assert.notEqual(core.match(input,[yes])[0].reviewKey,core.match(input,[no])[0].reviewKey);
+ const sheets=[...rentokSheet('Y'),...rentokSheet('N').map(s=>({...s,name:'일반운행',rows:s.rows.map((r,i)=>i?r.map(v=>v==='123가4567'?'45나6789':v):r)}))];
+ const records=core.readSheets(sheets,'렌톡.xlsx').records;
+ assert.equal(records.find(r=>r.plate==='123가4567').carrier,true);
+ assert.equal(records.find(r=>r.plate==='45나6789').carrier,false);
+});

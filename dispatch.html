@@ -21,7 +21,7 @@
     body.dataset.individualCopy = 'true';
     // Choose the latest date across vendors and retain the full audit trail.
     const core = frame.contentWindow.DispatchCore;
-    // Keep memo metadata in both the page reader and the isolated file worker.
+    // Keep Rentok J-column carrier flags and memo metadata in page and worker readers.
     function installCarrierReader(core) {
       const readSheets = core.readSheets;
       core.readSheets = function(sheets, name) {
@@ -41,7 +41,8 @@
           if (!sheet) continue;
           const raw = sheet.rows[record.row - (sheet.startRow ?? 1)] || [];
           record.memo = [...new Set(columns.map(i => String(raw[i] ?? '').trim()).filter(Boolean))].join(' · ');
-          record.carrier = /캐리어/.test(record.memo);
+          record.carrierFlag = String(raw[9] ?? '').normalize('NFKC').trim().toUpperCase();
+          record.carrier = record.carrierFlag === 'Y';
         }
         const jobMetadata=new Map();
         for(const record of result.records){
@@ -68,7 +69,7 @@
     try{const saved=JSON.parse(localStorage.getItem(fuelStorageKey)||'{}');if(saved&&typeof saved==='object'&&!Array.isArray(saved))fuelSaved=saved;}catch{}
 function createFuelMatcher(core, originalMatch, getOverride = () => null) {
   const dateOf = r => /^\d{4}-\d{2}-\d{2}$/.test(r.dispatchDate || '') ? r.dispatchDate : '';
-  const identity = r => JSON.stringify([r.vendor,r.plate,dateOf(r),r.jobId || '',r.origin || '',r.memo || '',r.state || '',r.rawCost ?? r.cost]);
+  const identity = r => JSON.stringify([r.vendor,r.plate,dateOf(r),r.jobId || '',r.origin || '',r.memo || '',r.carrierFlag || '',r.state || '',r.rawCost ?? r.cost]);
   return function(input, files) {
     const history = new Map();
     for (const file of files) for (const record of file.records || []) {
@@ -106,7 +107,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
       const carrierRecords=records.filter(r=>r.vendor==='C'&&r.carrier),carrier=carrierRecords.length>0;
       const fingerprint=JSON.stringify([v.plate,requestedDate,[...new Set(unique.map(identity))].sort()]);
       row={...row,inputDuplicate:counts.get(v.plate)>1,latestRecord:chosen,recordHistory:records,latestConflict:conflict,
-        selectionReason,carrier,carrierMemo:carrierRecords.map(r=>r.memo).filter(Boolean).join(' · '),
+        selectionReason,carrier,carrierMemo:carrierRecords.map(r=>['캐리어탁송(J열): Y',r.memo].filter(Boolean).join(' · ')).join(' · '),
         duplicateRecords:records.length-unique.length,targetDate,requestedDate,reviewKey:fingerprint,fuelNotes:[]};
       if(requestedDate && !candidates.length && records.length){
         row.status='dateReview';row.amount=null;row.meaning='기준일 기록 없음';
@@ -265,7 +266,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
     extraStyle.textContent = 'button:disabled,input:disabled,select:disabled{cursor:default}body.busy button:disabled{cursor:progress}.stats{grid-template-columns:repeat(5,minmax(0,1fr))}@media(max-width:1000px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}.dispatch-tools{padding:16px;border-bottom:1px solid #e2e9e4;display:flex;flex-wrap:wrap;gap:10px;align-items:center}.vendor-selection{width:100%;display:flex;flex-wrap:wrap;gap:10px 20px;border:1px solid #dfe7e1;border-radius:8px;padding:10px 12px;margin:0}.vendor-selection legend{font-size:12px;color:#607477;padding:0 6px}.vendor-selection label{display:inline-flex;align-items:center;gap:7px;font-size:13px}.vehicle-select{touch-action:none}.dispatch-tools .hint{font-size:12px;color:#607477;width:100%}.dispatch-tools select{max-width:100%;padding:8px}.dispatch-totals{font-weight:650;width:100%;font-size:13px;line-height:1.8}.dispatch-check{width:18px;height:18px;accent-color:#397956;cursor:pointer}.dispatch-selected{background:#edf8f1}.dispatch-processed .plate{text-decoration:line-through;color:#73847a}.badge.carrier{background:#edf0ff;color:#4a4090}.fuel-needs .badge,.fuel-needs .fuel-review-cell>strong{background:#fff4db;color:#8a5700}.fuel-missing .badge,.fuel-missing .fuel-review-cell>strong{background:#eef1f4;color:#526171}.fuel-waiting .badge,.fuel-waiting .fuel-review-cell>strong{background:#e8f2ff;color:#245b9e}.fuel-needs .fuel-review-cell>strong,.fuel-missing .fuel-review-cell>strong,.fuel-waiting .fuel-review-cell>strong{display:inline-block;padding:5px 7px;border-radius:5px}.record-history{min-width:190px;max-width:320px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.7}.record-history p{margin:8px 0}.dispatch-tools button{white-space:normal}.fuel-review-cell{min-width:240px;max-width:340px;white-space:normal;font-size:12px}.fuel-review-cell p{margin:6px 0;line-height:1.6}.fuel-review-cell form{display:grid;gap:6px;margin-top:8px}.fuel-review-cell input{max-width:100%;padding:7px}.fuel-review-cell button{padding:6px;cursor:pointer}';
     doc.head.append(extraStyle);
     const tools = doc.createElement('div');tools.className='dispatch-tools';
-    tools.innerHTML='<label>캐리어 분류 <select id="carrierFilter"><option value="all">전체 분류</option><option value="carrier">캐리어만</option><option value="other">캐리어 제외</option></select></label><label>처리 상태 <select id="processingFilter"><option value="all">전체</option><option value="pending">미처리만</option><option value="done">처리 완료만</option></select></label><button type="button" id="selectedPlates" class="button compact">선택 차량번호 복사</button><button type="button" id="selectedAmounts" class="button compact">선택 차량번호+금액 복사</button><button type="button" id="markDone" class="button compact">선택 처리 완료</button><button type="button" id="markPending" class="button compact">선택 미처리로</button><button type="button" id="copyInquiry" class="button compact">렌톡 문의 목록 복사</button><div id="dispatchTotals" class="dispatch-totals" role="status"></div><div class="hint">체크박스는 차량번호 단위로 선택합니다. 누른 채 행 위로 드래그하면 연속 선택·해제합니다. 업체별 선택은 현재 표시 조건의 해당 업체 차량에 적용하며 다른 업체 선택은 유지합니다. 전체 선택·선택 저장은 현재 필터에 맞는 차량 기준입니다. 선택 저장은 하단 저장 범위에서 「선택한 차량」을 고르세요. 렌톡 메모·비고 등에 「캐리어」가 포함된 차량은 완료 여부와 무관하게 분류하며 렌톡 문의 목록에서는 제외합니다. 처리 표시는 현재 페이지에서만 유지되며 전체 초기화 시 지워집니다.</div>';
+    tools.innerHTML='<label>캐리어 분류 <select id="carrierFilter"><option value="all">전체 분류</option><option value="carrier">캐리어만</option><option value="other">캐리어 제외</option></select></label><label>처리 상태 <select id="processingFilter"><option value="all">전체</option><option value="pending">미처리만</option><option value="done">처리 완료만</option></select></label><button type="button" id="selectedPlates" class="button compact">선택 차량번호 복사</button><button type="button" id="selectedAmounts" class="button compact">선택 차량번호+금액 복사</button><button type="button" id="markDone" class="button compact">선택 처리 완료</button><button type="button" id="markPending" class="button compact">선택 미처리로</button><button type="button" id="copyInquiry" class="button compact">렌톡 문의 목록 복사</button><div id="dispatchTotals" class="dispatch-totals" role="status"></div><div class="hint">체크박스는 차량번호 단위로 선택합니다. 누른 채 행 위로 드래그하면 연속 선택·해제합니다. 업체별 선택은 현재 표시 조건의 해당 업체 차량에 적용하며 다른 업체 선택은 유지합니다. 전체 선택·선택 저장은 현재 필터에 맞는 차량 기준입니다. 선택 저장은 하단 저장 범위에서 「선택한 차량」을 고르세요. 렌톡 J열 「캐리어탁송」이 Y인 차량은 완료 여부와 무관하게 캐리어로 분류하며 렌톡 문의 목록에서는 제외합니다. 처리 표시는 현재 페이지에서만 유지되며 전체 초기화 시 지워집니다.</div>';
     const vendorChoices=doc.createElement('fieldset');vendorChoices.className='vendor-selection';
     const legend=doc.createElement('legend');legend.textContent='업체별 차량 선택 (현재 표시 조건)';vendorChoices.append(legend);
     for(const vendor of ['한빛탁송','오픈마일','렌톡']){
@@ -439,7 +440,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
     }
     installVehicleDragSelection(doc,body,selected,syncSelection);
     function recordText(r, chosen) {
-      return `${chosen?'적용 기록':'이전 / 동시 기록'} · ${r.dispatchDate||'일자 없음'}\n${({A:'한빛탁송',B:'오픈마일',C:'렌톡'})[r.vendor]||r.vendor} · ${r.state||'상태 없음'} · ${r.cost==null?'금액 없음':String(r.cost)+'원'}\n${r.file||'파일명 없음'} / ${r.sheet||'시트 없음'} / ${r.row||'?'}행${r.memo?'\n메모: '+r.memo:''}${r.carrier?'\n분류: 캐리어':''}`;
+      return `${chosen?'적용 기록':'이전 / 동시 기록'} · ${r.dispatchDate||'일자 없음'}\n${({A:'한빛탁송',B:'오픈마일',C:'렌톡'})[r.vendor]||r.vendor} · ${r.state||'상태 없음'} · ${r.cost==null?'금액 없음':String(r.cost)+'원'}\n${r.file||'파일명 없음'} / ${r.sheet||'시트 없음'} / ${r.row||'?'}행${r.memo?'\n메모: '+r.memo:''}${r.vendor==='C'?'\n캐리어탁송(J열): '+(r.carrierFlag||'빈칸'):''}${r.carrier?'\n분류: 캐리어':''}`;
     }
     function enhance() {
       const visible=visibleRows(),plates=new Set(visible.map(r=>r.plate));
