@@ -89,8 +89,16 @@ test('comments format exact numeric manwon amounts without changing export amoun
   assert.equal(row.amount,amount);
  }
  const rows=context.expandTransfer({amount:'120000000',commentTarget:'딜러에게',commentItem:'same-payment'});
- assert.equal(context.transferComment(rows).text,'금액 12,000만원 딜러에게 송금완료');
+ assert.equal(context.transferComment(rows).text,'차대금 12,000만원 딜러에게 송금완료');
  assert.equal(rows.reduce((sum,r)=>sum+BigInt(r.amount),0n),120000000n);
  assert.equal(context.transferComment([{amount:'',commentTarget:'고객계좌'}]).ready,false);
  assert.equal(context.transferComment([{amount:'',commentTarget:'고객계좌'}]).text,'금액 금액 확인 필요 고객계좌로 송금완료');
+});
+
+test('dealer comments use vehicle payment wording per recipient',()=>{
+ const row={amount:'1000000',commentTarget:'딜러에게'};
+ assert.equal(context.transferComment([row]).text,'차대금 100만원 딜러에게 송금완료');
+ assert.equal(context.transferComment([row]).ready,true);
+ assert.equal(context.transferComment([row,{amount:'35000',commentTarget:'고객계좌'}]).text,'차대금 100만원 딜러에게, 금액 3.5만원 고객계좌로 송금완료');
+ assert.equal(context.transferComment([{amount:'',commentTarget:'딜러에게'}]).ready,false);
 });
