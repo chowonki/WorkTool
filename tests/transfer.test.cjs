@@ -80,8 +80,8 @@ test('same-second exports get a suffix and dates use Korean time across midnight
 });
 
 
-test('comments format exact numeric manwon amounts without changing export amounts',()=>{
- for(const [amount,want] of [['1000000','100만원'],['10000','1만원'],['100000','10만원'],['10000000','1,000만원'],['35000','3.5만원'],['7240000','724만원'],['120000000','12,000만원'],['12345','1.2345만원'],['9999','9,999원'],['100000001','10,000.0001만원']]){
+test('comments use manwon only for exact multiples without changing export amounts',()=>{
+ for(const [amount,want] of [['1000000','100만원'],['10000','1만원'],['100000','10만원'],['10000000','1,000만원'],['35000','35,000원'],['7240000','724만원'],['120000000','12,000만원'],['12345','12,345원'],['9999','9,999원'],['100000001','100,000,001원']]){
   const row={amount,commentTarget:'기타계좌'};
   const result=context.transferComment([row]);
   assert.equal(result.text,`금액 ${want} 기타계좌로 송금완료`);
@@ -103,9 +103,9 @@ test('dealer comments use vehicle payment wording per recipient',()=>{
  assert.equal(context.transferComment([{amount:'',commentTarget:'딜러에게'}]).ready,false);
 });
 
-test('mortgage and customer comments show the full exact won amount',()=>{
+test('mortgage and customer comments use manwon only for exact multiples',()=>{
  for(const target of ['저당계좌','저당송금','저당 상환계좌','고객계좌','고객','고객에게']){
-  for(const [amount,want] of [['1000000','1,000,000원'],['35000','35,000원'],['12345','12,345원'],['9999','9,999원'],['100000001','100,000,001원']]){
+  for(const [amount,want] of [['1000000','100만원'],['35000','35,000원'],['12345','12,345원'],['9999','9,999원'],['100000001','100,000,001원']]){
    const result=context.transferComment([{amount,commentTarget:target}]);
    assert.ok(result.text.includes(`금액 ${want} ${target}`),result.text);
    assert.equal(result.ready,true);
@@ -118,7 +118,17 @@ test('mortgage and customer comments show the full exact won amount',()=>{
 
 test('extracted mortgage and customer labels use full won amounts in mixed comments',()=>{
  const parsed=context.parseOne('국민은행 (저당계좌)\n123-456-789012\n100만원\n신한은행 (고객계좌)\n110-123-456789\n35,000원');
- assert.equal(context.transferComment(parsed.items).text,'금액 1,000,000원 저당계좌, 금액 35,000원 고객계좌로 송금완료');
+ assert.equal(context.transferComment(parsed.items).text,'금액 100만원 저당계좌, 금액 35,000원 고객계좌로 송금완료');
  assert.equal(context.transferComment(parsed.items).ready,true);
 });
 
+
+test('all recipients use full won for remainders and aggregate splits before formatting',()=>{
+ for(const target of ['저당계좌','고객계좌','딜러에게','기타계좌']){
+  for(const [amount,want] of [['1000000','100만원'],['1005000','1,005,000원'],['10001','10,001원'],['10000','1만원'],['1','1원'],['120000000','12,000만원'],['120000001','120,000,001원']]){
+   const rows=context.expandTransfer({amount,commentTarget:target});
+   assert.ok(context.transferComment(rows).text.includes(want+' '+target));
+   assert.equal(rows.reduce((sum,r)=>sum+BigInt(r.amount),0n),BigInt(amount));
+  }
+ }
+});
