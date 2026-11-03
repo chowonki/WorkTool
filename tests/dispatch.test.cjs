@@ -172,3 +172,19 @@ test('manual fuel confirmations are isolated for each chosen trip',()=>{
  choices.set(row.choiceKey,row.recordChoices[1].id);row=core.match(input,files)[0];assert.equal(row.amount,50000);assert.equal(row.manualConfirmation,undefined);
  choices.set(row.choiceKey,row.recordChoices[0].id);assert.equal(core.match(input,files)[0].amount,36000);
 });
+
+test('duplicate review counts only distinct records and clears when a trip is chosen',()=>{
+ const choices=new Map(),core=setup(choices),files=[{records:[trip('A',35000),trip('B',50000)]}];
+ let row=core.match(input,files)[0];assert.equal(row.duplicateReview,true);
+ choices.set(row.choiceKey,row.recordChoices[0].id);row=core.match(input,files)[0];assert.equal(row.duplicateReview,false);
+ choices.delete(row.choiceKey);assert.equal(core.match(input,files)[0].duplicateReview,true);
+ const single=trip('A',35000);
+ assert.equal(core.match(input,[{records:[single,{...single,file:'copy.xlsx'}]}])[0].duplicateReview,false);
+ assert.equal(core.match(input,[])[0].duplicateReview,false);
+});
+test('duplicate review includes earlier dates and counts duplicate input plates once',()=>{
+ const core=setup(),files=[{records:[trip('A',35000,'2026-11-01'),trip('B',35000)]}];
+ const rows=core.match([...input,...input],files);
+ assert.equal(core.unique(rows).filter(r=>r.duplicateReview).length,1);
+ assert.equal(rows[0].status,'confirmed');assert.equal(rows[0].duplicateReview,true);
+});
