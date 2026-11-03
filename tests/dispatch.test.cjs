@@ -5,12 +5,12 @@ const path=require('node:path');
 const vm=require('node:vm');
 const base=readFileSync(path.join(__dirname,'../dispatch-tool.html'),'utf8');
 const page=readFileSync(path.join(__dirname,'../dispatch.html'),'utf8');
-function setup(){
- const context=vm.createContext({});
+function setup(choices=new Map(),confirmations=new Map()){
+ const context=vm.createContext({readChoice:key=>choices.get(key),readOverride:key=>confirmations.get(key)});
  vm.runInContext(base.match(/<script id="core-source"[^>]*>([\s\S]*?)<\/script>/)[1],context);
  const reader=page.slice(page.indexOf('    function installCarrierReader('),page.indexOf('    if (core) {'));
  const matcher=page.slice(page.indexOf('function createFuelMatcher('),page.indexOf('    if (core && !core._latestAcrossVendors)'));
- vm.runInContext(reader+'\n'+matcher+'\ninstallCarrierReader(DispatchCore);DispatchCore.match=createFuelMatcher(DispatchCore,DispatchCore.match);',context);
+ vm.runInContext(reader+'\n'+matcher+'\ninstallCarrierReader(DispatchCore);DispatchCore.match=createFuelMatcher(DispatchCore,DispatchCore.match,readOverride,readChoice);',context);
  return context.DispatchCore;
 }
 function sheets(vendor,cost,state='탁송완료'){
@@ -126,4 +126,49 @@ test('carrier flag changes invalidate review identity and remain sheet-specific'
  const records=core.readSheets(sheets,'렌톡.xlsx').records;
  assert.equal(records.find(r=>r.plate==='123가4567').carrier,true);
  assert.equal(records.find(r=>r.plate==='45나6789').carrier,false);
+});
+
+function trip(vendor,amount,date='2026-11-03',extra={}){
+ return {vendor,plate:'123가4567',dispatchDate:date,state:'완료',cost:amount,rawCost:amount,origin:'서울',file:vendor+'.xlsx',sheet:'자료',row:2,...extra};
+}
+test('user can resolve conflicting trips and exports contain the selected record',()=>{
+ const choices=new Map(),core=setup(choices),files=[{records:[trip('A',35000),trip('B',50000)]}];
+ let row=core.match(input,files)[0];assert.equal(row.status,'conflict');assert.equal(row.recordChoices.length,2);
+ choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.vendor==='A').id);
+ row=core.match(input,files)[0];assert.equal(row.status,'confirmed');assert.equal(row.amount,35000);assert.equal(row.vendor,'한빛탁송');assert.equal(row.latestConflict,false);
+ assert.match(row.selectionReason,/사용자/);assert.equal(row.sources,'A.xlsx / 자료 / 2행');
+ assert.equal(core.values(row)[2],35000);assert.match(core.textExport([row]),/35000/);assert.doesNotMatch(core.textExport([row]),/50000/);
+ choices.delete(row.choiceKey);assert.equal(core.match(input,files)[0].status,'conflict');
+});
+test('explicit trip selection can apply a different date and is shared per vehicle',()=>{
+ const choices=new Map(),core=setup(choices),files=[{records:[trip('A',12345,'2026-11-01'),trip('B',50000)]}];
+ const dated=[{plate:'123가4567',date:'2026-11-03 10:00'}];let row=core.match(dated,files)[0];
+ assert.equal(row.amount,50000);choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.vendor==='A').id);
+ row=core.match(dated,files)[0];assert.equal(row.dispatchDate,'2026-11-01');assert.equal(row.targetDate,'2026-11-01');assert.equal(row.amount,12350);
+ assert.ok(row.fuelNotes.some(n=>n.includes('다른 운행')));
+ const rows=core.match([...dated,{plate:'123가4567',date:'2026-11-01'}],files);
+ assert.ok(rows.every(r=>r.amount===12350&&r.status==='confirmed'));
+});
+test('selected pending, blank cost and Rentok carrier flags retain their own states',()=>{
+ const choices=new Map(),core=setup(choices),files=[{records:[trip('A',35000),trip('B',10000,'2026-11-03',{state:'진행중'}),trip('B',null,'2026-11-02',{rawCost:''}),trip('C',null,'2026-11-01',{carrier:true,carrierFlag:'Y'}),trip('C',null,'2026-11-02',{carrier:false,carrierFlag:'N'})]}];
+ let row=core.match(input,files)[0];
+ for(const [index,status,fuel,amount,inquiry] of [[0,'confirmed','verified',35000,false],[1,'incomplete','waiting',null,false],[2,'cost','needs',null,false],[3,'carrier','exempt',null,false],[4,'slack','inquiry',null,true]]){
+  choices.set(row.choiceKey,row.recordChoices[index].id);row=core.match(input,files)[0];
+  assert.equal(row.status,status);assert.equal(row.fuelState,fuel);assert.equal(row.amount,amount);assert.equal(row.cInquiry,inquiry);
+ }
+});
+test('record changes discard old trip choices and identical duplicates share one option',()=>{
+ const choices=new Map(),core=setup(choices),a=trip('A',35000),b=trip('B',50000),files=[{records:[a,b,{...a,file:'재다운로드.xlsx'}]}];
+ let row=core.match(input,files)[0];assert.equal(row.recordChoices.length,2);assert.equal(row.duplicateRecords,1);
+ choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.vendor==='A').id);
+ assert.equal(core.match(input,files)[0].amount,35000);
+ b.cost=60000;b.rawCost=60000;row=core.match(input,files)[0];assert.equal(row.selectedRecordId,'');assert.equal(row.status,'conflict');
+});
+test('manual fuel confirmations are isolated for each chosen trip',()=>{
+ const choices=new Map(),confirmations=new Map(),core=setup(choices,confirmations),files=[{records:[trip('A',35000),trip('B',50000)]}];
+ let row=core.match(input,files)[0];choices.set(row.choiceKey,row.recordChoices[0].id);row=core.match(input,files)[0];
+ confirmations.set(row.reviewKey,{amount:36000,reason:'업체 확인',savedAt:'오늘'});
+ assert.equal(core.match(input,files)[0].amount,36000);
+ choices.set(row.choiceKey,row.recordChoices[1].id);row=core.match(input,files)[0];assert.equal(row.amount,50000);assert.equal(row.manualConfirmation,undefined);
+ choices.set(row.choiceKey,row.recordChoices[0].id);assert.equal(core.match(input,files)[0].amount,36000);
 });

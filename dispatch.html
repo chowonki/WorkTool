@@ -65,9 +65,10 @@
       workerSource.textContent = '(' + installCarrierReader.toString() + ')(DispatchCore);\n' + workerSource.textContent;
     }
     const fuelStorageKey='worktool.fuel-confirmations.v1';
+    const tripSelections=new Map();
     let fuelSaved={};
     try{const saved=JSON.parse(localStorage.getItem(fuelStorageKey)||'{}');if(saved&&typeof saved==='object'&&!Array.isArray(saved))fuelSaved=saved;}catch{}
-function createFuelMatcher(core, originalMatch, getOverride = () => null) {
+function createFuelMatcher(core, originalMatch, getOverride = () => null, getSelection = () => null) {
   const dateOf = r => /^\d{4}-\d{2}-\d{2}$/.test(r.dispatchDate || '') ? r.dispatchDate : '';
   const identity = r => JSON.stringify([r.vendor,r.plate,dateOf(r),r.jobId || '',r.origin || '',r.memo || '',r.carrierFlag || '',r.state || '',r.rawCost ?? r.cost]);
   return function(input, files) {
@@ -82,7 +83,10 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
     return input.map(v=>{
       const records=history.get(v.plate)||[],unique=[...new Map(records.map(r=>[identity(r),r])).values()];
       const requestedDate=(v.date||'').slice(0,10)||(inputDates.get(v.plate).size===1?[...inputDates.get(v.plate)][0]:''),latestDate=unique.reduce((max,r)=>dateOf(r)>max?dateOf(r):max,'');
-      const targetDate=requestedDate || latestDate;
+      let targetDate=requestedDate || latestDate;
+      const choiceKey=JSON.stringify([v.plate,unique.map(identity).sort()]);
+      const selectedId=getSelection(choiceKey);
+      const selectedRecord=unique.find(r=>identity(r)===selectedId);
       const candidates=unique.filter(r=>dateOf(r)===targetDate);
       let chosen=candidates[candidates.length-1],selectionReason='';
       // Spreadsheet row order is not an event timestamp: Openmile may list
@@ -98,24 +102,34 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
         const completed=candidates.filter(r=>r.vendor==='B'&&core.complete(r));
         if(completed.length){chosen=completed[completed.length-1];selectionReason='동일 기준일 오픈마일 기록 중 완료 기록 우선 적용';}
       }
+      if(selectedRecord){
+        chosen=selectedRecord;targetDate=dateOf(chosen);
+        selectionReason='사용자가 표시할 탁송건을 선택했습니다 ('+(targetDate||'일자 없음')+').';
+      }
       const done=candidates.filter(core.complete),priced=done.filter(r=>r.vendor!=='C'&&r.cost!==null&&Number.isFinite(Number(r.cost)));
       const conflict=new Set(priced.map(r=>Number(r.cost))).size>1;
       const jobIds=new Set(candidates.map(r=>r.jobId).filter(Boolean));
       const origins=new Set(done.map(r=>r.origin).filter(Boolean));
       const ambiguous=jobIds.size>1 || origins.size>1;
       let row=originalMatch([v],[{name:'기준일 기록',records:chosen?[chosen]:[]}])[0];
-      const carrierRecords=records.filter(r=>r.vendor==='C'&&r.carrier),carrier=carrierRecords.length>0;
+      const carrierRecords=(selectedRecord?[chosen]:records).filter(r=>r.vendor==='C'&&r.carrier),carrier=carrierRecords.length>0;
       const fingerprint=JSON.stringify([v.plate,requestedDate,[...new Set(unique.map(identity))].sort()]);
-      row={...row,inputDuplicate:counts.get(v.plate)>1,latestRecord:chosen,recordHistory:records,latestConflict:conflict,
+      row={...row,inputDuplicate:counts.get(v.plate)>1,latestRecord:chosen,recordHistory:records,latestConflict:!selectedRecord&&conflict,
         selectionReason,carrier,carrierMemo:carrierRecords.map(r=>['캐리어탁송(J열): Y',r.memo].filter(Boolean).join(' · ')).join(' · '),
-        duplicateRecords:records.length-unique.length,targetDate,requestedDate,reviewKey:fingerprint,fuelNotes:[]};
-      if(requestedDate && !candidates.length && records.length){
+        duplicateRecords:records.length-unique.length,targetDate,requestedDate,
+        choiceKey,recordChoices:unique.map(r=>({id:identity(r),record:r})),selectedRecordId:selectedRecord?identity(selectedRecord):'',
+        reviewKey:selectedRecord?JSON.stringify([fingerprint,identity(selectedRecord)]):fingerprint,fuelNotes:[]};
+      if(selectedRecord){
+        row.fuelNotes.push(selectionReason);
+        if(requestedDate&&requestedDate!==targetDate)row.fuelNotes.push('입력일'+' '+requestedDate+'과 다른 운행 기록을 직접 선택했습니다.');
+      }
+      if(!selectedRecord && requestedDate && !candidates.length && records.length){
         row.status='dateReview';row.amount=null;row.meaning='기준일 기록 없음';
         row.fuelNotes.push('입력일 '+requestedDate+'과 일치하는 운행 기록이 없습니다. 다른 날짜 금액은 적용하지 않았습니다.');
       } else if(!requestedDate && records.length && !latestDate){
         row.fuelNotes.push('원본 운행일자 없음: 차량번호 기준으로 조회');
       }
-      if(conflict || ambiguous){row.status=conflict?'conflict':'tripReview';row.amount=null;row.meaning=conflict?'동일 기준일 금액 상이':'별도 운행 여부 확인';}
+      if(!selectedRecord && (conflict || ambiguous)){row.status=conflict?'conflict':'tripReview';row.amount=null;row.meaning=conflict?'동일 기준일 금액 상이':'별도 운행 여부 확인';}
       if(row.status==='confirmed' && (!Number.isSafeInteger(row.amount)||row.amount<0)){
         row.status='cost';row.amount=null;row.fuelNotes.push('금액 범위 또는 음수 금액 확인 필요');
       }
@@ -126,13 +140,13 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
       if(carrier){row.status='carrier';row.amount=null;row.cInquiry=false;row.meaning='캐리어';}
       row.fuelState=carrier?'exempt':row.status==='confirmed'?(row.amount===0?'zero':'verified'):row.status==='incomplete'?'waiting':row.status==='slack'?'inquiry':'needs';
       row.fuelLabel=({exempt:'캐리어 제외',zero:'없음(0원)',verified:'확인됨',waiting:'완료 대기',inquiry:'업체 문의',needs:'확인 필요'})[row.fuelState];
-      const override=getOverride(fingerprint);
+      const override=getOverride(row.reviewKey);
       row.canConfirm=!!chosen&&core.complete(chosen)&&!carrier;
       if(override && row.canConfirm && Number.isSafeInteger(override.amount)&&override.amount>=0 && override.reason){
         row.status='confirmed';row.amount=override.amount;row.fuelState=override.amount===0?'zero':'verified';row.fuelLabel=override.amount===0?'없음(0원) · 수동확인':'확인됨 · 수동확인';
         row.manualConfirmation=override;row.fuelNotes.push('수동확인: '+override.reason+' ('+override.savedAt+')');
       }
-      if(inputDates.get(v.plate).size>1 && !carrier){
+      if(inputDates.get(v.plate).size>1 && !carrier && !selectedRecord){
         row.status='tripReview';row.amount=null;row.fuelState='needs';row.fuelLabel='확인 필요';row.canConfirm=false;delete row.manualConfirmation;
         row.fuelNotes.push('같은 차량에 서로 다른 입력일이 있습니다. 차량번호 단위 집계이므로 날짜별로 나눠 조회해 주세요.');
       }
@@ -144,7 +158,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
     if (core && !core._latestAcrossVendors) {
       const originalMatch = core.match;
       Object.assign(core.statuses,{conflict:'금액 충돌',carrier:'캐리어',dateReview:'기준일 확인',tripReview:'운행 확인 필요'});
-      core.match = createFuelMatcher(core,originalMatch,key=>fuelSaved[key]);
+      core.match = createFuelMatcher(core,originalMatch,key=>fuelSaved[key],key=>tripSelections.get(key));
       core._latestAcrossVendors = true;
     }
 
@@ -263,7 +277,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
       button.onclick=()=>{activateFilter(button.dataset.filter);redraw();};
     }
     const extraStyle = doc.createElement('style');
-    extraStyle.textContent = 'button:disabled,input:disabled,select:disabled{cursor:default}body.busy button:disabled{cursor:progress}.stats{grid-template-columns:repeat(5,minmax(0,1fr))}@media(max-width:1000px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}.dispatch-tools{padding:16px;border-bottom:1px solid #e2e9e4;display:flex;flex-wrap:wrap;gap:10px;align-items:center}.vendor-selection{width:100%;display:flex;flex-wrap:wrap;gap:10px 20px;border:1px solid #dfe7e1;border-radius:8px;padding:10px 12px;margin:0}.vendor-selection legend{font-size:12px;color:#607477;padding:0 6px}.vendor-selection label{display:inline-flex;align-items:center;gap:7px;font-size:13px}.vehicle-select{touch-action:none}.dispatch-tools .hint{font-size:12px;color:#607477;width:100%}.dispatch-tools select{max-width:100%;padding:8px}.dispatch-totals{font-weight:650;width:100%;font-size:13px;line-height:1.8}.dispatch-check{width:18px;height:18px;accent-color:#397956;cursor:pointer}.dispatch-selected{background:#edf8f1}.dispatch-processed .plate{text-decoration:line-through;color:#73847a}.badge.carrier{background:#edf0ff;color:#4a4090}.fuel-needs .badge,.fuel-needs .fuel-review-cell>strong{background:#fff4db;color:#8a5700}.fuel-missing .badge,.fuel-missing .fuel-review-cell>strong{background:#eef1f4;color:#526171}.fuel-waiting .badge,.fuel-waiting .fuel-review-cell>strong{background:#e8f2ff;color:#245b9e}.fuel-needs .fuel-review-cell>strong,.fuel-missing .fuel-review-cell>strong,.fuel-waiting .fuel-review-cell>strong{display:inline-block;padding:5px 7px;border-radius:5px}.record-history{min-width:190px;max-width:320px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.7}.record-history p{margin:8px 0}.dispatch-tools button{white-space:normal}.fuel-review-cell{min-width:240px;max-width:340px;white-space:normal;font-size:12px}.fuel-review-cell p{margin:6px 0;line-height:1.6}.fuel-review-cell form{display:grid;gap:6px;margin-top:8px}.fuel-review-cell input{max-width:100%;padding:7px}.fuel-review-cell button{padding:6px;cursor:pointer}';
+    extraStyle.textContent = 'button:disabled,input:disabled,select:disabled{cursor:default}body.busy button:disabled{cursor:progress}.stats{grid-template-columns:repeat(5,minmax(0,1fr))}@media(max-width:1000px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}.dispatch-tools{padding:16px;border-bottom:1px solid #e2e9e4;display:flex;flex-wrap:wrap;gap:10px;align-items:center}.vendor-selection{width:100%;display:flex;flex-wrap:wrap;gap:10px 20px;border:1px solid #dfe7e1;border-radius:8px;padding:10px 12px;margin:0}.vendor-selection legend{font-size:12px;color:#607477;padding:0 6px}.vendor-selection label{display:inline-flex;align-items:center;gap:7px;font-size:13px}.vehicle-select{touch-action:none}.dispatch-tools .hint{font-size:12px;color:#607477;width:100%}.dispatch-tools select{max-width:100%;padding:8px}.dispatch-totals{font-weight:650;width:100%;font-size:13px;line-height:1.8}.dispatch-check{width:18px;height:18px;accent-color:#397956;cursor:pointer}.dispatch-selected{background:#edf8f1}.dispatch-processed .plate{text-decoration:line-through;color:#73847a}.badge.carrier{background:#edf0ff;color:#4a4090}.fuel-needs .badge,.fuel-needs .fuel-review-cell>strong{background:#fff4db;color:#8a5700}.fuel-missing .badge,.fuel-missing .fuel-review-cell>strong{background:#eef1f4;color:#526171}.fuel-waiting .badge,.fuel-waiting .fuel-review-cell>strong{background:#e8f2ff;color:#245b9e}.fuel-needs .fuel-review-cell>strong,.fuel-missing .fuel-review-cell>strong,.fuel-waiting .fuel-review-cell>strong{display:inline-block;padding:5px 7px;border-radius:5px}.record-history{min-width:190px;max-width:320px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.7}.record-history select{display:block;max-width:100%;width:100%;padding:8px;margin-top:6px}.record-history label{font-weight:650}.record-history p{margin:8px 0}.dispatch-tools button{white-space:normal}.fuel-review-cell{min-width:240px;max-width:340px;white-space:normal;font-size:12px}.fuel-review-cell p{margin:6px 0;line-height:1.6}.fuel-review-cell form{display:grid;gap:6px;margin-top:8px}.fuel-review-cell input{max-width:100%;padding:7px}.fuel-review-cell button{padding:6px;cursor:pointer}';
     doc.head.append(extraStyle);
     const tools = doc.createElement('div');tools.className='dispatch-tools';
     tools.innerHTML='<label>캐리어 분류 <select id="carrierFilter"><option value="all">전체 분류</option><option value="carrier">캐리어만</option><option value="other">캐리어 제외</option></select></label><label>처리 상태 <select id="processingFilter"><option value="all">전체</option><option value="pending">미처리만</option><option value="done">처리 완료만</option></select></label><button type="button" id="selectedPlates" class="button compact">선택 차량번호 복사</button><button type="button" id="selectedAmounts" class="button compact">선택 차량번호+금액 복사</button><button type="button" id="markDone" class="button compact">선택 처리 완료</button><button type="button" id="markPending" class="button compact">선택 미처리로</button><button type="button" id="copyInquiry" class="button compact">렌톡 문의 목록 복사</button><div id="dispatchTotals" class="dispatch-totals" role="status"></div><div class="hint">체크박스는 차량번호 단위로 선택합니다. 누른 채 행 위로 드래그하면 연속 선택·해제합니다. 업체별 선택은 현재 표시 조건의 해당 업체 차량에 적용하며 다른 업체 선택은 유지합니다. 전체 선택·선택 저장은 현재 필터에 맞는 차량 기준입니다. 선택 저장은 하단 저장 범위에서 「선택한 차량」을 고르세요. 렌톡 J열 「캐리어탁송」이 Y인 차량은 완료 여부와 무관하게 캐리어로 분류하며 렌톡 문의 목록에서는 제외합니다. 처리 표시는 현재 페이지에서만 유지되며 전체 초기화 시 지워집니다.</div>';
@@ -297,7 +311,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
     }
     fuelFilter.append(fuelSelect);tools.prepend(fuelFilter);
     const diagnostics=doc.createElement('div');diagnostics.className='hint';diagnostics.id='fuelDiagnostics';diagnostics.setAttribute('role','status');tools.append(diagnostics);
-    const fuelHint=doc.createElement('div');fuelHint.className='hint';fuelHint.textContent='날짜가 있는 입력은 같은 날짜의 기록만 조회합니다. 날짜가 없으면 최신일 기준입니다. 한빛탁송의 주유/부대비용 빈칸은 0원으로 처리합니다. 오픈마일의 빈 금액은 미입력, 숫자 0은 주유비 없음으로 구분합니다. 상태 색상: 확인 필요는 주황색, 미조회는 회색, 미완료(완료 대기)는 파란색입니다. 서로 다른 운행은 자동 합산하지 않습니다. 수동확인은 사유와 함께 이 브라우저에 최대 500건 저장되며 원본 기록이 바뀌면 다시 확인합니다.';tools.append(fuelHint);
+    const fuelHint=doc.createElement('div');fuelHint.className='hint';fuelHint.textContent='날짜가 있는 입력은 같은 날짜의 기록만 조회합니다. 날짜가 없으면 최신일 기준입니다. 한빛탁송의 주유/부대비용 빈칸은 0원으로 처리합니다. 오픈마일의 빈 금액은 미입력, 숫자 0은 주유비 없음으로 구분합니다. 상태 색상: 확인 필요는 주황색, 미조회는 회색, 미완료(완료 대기)는 파란색입니다. 서로 다른 운행은 자동 합산하지 않습니다. 동일 차량에 여러 기록이 있으면 조회 근거에서 표시할 탁송건을 선택할 수 있습니다. 수동확인은 사유와 함께 이 브라우저에 최대 500건 저장되며 원본 기록이 바뀌면 다시 확인합니다.';tools.append(fuelHint);
     const eraseConfirmations=doc.createElement('button');eraseConfirmations.type='button';eraseConfirmations.className='button compact';eraseConfirmations.textContent='저장된 수동확인 전체 삭제';tools.append(eraseConfirmations);
     eraseConfirmations.onclick=()=>{
       if(!Object.keys(fuelSaved).length){notify('저장된 수동확인이 없습니다.');return;}
@@ -439,6 +453,27 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
       updateControls();
     }
     installVehicleDragSelection(doc,body,selected,syncSelection);
+    function appendTripChoice(container,r){
+      if((r.recordChoices||[]).length<2)return;
+      const label=doc.createElement('label'),select=doc.createElement('select'),apply=doc.createElement('button'),hint=doc.createElement('p');
+      label.textContent='표시할 탁송건 선택 ('+r.recordChoices.length+'건)';
+      select.setAttribute('aria-label',r.plate+' 표시할 탁송건');
+      const automatic=doc.createElement('option');automatic.value='';automatic.textContent='자동 조회 기준으로 표시';select.append(automatic);
+      r.recordChoices.forEach((choice,index)=>{
+        const record=choice.record,option=doc.createElement('option');option.value=choice.id;
+        const cost=record.carrier?'캐리어':!core.complete(record)?'미완료':record.vendor==='C'?'업체 문의':record.cost==null?'금액 미입력':Number.isSafeInteger(core.round10(record.cost))?core.round10(record.cost).toLocaleString('ko-KR')+'원':'금액 확인 필요';
+        option.textContent=(index+1)+'. '+(record.dispatchDate||'일자 없음')+' · '+({A:'한빛탁송',B:'오픈마일',C:'렌톡'}[record.vendor]||record.vendor)+' · '+(record.state||'상태 없음')+' · '+cost+' · '+(record.origin||'출발지 없음')+' · '+(record.jobId?'운행번호 '+record.jobId+' · ':'')+(record.file||'파일명 없음')+' / '+(record.sheet||'시트 없음')+' / '+(record.row||'?')+'행';
+        select.append(option);
+      });
+      select.value=r.selectedRecordId||'';label.append(select);
+      apply.type='button';apply.textContent='선택한 탁송건 적용';apply.className='button compact';
+      hint.textContent='입력 날짜와 다른 기록도 직접 선택할 수 있습니다. 선택한 건의 상태·금액을 적용하며 자동 합산하지 않습니다. 자동 조회로 되돌리려면 첫 항목을 적용하세요.';
+      apply.onclick=()=>{
+        if(select.value)tripSelections.set(r.choiceKey,select.value);else tripSelections.delete(r.choiceKey);
+        $('run').click();notify(select.value?'선택한 탁송건을 적용했습니다. 필터에 따라 목록에서 숨겨질 수 있습니다.':'자동 조회 기준으로 되돌렸습니다.');
+      };
+      container.append(label,apply,hint);
+    }
     function recordText(r, chosen) {
       return `${chosen?'적용 기록':'이전 / 동시 기록'} · ${r.dispatchDate||'일자 없음'}\n${({A:'한빛탁송',B:'오픈마일',C:'렌톡'})[r.vendor]||r.vendor} · ${r.state||'상태 없음'} · ${r.cost==null?'금액 없음':String(r.cost)+'원'}\n${r.file||'파일명 없음'} / ${r.sheet||'시트 없음'} / ${r.row||'?'}행${r.memo?'\n메모: '+r.memo:''}${r.vendor==='C'?'\n캐리어탁송(J열): '+(r.carrierFlag||'빈칸'):''}${r.carrier?'\n분류: 캐리어':''}`;
     }
@@ -454,7 +489,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
           box.onchange=()=>{if(box.checked)selected.add(plate);else selected.delete(plate);syncSelection()};td.append(box);tr.prepend(td);
           const doneCell=doc.createElement('td'),done=doc.createElement('input');done.type='checkbox';done.className='dispatch-check vehicle-done';done.setAttribute('aria-label',plate+' 처리 완료');
           done.onchange=()=>{if(done.checked)processed.add(key(r));else processed.delete(key(r));redraw()};doneCell.append(done);tr.append(doneCell);
-          const source=doc.createElement('td'),details=doc.createElement('details'),summary=doc.createElement('summary');summary.textContent=r.latestConflict?'금액 충돌 · 근거 보기':'조회 근거 ('+(r.recordHistory||[]).length+'건)';details.append(summary);details.className='record-history';
+          const source=doc.createElement('td');source.className='record-history';appendTripChoice(source,r);const details=doc.createElement('details'),summary=doc.createElement('summary');summary.textContent=r.latestConflict?'금액 충돌 · 근거 보기':'조회 근거 ('+(r.recordHistory||[]).length+'건)';details.append(summary);details.className='record-history';
           if(r.selectionReason){const reason=doc.createElement('p');reason.textContent=r.selectionReason;details.append(reason);}
           if(r.latestConflict){const warning=doc.createElement('p');warning.textContent='같은 최신일의 완료 금액이 달라 자동 확정하지 않았습니다.';details.append(warning);}
           const history=r.recordHistory||[];
@@ -488,7 +523,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null) {
       $('search').value='';$('vendorFilter').value='all';$('stateFilter').value='all';$('dateFrom').value='';$('dateTo').value='';$('scope').value='confirmed';$('fuelStatusFilter').value='all';processing='all';carrierFilter='all';$('carrierFilter').value='all';$('processingFilter').value='all';
       doc.querySelector('.tabs [data-filter="all"]').click();$('input').focus();notify('차량목록을 비웠습니다. 업체 파일은 유지됩니다.');
     };
-    const reset=$('reset').onclick;$('reset').onclick=()=>{reset();if(!app.getFiles().length&&!$('input').value){selected.clear();processed.clear();$('fuelStatusFilter').value='all';processing='all';carrierFilter='all';$('carrierFilter').value='all';$('processingFilter').value='all';$('dateFrom').value='';$('dateTo').value='';redraw()}};
+    const reset=$('reset').onclick;$('reset').onclick=()=>{reset();if(!app.getFiles().length&&!$('input').value){selected.clear();processed.clear();tripSelections.clear();$('fuelStatusFilter').value='all';processing='all';carrierFilter='all';$('carrierFilter').value='all';$('processingFilter').value='all';$('dateFrom').value='';$('dateTo').value='';redraw()}};
     let exporting=false,exportSerial=0;
     doc.querySelectorAll('[data-export]').forEach(button=>{
       const original=button.onclick;
