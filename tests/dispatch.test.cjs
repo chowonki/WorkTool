@@ -43,3 +43,54 @@ test('blank costs retain completion and conflict checks',()=>{
  const row=core.match(input,[blank,paid])[0];
  assert.equal(row.status,'conflict');assert.equal(row.amount,null);assert.equal(row.fuelState,'needs');
 });
+
+function selectionHelpers(){
+ const context=vm.createContext({queueMicrotask});
+ const source=page.slice(page.indexOf('    function vendorSelectionRows('),page.indexOf('    function visibleRows()'));
+ vm.runInContext(source,context);
+ return context;
+}
+function dragHarness(){
+ const helpers=selectionHelpers(),selected=new Set();let syncs=0;
+ function surface(){const handlers={};return {handlers,addEventListener(type,fn){(handlers[type]||=[]).push(fn)},emit(type,event={}){for(const fn of handlers[type]||[])fn(event)}}}
+ const win=surface(),doc=surface(),body=surface();doc.defaultView=win;
+ let hit=null,captured=null;
+ const boxes=['A','B','C','D'].map(plate=>({dataset:{plate},disabled:false,closest(selector){return selector==='.vehicle-select'?this:this.row}}));
+ for(const box of boxes){box.row={querySelector:()=>box,closest(){return this}};}
+ body.querySelectorAll=()=>boxes;body.contains=box=>boxes.includes(box);
+ body.setPointerCapture=id=>captured=id;body.hasPointerCapture=id=>captured===id;body.releasePointerCapture=()=>captured=null;
+ doc.elementFromPoint=()=>hit;
+ const sync=()=>{syncs++;for(const box of boxes)box.checked=selected.has(box.dataset.plate)};
+ helpers.installVehicleDragSelection(doc,body,selected,sync);
+ const event=(extra={})=>({pointerId:1,button:0,buttons:1,isPrimary:true,preventDefault(){this.prevented=true},...extra});
+ return {selected,boxes,body,doc,win,event,start(i,extra){const e=event({target:boxes[i],...extra});body.emit('pointerdown',e);return e},move(i,extra){hit=i===null?null:boxes[i].row;doc.emit('pointermove',event(extra))},stop(){doc.emit('pointerup',event())},syncs:()=>syncs};
+}
+test('drag selects skipped rows once, supports reverse movement and stops on release',()=>{
+ const h=dragHarness();assert.equal(h.start(0).prevented,true);
+ h.move(3);assert.deepEqual([...h.selected],['A','B','C','D']);
+ h.move(1);h.move(3);assert.equal(h.selected.size,4);
+ h.stop();h.move(0);assert.equal(h.selected.size,4);
+ h.start(3);h.move(1);assert.deepEqual([...h.selected],['A']);
+ h.stop();assert.equal(h.boxes[0].checked,true);assert.equal(h.boxes[1].checked,false);
+});
+test('drag cancellation, blur, disabled controls and keyboard clicks are safe',()=>{
+ const h=dragHarness();h.start(0);h.move(null);assert.deepEqual([...h.selected],['A']);
+ h.doc.emit('pointercancel',h.event());h.move(3);assert.equal(h.selected.size,1);
+ h.start(1);h.win.emit('blur');h.move(3);assert.equal(h.selected.size,2);
+ assert.equal(h.start(2,{button:2}).prevented,undefined);assert.equal(h.selected.has('C'),false);
+ h.boxes[2].disabled=true;assert.equal(h.start(2).prevented,undefined);
+ const keyboard=h.event({target:h.boxes[0],detail:0});h.body.emit('click',keyboard);assert.equal(keyboard.prevented,undefined);
+ const pointer=h.event({target:h.boxes[0],detail:1});h.body.emit('click',pointer);assert.equal(pointer.prevented,true);
+ h.start(3);h.move(0,{buttons:0});h.move(0);assert.equal(h.selected.has('A'),true);
+});
+test('vendor bulk selection matches current visible rows including shared vendors',()=>{
+ const helpers=selectionHelpers(),rows=[{plate:'A',vendor:'한빛탁송'},{plate:'B',vendor:'오픈마일'},{plate:'C',vendor:'한빛탁송, 렌톡'},{plate:'D',vendor:''}];
+ assert.deepEqual(Array.from(helpers.vendorSelectionRows(rows,'한빛탁송'),r=>r.plate),['A','C']);
+ assert.deepEqual(Array.from(helpers.vendorSelectionRows(rows.slice(1),'한빛탁송'),r=>r.plate),['C']);
+ const selected=new Set(['B']);
+ for(const r of helpers.vendorSelectionRows(rows,'한빛탁송'))selected.add(r.plate);
+ assert.deepEqual([...selected],['B','A','C']);
+ for(const r of helpers.vendorSelectionRows(rows,'한빛탁송'))selected.delete(r.plate);
+ assert.deepEqual([...selected],['B']);
+ assert.equal(helpers.vendorSelectionRows(rows,'없는업체').length,0);
+});
