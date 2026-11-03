@@ -89,7 +89,7 @@ test('comments use manwon only for exact multiples without changing export amoun
   assert.equal(row.amount,amount);
  }
  const rows=context.expandTransfer({amount:'120000000',commentTarget:'딜러에게',commentItem:'same-payment'});
- assert.equal(context.transferComment(rows).text,'차대금 12,000만원 딜러에게 송금완료');
+ assert.equal(context.transferComment(rows).text,'차대금 12,000만원 딜러에게 송금완료 (총액 12,000만원)');
  assert.equal(rows.reduce((sum,r)=>sum+BigInt(r.amount),0n),120000000n);
  assert.equal(context.transferComment([{amount:'',commentTarget:'고객계좌'}]).ready,false);
  assert.equal(context.transferComment([{amount:'',commentTarget:'고객계좌'}]).text,'금액 금액 확인 필요 고객계좌로 송금완료');
@@ -99,7 +99,7 @@ test('dealer comments use vehicle payment wording per recipient',()=>{
  const row={amount:'1000000',commentTarget:'딜러에게'};
  assert.equal(context.transferComment([row]).text,'차대금 100만원 딜러에게 송금완료');
  assert.equal(context.transferComment([row]).ready,true);
- assert.equal(context.transferComment([row,{amount:'35000',commentTarget:'고객계좌'}]).text,'차대금 100만원 딜러에게, 금액 35,000원 고객계좌로 송금완료');
+ assert.equal(context.transferComment([row,{amount:'35000',commentTarget:'고객계좌'}]).text,'차대금 100만원 딜러에게, 금액 35,000원 고객계좌로 송금완료 (총액 1,035,000원)');
  assert.equal(context.transferComment([{amount:'',commentTarget:'딜러에게'}]).ready,false);
 });
 
@@ -118,7 +118,7 @@ test('mortgage and customer comments use manwon only for exact multiples',()=>{
 
 test('extracted mortgage and customer labels use full won amounts in mixed comments',()=>{
  const parsed=context.parseOne('국민은행 (저당계좌)\n123-456-789012\n100만원\n신한은행 (고객계좌)\n110-123-456789\n35,000원');
- assert.equal(context.transferComment(parsed.items).text,'금액 100만원 저당계좌, 금액 35,000원 고객계좌로 송금완료');
+ assert.equal(context.transferComment(parsed.items).text,'금액 100만원 저당계좌, 금액 35,000원 고객계좌로 송금완료 (총액 1,035,000원)');
  assert.equal(context.transferComment(parsed.items).ready,true);
 });
 
@@ -131,4 +131,15 @@ test('all recipients use full won for remainders and aggregate splits before for
    assert.equal(rows.reduce((sum,r)=>sum+BigInt(r.amount),0n),BigInt(amount));
   }
  }
+});
+
+test('multiple transfers include the exact total without counting automatic splits twice',()=>{
+ const split=context.expandTransfer({amount:'120000001',commentTarget:'저당계좌'});
+ assert.equal(context.transferComment(split).text,'금액 120,000,001원 저당계좌로 송금완료 (총액 120,000,001원)');
+ assert.equal(context.transferComment([...split,{amount:'9999',commentTarget:'고객계좌'}]).text,'금액 120,000,001원 저당계좌, 금액 9,999원 고객계좌로 송금완료 (총액 12,001만원)');
+ assert.equal(context.transferComment([{amount:'1000000',commentTarget:'저당계좌'},{amount:'2000000',commentTarget:'고객계좌'}]).text,'금액 100만원 저당계좌, 금액 200만원 고객계좌로 송금완료 (총액 300만원)');
+ const invalid=context.transferComment([{amount:'',commentTarget:'저당계좌'},{amount:'1000000',commentTarget:'고객계좌'}]);
+ assert.equal(invalid.ready,false);
+ assert.ok(invalid.text.endsWith('(총액 금액 확인 필요)'));
+ assert.equal(context.transferComment([{amount:'1000000',commentTarget:'고객계좌'}]).text,'금액 100만원 고객계좌로 송금완료');
 });
