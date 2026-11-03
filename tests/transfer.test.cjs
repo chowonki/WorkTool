@@ -78,3 +78,19 @@ test('same-second exports get a suffix and dates use Korean time across midnight
  assert.equal(fresh.uniqueTransferFilename(rows,now),'123가4567_35,000원_1101_000000_3.xlsx');
  assert.equal(fresh.uniqueTransferFilename(rows,new Date('2026-10-31T15:00:01Z')),'123가4567_35,000원_1101_000001.xlsx');
 });
+
+
+test('comments format exact Korean currency units without changing export amounts',()=>{
+ for(const [amount,want] of [['1000000','1백만원'],['10000','1만원'],['100000','10만원'],['10000000','1천만원'],['35000','3만5천원'],['7240000','7백24만원'],['120000000','1억2천만원'],['12345','1만2천3백45원'],['9999','9,999원'],['100000001','1억1원']]){
+  const row={amount,commentTarget:'고객계좌'};
+  const result=context.transferComment([row]);
+  assert.equal(result.text,`금액 ${want} 고객계좌로 송금완료`);
+  assert.equal(result.ready,true);
+  assert.equal(row.amount,amount);
+ }
+ const rows=context.expandTransfer({amount:'120000000',commentTarget:'딜러에게',commentItem:'same-payment'});
+ assert.equal(context.transferComment(rows).text,'금액 1억2천만원 딜러에게 송금완료');
+ assert.equal(rows.reduce((sum,r)=>sum+BigInt(r.amount),0n),120000000n);
+ assert.equal(context.transferComment([{amount:'',commentTarget:'고객계좌'}]).ready,false);
+ assert.equal(context.transferComment([{amount:'',commentTarget:'고객계좌'}]).text,'금액 금액 확인 필요 고객계좌로 송금완료');
+});
