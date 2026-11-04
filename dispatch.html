@@ -73,7 +73,7 @@
           record.dispatchDate=dispatchDateTime(value,record.dispatchDate);
           const columns=eventColumns.get(record.sheet);
           record.completedAt=readEvent(raw,columns?.completed||[]);
-          record.receivedAt=readEvent(raw,columns?.received||[]);
+          record.receivedAt=(record.vendor==='C'?dispatchDateTime(raw[2]):'')||readEvent(raw,columns?.received||[]);
         }
         const metadata = new Map();
         for (const record of result.records) {

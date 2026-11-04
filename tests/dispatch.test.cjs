@@ -268,3 +268,26 @@ test('missing event columns are explicit blanks and use dispatch time as fallbac
  assert.equal(record.completedAt,'');assert.equal(record.receivedAt,'');
  const row=core.match(input,[{records:[record]}])[0];assert.equal(row.latestAt,'2026-11-04 14:30');assert.equal(row.amount,35000);
 });
+
+function rentokRequestSheet(requestTime,departureTime='2026-11-04 09:00'){
+ const sheet=rentokSheet('N')[0];
+ sheet.rows[0][2]='요청 시각 (C열)';sheet.rows[1][2]=requestTime;
+ sheet.rows[0][4]='출발지 주소(현재차량 상세위치)';sheet.rows[1][4]='서울';sheet.rows[1][3]=departureTime;
+ return sheet;
+}
+test('Rentok reads request time from C even when its header differs, and retains departure time',()=>{
+ const serial=(Date.UTC(2026,10,4)-Date.UTC(1899,11,30))/86400000+0.75;
+ for(const value of ['2026-11-04 18:00',serial]){
+  const core=setup(),sheet=rentokRequestSheet(value);
+  sheet.rows[0].push('접수일시');sheet.rows[1].push('2026-11-05 20:00');
+  const record=core.readSheets([sheet],'렌톡.xlsx').records[0];
+  assert.equal(record.receivedAt,'2026-11-04 18:00');assert.equal(record.dispatchDate,'2026-11-04 09:00');assert.equal(record.origin,'서울');
+ }
+});
+test('Rentok duplicate requests sort by C-column timestamps regardless of source row order',()=>{
+ const sheet=rentokRequestSheet('2026-11-04 18:00');
+ const older=[...sheet.rows[1]];older[2]='2026-11-04 10:00';sheet.rows.push(older);
+ const core=setup(),file=core.readSheets([sheet],'렌톡.xlsx'),row=core.match(input,[file])[0];
+ assert.equal(row.latestAt,'2026-11-04 18:00');assert.equal(row.recordChoices.length,2);assert.equal(row.duplicateReview,true);
+ assert.equal(row.recordChoices[0].record.receivedAt,'2026-11-04 18:00');assert.equal(row.cInquiry,true);
+});
