@@ -377,8 +377,54 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
     const head = doc.querySelector('#table thead tr');
     const selectHead = doc.createElement('th');selectHead.innerHTML='<input type="checkbox" id="selectVisibleVehicles" class="dispatch-check" aria-label="현재 표시 조건의 차량 전체 선택">';head.prepend(selectHead);
     for (const label of ['처리','조회 근거 / 이전 기록']) {const th=doc.createElement('th');th.textContent=label;head.append(th);}
+    function buildDispatchDemo(core){
+      const day='2026-11-04';
+      const rec=(plate,state,cost,received,dispatch,completed,extra={})=>({plate,state,cost,received:day+' '+received,dispatch:day+' '+dispatch,completed:completed?day+' '+completed:'',origin:'서울특별시',...extra});
+      const sheet=(name,columns,records)=>{
+        const width=Math.max(...Object.values(columns).map(([index])=>index))+1;
+        const header=Array(width).fill('');for(const [index,title] of Object.values(columns))header[index]=title;
+        return {name,rows:[header,...records.map(record=>{const row=Array(width).fill('');for(const [key,[index]] of Object.entries(columns))row[index]=record[key]??'';return row;})]};
+      };
+      const hanbit=sheet('체험 한빛탁송',{
+        job:[0,'탁송번호'],received:[8,'접수일시'],dispatch:[10,'탁송일시'],completed:[11,'탁송완료일시'],plate:[17,'차량번호'],origin:[18,'출발지 주소'],state:[25,'상태'],cost:[42,'주유/부대비용 총액']
+      },[
+        rec('12서7567','완료',12345,'08:30','09:00','10:10',{job:'DEMO-A-1'}),
+        rec('12서7567','완료',15000,'13:05','13:30','14:00',{job:'DEMO-A-2'}),
+        rec('25마7579','완료',10000,'08:10','08:40','10:10',{job:'DEMO-A-3'}),
+        rec('34나3975','배송완료',19995,'14:30','15:00','16:00',{job:'DEMO-A-4'})
+      ]);
+      const openmile=sheet('체험 오픈마일',{
+        received:[0,'접수일시'],dispatch:[1,'탁송일시'],completed:[2,'탁송완료일시'],job:[3,'오더번호'],plate:[14,'차량번호'],origin:[15,'출발지'],state:[18,'상태'],cost:[21,'주유비']
+      },[
+        rec('55노4983','완료',0,'09:00','09:30','11:20',{job:'DEMO-B-1'}),
+        rec('39수7009','진행중',10000,'11:20','11:45','',{job:'DEMO-B-2'}),
+        rec('25마7579','완료',20000,'13:10','13:40','15:00',{job:'DEMO-B-3'}),
+        rec('29가6760','완료','','13:00','13:30','14:30',{job:'DEMO-B-4',origin:'대구광역시'})
+      ]);
+      const rentok=sheet('체험 렌톡',{
+        plate:[0,'출발지 차량번호'],state:[1,'운행상태'],received:[2,'요청 시각'],dispatch:[3,'출발시각'],origin:[4,'출발지 주소(현재차량 상세위치)'],completed:[5,'탁송완료일시'],job:[6,'운행번호'],flag:[9,'캐리어탁송'],memo:[10,'메모']
+      },[
+        rec('02두3821','완료',null,'10:10','10:30','11:20',{job:'DEMO-C-1',flag:'N',origin:'제주특별자치도 서귀포시'}),
+        rec('77다1234','완료',null,'12:10','12:40','14:20',{job:'DEMO-C-2',flag:'Y',memo:'체험 캐리어탁송'})
+      ]);
+      return {
+        file:core.readSheets([hanbit,openmile,rentok],'체험 데이터 (실제 업체 자료 아님)'),
+        input:day+' 10:00  12서7567\n'+day+' 11:00  55노4983\n02두3821\n39수7009\n25마7579\n29가6760\n34나3975\n08구8701\n77다1234'
+      };
+    }
     const originalDemo=$('demo').onclick;
-    $('demo').onclick=()=>{const before=app.getFiles();originalDemo();const files=app.getFiles();if(files!==before&&files.length===1&&files[0].key==='demo'){files[0].records.forEach(r=>r.dispatchDate='2026-10-23');$('run').click();}};
+    $('demo').onclick=()=>{
+      const before=app.getFiles();originalDemo();const files=app.getFiles();
+      if(files===before||files.length!==1||files[0].key!=='demo')return;
+      const demo=buildDispatchDemo(core);Object.assign(files[0],demo.file);
+      selected.clear();processed.clear();tripSelections.clear();
+      $('input').value=demo.input;$('input').dispatchEvent(new frame.contentWindow.Event('input'));
+      $('search').value='';$('vendorFilter').value='all';$('stateFilter').value='all';$('dateFrom').value='';$('dateTo').value='';$('fuelStatusFilter').value='all';
+      processing='all';carrierFilter='all';$('processingFilter').value='all';$('carrierFilter').value='all';
+      const meta=doc.querySelector('#fileList .filemeta');if(meta)meta.textContent='한빛탁송 · 오픈마일 · 렌톡 양식 · '+files[0].records.length+'건';
+      $('demoBanner').textContent='체험 데이터 (실제 업체 자료 아님) · 접수·완료 시각 포함 · 중복 검토 2대: 12서7567 / 25마7579 · 캐리어: 77다1234';
+      doc.querySelector('.tabs [data-filter="all"]').click();$('run').click();
+    };
     const fuelFilter=doc.createElement('label');fuelFilter.textContent='주유비 확인 ';
     const fuelSelect=doc.createElement('select');fuelSelect.id='fuelStatusFilter';
     for(const [value,label] of [['all','전체'],['needs','확인 필요'],['verified','확인됨'],['zero','없음(0원)'],['manual','수동확인']]){

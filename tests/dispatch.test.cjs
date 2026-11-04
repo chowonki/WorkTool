@@ -319,3 +319,29 @@ test('Hanbit and Openmile duplicates use fixed request columns for newest-first 
   assert.equal(row.recordChoices[0].record.receivedAt,'2026-11-04 18:00');assert.equal(row.duplicateReview,true);
  }
 });
+
+function dispatchDemo(core){
+ const context=vm.createContext({});
+ const source=page.slice(page.indexOf('    function buildDispatchDemo('),page.indexOf("    const originalDemo=$('demo').onclick;"));
+ vm.runInContext(source,context);return context.buildDispatchDemo(core);
+}
+test('demo runs real vendor readers and supplies timestamps plus two duplicate-review vehicles',()=>{
+ const core=setup(),demo=dispatchDemo(core),parsed=core.parseInput(demo.input),rows=core.unique(core.match(parsed.vehicles,[demo.file]));
+ assert.equal(parsed.invalid.length,0);assert.equal(rows.length,9);assert.equal(demo.file.records.length,10);
+ assert.deepEqual(Array.from(rows.filter(r=>r.duplicateReview),r=>r.plate).sort(),['12서7567','25마7579']);
+ assert.ok(demo.file.records.every(r=>r.receivedAt.startsWith('2026-11-04 ')&&r.dispatchDate.startsWith('2026-11-04 ')));
+ assert.equal(rows.find(r=>r.plate==='25마7579').recordChoices[0].record.completedAt,'2026-11-04 15:00');
+ assert.equal(rows.find(r=>r.plate==='12서7567').recordChoices[0].record.completedAt,'2026-11-04 14:00');
+ assert.equal(rows.find(r=>r.plate==='77다1234').status,'carrier');assert.equal(rows.find(r=>r.plate==='77다1234').cInquiry,false);
+ assert.equal(rows.find(r=>r.plate==='02두3821').jeju,true);assert.equal(rows.find(r=>r.plate==='55노4983').amount,0);
+ assert.equal(rows.find(r=>r.plate==='39수7009').status,'incomplete');assert.equal(rows.find(r=>r.plate==='29가6760').status,'cost');assert.equal(rows.find(r=>r.plate==='08구8701').status,'missing');
+});
+test('demo duplicate choices apply newest or older amounts and update review counts',()=>{
+ const choices=new Map(),core=setup(choices),demo=dispatchDemo(core),vehicles=core.parseInput(demo.input).vehicles;
+ let rows=core.unique(core.match(vehicles,[demo.file])),row=rows.find(r=>r.plate==='12서7567');
+ assert.equal(row.amount,null);choices.set(row.choiceKey,row.recordChoices[0].id);
+ rows=core.unique(core.match(vehicles,[demo.file]));row=rows.find(r=>r.plate==='12서7567');
+ assert.equal(row.amount,15000);assert.equal(row.completedAt,'2026-11-04 14:00');assert.equal(rows.filter(r=>r.duplicateReview).length,1);
+ choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.completedAt==='2026-11-04 10:10').id);
+ row=core.match(vehicles,[demo.file]).find(r=>r.plate==='12서7567');assert.equal(row.amount,12350);assert.equal(row.completedAt,'2026-11-04 10:10');
+});
