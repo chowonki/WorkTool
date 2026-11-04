@@ -173,7 +173,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       const carrierRecords=(selectedRecord?[chosen]:records).filter(r=>r.vendor==='C'&&r.carrier),carrier=carrierRecords.length>0;
       const fingerprint=JSON.stringify([v.plate,requestedDate,[...new Set(unique.map(identity))].sort()]);
       row={...row,inputDuplicate:counts.get(v.plate)>1,latestRecord:chosen,recordHistory:ordered(records),completedAt:chosen?.completedAt||'',receivedAt:chosen?.receivedAt||'',latestAt:chosen?recent(chosen):'',latestConflict:!selectedRecord&&conflict,
-        dispatchFee,dispatchVAT:dispatchFee===null?null:dispatchFee/10,feeConflict,
+        dispatchFee,dispatchVAT:dispatchFee===null?null:dispatchFee/10,dispatchTotal:dispatchFee===null?null:dispatchFee+dispatchFee/10,feeConflict,
         selectionReason,carrier,carrierMemo:carrierRecords.map(r=>['캐리어탁송(J열): Y',r.memo].filter(Boolean).join(' · ')).join(' · '),
         duplicateRecords:records.length-unique.length,targetDate,requestedDate,
         choiceKey,recordChoices:ordered(unique).reverse().map(r=>({id:identity(r),record:r})),selectedRecordId:selectedRecord?identity(selectedRecord):'',
@@ -228,10 +228,10 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
     style.textContent = '.cell-copy{display:inline-block;border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;padding:4px 0;cursor:pointer;text-align:inherit;border-radius:4px}.cell-copy:hover{text-decoration:underline;text-underline-offset:4px}.cell-copy:focus-visible{outline:2px solid #397956;outline-offset:4px}';
     doc.head.append(style);
     function decorate() {
-      body.querySelectorAll('td.plate,td.amount').forEach(cell => {
+      body.querySelectorAll('td.plate,td.amount,td.dispatch-fee,td.dispatch-vat,td.dispatch-total').forEach(cell => {
         if (cell.querySelector('.cell-copy')) return;
-        const isAmount = cell.classList.contains('amount');
-        let value = cell.textContent.trim();
+        const isAmount = !cell.classList.contains('plate');
+        const display=cell.textContent.trim();let value=display;
         if (isAmount) {
           value = value.replace(/,/g, '');
           if (!/^-?\d+(?:\.\d+)?$/.test(value)) return;
@@ -239,9 +239,9 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
         const button = doc.createElement('button');
         button.type = 'button';
         button.className = 'cell-copy';
-        button.textContent = value;
+        button.textContent = display;
         button.dataset.copyValue = value;
-        const label = isAmount ? '금액' : '차량번호';
+        const label=cell.classList.contains('dispatch-fee')?'탁송비용':cell.classList.contains('dispatch-vat')?'탁송비용 부가세':cell.classList.contains('dispatch-total')?'총 탁송비용':isAmount?'금액':'차량번호';
         button.title = label + ' 복사: ' + value;
         button.setAttribute('aria-label', label + ' ' + value + ' 복사');
         cell.replaceChildren(button);
@@ -280,7 +280,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
     if (!core || !app) return;
     const $ = id => doc.getElementById(id);
     const selected = new Set(), processed = new Set();
-    const key = r => JSON.stringify([r.plate,r.dispatchDate,r.amount,r.dispatchFee,r.dispatchVAT,r.sources,r.status]);
+    const key = r => JSON.stringify([r.plate,r.dispatchDate,r.amount,r.dispatchFee,r.dispatchVAT,r.dispatchTotal,r.sources,r.status]);
     const originalIncludes = core.includes;
     let processing = 'all', carrierFilter = 'all', summaryFilter = null;
     core.headers[0]='탁송일시';
@@ -290,36 +290,36 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
     core.notes = r => [r.dispatchDate || '',r.completedAt?'완료 '+r.completedAt:'',r.receivedAt?'접수 '+r.receivedAt:'',r.latestAt?'최신 기준 '+r.latestAt:'',originalNotes(r), r.carrier ? '캐리어' : '', r.carrierMemo || '', r.fuelLabel || '', ...(r.fuelNotes || [])].filter(Boolean).join(' · ');
     core.values = r => {const values=originalValues(r);values[8]=core.notes(r);return values;};
     function createDispatchFeeExports(core,app,win,doc){
-      const headers=()=>[...core.headers,'탁송비용(원)','탁송비용 부가세(원)'];
-      const values=r=>[...core.values(r),r.dispatchFee??null,r.dispatchVAT??null];
+      const headers=()=>[...core.headers,'탁송비용(원)','탁송비용 부가세(원)','총 탁송비용(원)'];
+      const values=r=>[...core.values(r),r.dispatchFee??null,r.dispatchVAT??null,r.dispatchTotal??null];
       const number=value=>value==null?'—':Number(value).toLocaleString('ko-KR',{maximumFractionDigits:10});
       const originalExcel=app.excelBlob;
       async function excelBlob(rows){
         const original=await originalExcel(rows),library=win.DispatchExcel;
         const wb=await library.XlsxPopulate.fromDataAsync(await original.arrayBuffer()),sheet=wb.sheet(0);
         sheet.range('A1:J1').merged(false);sheet.range('A2:J2').merged(false);
-        sheet.range('A1:L1').merged(true);sheet.range('A2:L2').merged(true);
+        sheet.range('A1:M1').merged(true);sheet.range('A2:M2').merged(true);
         sheet.cell('A2').value('주유비 10원 단위 반올림 · 탁송비용 원본 금액 · 탁송비용 부가세 10%');
-        sheet.range('K4:L4').value([headers().slice(-2)]).style('fill','244C3B').style('fontColor','FFFFFF').style('bold',true);
-        rows.forEach((r,i)=>{sheet.cell('K'+(i+5)).value(r.dispatchFee??'');sheet.cell('L'+(i+5)).value(r.dispatchVAT??'');});
-        for(const column of ['K','L'])sheet.column(column).width(24).style('numberFormat','#,##0.##########');
-        sheet.autoFilter(sheet.range(4,1,rows.length+4,12));
+        sheet.range('K4:M4').value([headers().slice(-3)]).style('fill','244C3B').style('fontColor','FFFFFF').style('bold',true);
+        rows.forEach((r,i)=>{sheet.cell('K'+(i+5)).value(r.dispatchFee??'');sheet.cell('L'+(i+5)).value(r.dispatchVAT??'');sheet.cell('M'+(i+5)).value(r.dispatchTotal??'');});
+        for(const column of ['K','L','M'])sheet.column(column).width(24).style('numberFormat','#,##0.##########');
+        sheet.autoFilter(sheet.range(4,1,rows.length+4,13));
         return new Blob([await library.outputAsync(wb)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
       }
       function pdfBlob(rows){
         const pdf=new win.jspdf.jsPDF({unit:'mm',format:'a4',compress:true,putOnlyUsedFonts:true});
         pdf.addFileToVFS('NanumGothic.ttf',doc.getElementById('pdf-font').textContent.trim());pdf.addFont('NanumGothic.ttf','Nanum','normal');pdf.setFont('Nanum');
-        const xs=[14,52,97,142],widths=[38,45,45,54],pages=Math.max(1,Math.ceil(rows.length/8));
+        const xs=[14,46,79,115,154],widths=[32,33,36,39,42],pages=Math.max(1,Math.ceil(rows.length/8));
         const fit=(text,width)=>{let t=String(text);while(t&&pdf.getTextWidth(t)>width)t=t.slice(0,-1);return t===String(text)?t:t.slice(0,-1)+'…';};
         for(let page=0;page<pages;page++){
           if(page)pdf.addPage();pdf.setFontSize(18);pdf.setTextColor(36,76,59);pdf.text('탁송체크 · 조회결과',14,21);
           pdf.setFontSize(8);pdf.setTextColor(100);pdf.text('차량 '+rows.length+'대 · 탁송비용 부가세 = 탁송비용 × 10%',14,31);
           pdf.setFillColor(36,76,59);pdf.rect(14,40,182,11,'F');pdf.setTextColor(255);
-          ['차량번호','주유금액(원)','탁송비용(원)','탁송비용 부가세(원)'].forEach((title,i)=>pdf.text(title,xs[i]+2,47));
+          ['차량번호','주유금액(원)','탁송비용(원)','탁송비용 부가세(원)','총 탁송비용(원)'].forEach((title,i)=>pdf.text(title,xs[i]+2,47));
           rows.slice(page*8,page*8+8).forEach((r,i)=>{
             const y=53+i*26;if(i%2===0){pdf.setFillColor(245,248,245);pdf.rect(14,y,182,26,'F');}
             pdf.setTextColor(55,69,62);pdf.setFontSize(8);
-            [r.plate,number(r.amount),number(r.dispatchFee),number(r.dispatchVAT)].forEach((value,j)=>pdf.text(fit(value,widths[j]-5),xs[j]+2,y+5));
+            [r.plate,number(r.amount),number(r.dispatchFee),number(r.dispatchVAT),number(r.dispatchTotal)].forEach((value,j)=>pdf.text(fit(value,widths[j]-5),xs[j]+2,y+5));
             pdf.setFontSize(7);pdf.text(fit((r.dispatchDate||'일시 없음')+' · '+(r.vendor||'업체 없음')+' · '+(r.rawState||core.statuses[r.status]||''),178),16,y+11);
             const notes=pdf.splitTextToSize(core.notes(r),178).slice(0,2);pdf.text(notes,16,y+16);
           });
@@ -426,9 +426,9 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
     const head = doc.querySelector('#table thead tr');
     const amountHead=head.querySelector('.number');
     const fuelHeading=amountHead.querySelector('[data-sort="amount"]');if(fuelHeading)fuelHeading.textContent='주유금액 (원) ↕';
-    const feeHead=doc.createElement('th'),vatHead=doc.createElement('th');
-    feeHead.textContent='탁송비용 (원)';vatHead.textContent='탁송비용 부가세 (원)';feeHead.className=vatHead.className='number';
-    amountHead.after(feeHead,vatHead);
+    const feeHead=doc.createElement('th'),vatHead=doc.createElement('th'),totalHead=doc.createElement('th');
+    feeHead.textContent='탁송비용 (원)';vatHead.textContent='탁송비용 부가세 (원)';totalHead.textContent='총 탁송비용 (원)';feeHead.className=vatHead.className=totalHead.className='number';
+    amountHead.after(feeHead,vatHead,totalHead);
     const selectHead = doc.createElement('th');selectHead.innerHTML='<input type="checkbox" id="selectVisibleVehicles" class="dispatch-check" aria-label="현재 표시 조건의 차량 전체 선택">';head.prepend(selectHead);
     for (const label of ['처리','조회 근거 / 이전 기록']) {const th=doc.createElement('th');th.textContent=label;head.append(th);}
     function buildDispatchDemo(core){
@@ -476,7 +476,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       $('search').value='';$('vendorFilter').value='all';$('stateFilter').value='all';$('dateFrom').value='';$('dateTo').value='';$('fuelStatusFilter').value='all';
       processing='all';carrierFilter='all';$('processingFilter').value='all';$('carrierFilter').value='all';
       const meta=doc.querySelector('#fileList .filemeta');if(meta)meta.textContent='한빛탁송 · 오픈마일 · 렌톡 양식 · '+files[0].records.length+'건';
-      $('demoBanner').textContent='체험 데이터 (실제 업체 자료 아님) · 접수·완료 시각 · 탁송비용·부가세 포함 · 중복 검토 2대: 12서7567 / 25마7579 · 캐리어: 77다1234';
+      $('demoBanner').textContent='체험 데이터 (실제 업체 자료 아님) · 접수·완료 시각 · 탁송비용·부가세·총액 포함 · 중복 검토 2대: 12서7567 / 25마7579 · 캐리어: 77다1234';
       doc.querySelector('.tabs [data-filter="all"]').click();$('run').click();
     };
     const fuelFilter=doc.createElement('label');fuelFilter.textContent='주유비 확인 ';
@@ -656,7 +656,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       container.append(timing,label,apply,hint);
     }
     function recordText(r, chosen) {
-      return `${chosen?'적용 기록':'이전 / 동시 기록'} · 탁송 ${r.dispatchDate||'일자 없음'}\n완료 ${r.completedAt||'정보 없음'} · 접수 ${r.receivedAt||'정보 없음'}\n${({A:'한빛탁송',B:'오픈마일',C:'렌톡'})[r.vendor]||r.vendor} · ${r.state||'상태 없음'} · ${r.cost==null?'금액 없음':String(r.cost)+'원'}\n탁송비용 ${r.dispatchFee==null?'미입력':String(r.dispatchFee)+'원'} · 부가세 ${r.dispatchFee==null?'미입력':String(r.dispatchFee/10)+'원'}\n${r.file||'파일명 없음'} / ${r.sheet||'시트 없음'} / ${r.row||'?'}행${r.memo?'\n메모: '+r.memo:''}${r.vendor==='C'?'\n캐리어탁송(J열): '+(r.carrierFlag||'빈칸'):''}${r.carrier?'\n분류: 캐리어':''}`;
+      return `${chosen?'적용 기록':'이전 / 동시 기록'} · 탁송 ${r.dispatchDate||'일자 없음'}\n완료 ${r.completedAt||'정보 없음'} · 접수 ${r.receivedAt||'정보 없음'}\n${({A:'한빛탁송',B:'오픈마일',C:'렌톡'})[r.vendor]||r.vendor} · ${r.state||'상태 없음'} · ${r.cost==null?'금액 없음':String(r.cost)+'원'}\n탁송비용 ${r.dispatchFee==null?'미입력':String(r.dispatchFee)+'원'} · 부가세 ${r.dispatchFee==null?'미입력':String(r.dispatchFee/10)+'원'} · 총 탁송비용 ${r.dispatchFee==null?'미입력':String(r.dispatchFee+r.dispatchFee/10)+'원'}\n${r.file||'파일명 없음'} / ${r.sheet||'시트 없음'} / ${r.row||'?'}행${r.memo?'\n메모: '+r.memo:''}${r.vendor==='C'?'\n캐리어탁송(J열): '+(r.carrierFlag||'빈칸'):''}${r.carrier?'\n분류: 캐리어':''}`;
     }
     function enhance() {
       const visible=visibleRows(),plates=new Set(visible.map(r=>r.plate));
@@ -666,11 +666,13 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
         const plate=tr.querySelector('td.plate')?.textContent.trim(),r=byPlate.get(plate);if(!r)continue;
         if (!tr.dataset.enhanced) {
           tr.dataset.enhanced='true';
-          const feeCell=doc.createElement('td'),vatCell=doc.createElement('td');feeCell.className='number dispatch-fee';vatCell.className='number dispatch-vat';
+          const feeCell=doc.createElement('td'),vatCell=doc.createElement('td'),totalCell=doc.createElement('td');feeCell.className='number dispatch-fee';vatCell.className='number dispatch-vat';totalCell.className='number dispatch-total';
           feeCell.textContent=r.feeConflict?'선택 필요':r.dispatchFee==null?'—':r.dispatchFee.toLocaleString('ko-KR',{maximumFractionDigits:10});
           vatCell.textContent=r.feeConflict?'선택 필요':r.dispatchVAT==null?'—':r.dispatchVAT.toLocaleString('ko-KR',{maximumFractionDigits:10});
+          totalCell.textContent=r.feeConflict?'선택 필요':r.dispatchTotal==null?'—':r.dispatchTotal.toLocaleString('ko-KR',{maximumFractionDigits:10});
+          totalCell.title='탁송비용 + 부가세';
           feeCell.title=r.dispatchFee==null?'탁송비용 미입력 또는 탁송건 선택 필요':'원본 탁송비용';vatCell.title='탁송비용 × 10%';
-          tr.querySelector('td.amount').after(feeCell,vatCell);
+          tr.querySelector('td.amount').after(feeCell,vatCell,totalCell);
           const td=doc.createElement('td'),box=doc.createElement('input');box.type='checkbox';box.className='dispatch-check vehicle-select';box.dataset.plate=plate;box.setAttribute('aria-label',plate+' 선택');
           box.onchange=()=>{if(box.checked)selected.add(plate);else selected.delete(plate);syncSelection()};td.append(box);tr.prepend(td);
           const doneCell=doc.createElement('td'),done=doc.createElement('input');done.type='checkbox';done.className='dispatch-check vehicle-done';done.setAttribute('aria-label',plate+' 처리 완료');

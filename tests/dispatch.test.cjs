@@ -353,14 +353,14 @@ function feeSheet(vendor,fee){
 test('dispatch fees come from Hanbit AP, Openmile U and Rentok S with VAT at ten percent',()=>{
  for(const vendor of ['A','B','C'])for(const [value,fee,vat] of [[50000,50000,5000],['34,567원',34567,3456.7],[0,0,0],['',null,null],['확인필요',null,null],[-1000,null,null]]){
   const core=setup(),file=core.readSheets(feeSheet(vendor,value),'업체.xlsx'),row=core.match(input,[file])[0];
-  assert.equal(file.records[0].dispatchFee,fee);assert.equal(row.dispatchFee,fee);assert.equal(row.dispatchVAT,vat);
+  assert.equal(file.records[0].dispatchFee,fee);assert.equal(row.dispatchFee,fee);assert.equal(row.dispatchVAT,vat);assert.equal(row.dispatchTotal,fee===null?null:fee+vat);
  }
 });
 test('conflicting fees require a trip choice and selecting changes both fee and VAT',()=>{
  const choices=new Map(),core=setup(choices),a=core.readSheets(feeSheet('A',50000),'한빛.xlsx').records[0],b={...a,rawDispatchFee:65000,dispatchFee:65000,row:3},files=[{records:[a,b]}];
- let row=core.match(input,files)[0];assert.equal(row.feeConflict,true);assert.equal(row.dispatchFee,null);assert.equal(row.dispatchVAT,null);assert.equal(row.amount,35000);
+ let row=core.match(input,files)[0];assert.equal(row.feeConflict,true);assert.equal(row.dispatchFee,null);assert.equal(row.dispatchVAT,null);assert.equal(row.dispatchTotal,null);assert.equal(row.amount,35000);
  choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.dispatchFee===65000).id);row=core.match(input,files)[0];
- assert.equal(row.feeConflict,false);assert.equal(row.dispatchFee,65000);assert.equal(row.dispatchVAT,6500);
+ assert.equal(row.feeConflict,false);assert.equal(row.dispatchFee,65000);assert.equal(row.dispatchVAT,6500);assert.equal(row.dispatchTotal,71500);
  b.dispatchFee=70000;b.rawDispatchFee=70000;row=core.match(input,files)[0];assert.equal(row.selectedRecordId,'');assert.equal(row.feeConflict,true);
 });
 test('demo supplies fees through the same source columns and carrier fees remain visible',()=>{
@@ -385,12 +385,12 @@ test('actual Excel export includes numeric fee and VAT columns without changing 
  const originalExcel=Function('XlsxPopulate','DispatchExcel','C','Blob',source+';return excelBlob;')(lib.XlsxPopulate,lib,core,Blob);
  const row=core.match(input,[core.readSheets(feeSheet('A',34567),'한빛.xlsx')])[0];
  const exporters=feeExporters(core,{excelBlob:originalExcel},{DispatchExcel:lib});
- assert.equal(exporters.headers().length,12);assert.deepEqual(Array.from(exporters.values(row).slice(-2)),[34567,3456.7]);
- const rows=[row,{...row,dispatchFee:0,dispatchVAT:0},{...row,dispatchFee:null,dispatchVAT:null}];
+ assert.equal(exporters.headers().length,13);assert.deepEqual(Array.from(exporters.values(row).slice(-3)),[34567,3456.7,38023.7]);
+ const rows=[row,{...row,dispatchFee:0,dispatchVAT:0,dispatchTotal:0},{...row,dispatchFee:null,dispatchVAT:null,dispatchTotal:null}];
  const blob=await exporters.excelBlob(rows),wb=await lib.XlsxPopulate.fromDataAsync(await blob.arrayBuffer()),sheet=wb.sheet(0);
- assert.equal(sheet.cell('K4').value(),'탁송비용(원)');assert.equal(sheet.cell('L4').value(),'탁송비용 부가세(원)');
- assert.equal(sheet.cell('C5').value(),35000);assert.equal(sheet.cell('K5').value(),34567);assert.equal(sheet.cell('L5').value(),3456.7);
- assert.equal(sheet.cell('K6').value(),0);assert.equal(sheet.cell('L6').value(),0);assert.equal(sheet.cell('K7').value(),undefined);assert.equal(sheet.cell('L7').value(),undefined);
+ assert.equal(sheet.cell('K4').value(),'탁송비용(원)');assert.equal(sheet.cell('L4').value(),'탁송비용 부가세(원)');assert.equal(sheet.cell('M4').value(),'총 탁송비용(원)');
+ assert.equal(sheet.cell('C5').value(),35000);assert.equal(sheet.cell('K5').value(),34567);assert.equal(sheet.cell('L5').value(),3456.7);assert.equal(sheet.cell('M5').value(),38023.7);
+ assert.equal(sheet.cell('K6').value(),0);assert.equal(sheet.cell('L6').value(),0);assert.equal(sheet.cell('M6').value(),0);assert.equal(sheet.cell('K7').value(),undefined);assert.equal(sheet.cell('L7').value(),undefined);assert.equal(sheet.cell('M7').value(),undefined);
 });
 test('PDF export prints separate fee and VAT amounts on every page',()=>{
  const core=setup(),texts=[];let pages=1;
@@ -398,8 +398,25 @@ test('PDF export prints separate fee and VAT amounts on every page',()=>{
   addFileToVFS(){}addFont(){}setFont(){}setFontSize(){}setTextColor(){}setFillColor(){}rect(){}
   getTextWidth(t){return String(t).length}splitTextToSize(t){return [t]}text(t){texts.push(t)}addPage(){pages++}output(){return new Blob(['pdf']);}
  }
- const row={plate:'123가4567',amount:35000,dispatchFee:34567,dispatchVAT:3456.7,status:'confirmed'};
+ const row={plate:'123가4567',amount:35000,dispatchFee:34567,dispatchVAT:3456.7,dispatchTotal:38023.7,status:'confirmed'};
  const exporters=feeExporters(core,{excelBlob(){}},{jspdf:{jsPDF:PDF}},{getElementById(){return {textContent:'font'}}});
  const blob=exporters.pdfBlob(Array(9).fill(row));assert.ok(blob instanceof Blob);assert.equal(pages,2);
- assert.equal(texts.filter(t=>t==='탁송비용(원)').length,2);assert.ok(texts.includes('34,567'));assert.ok(texts.includes('3,456.7'));
+ assert.equal(texts.filter(t=>t==='탁송비용(원)').length,2);assert.ok(texts.includes('34,567'));assert.ok(texts.includes('3,456.7'));assert.equal(texts.filter(t=>t==='총 탁송비용(원)').length,2);assert.ok(texts.includes('38,023.7'));
+});
+
+test('individual fee, VAT and total clicks copy only the displayed numeric value',async()=>{
+ const cells=[
+  ['dispatch-fee','50,000'],['dispatch-vat','5,000'],['dispatch-total','55,000'],
+  ['dispatch-vat','3,456.7'],['dispatch-total','0'],['dispatch-fee','—'],['dispatch-total','선택 필요']
+ ].map(([kind,text])=>({kind,textContent:text,child:null,classList:{contains(name){return name===kind}},querySelector(){return this.child},replaceChildren(button){this.child=button}}));
+ const clipboard=[],notices=[],body={handlers:{},querySelectorAll(selector){assert.match(selector,/td\.dispatch-total/);return cells},addEventListener(type,fn){this.handlers[type]=fn},contains(button){return cells.some(cell=>cell.child===button)}};
+ const doc={createElement(){return {dataset:{},attrs:{},setAttribute(k,v){this.attrs[k]=v},closest(){return this}}}};
+ const context=vm.createContext({body,doc,navigator:{clipboard:{async writeText(value){clipboard.push(value)}}},window:{isSecureContext:true},notify:value=>notices.push(value)});
+ const decoration=page.slice(page.indexOf('    function decorate()'),page.indexOf('    async function copyValue('));
+ const copying=page.slice(page.indexOf('    async function copyValue('),page.indexOf('    const app = frame.contentWindow.DispatchApp;'));
+ vm.runInContext(decoration+copying+'\ndecorate();',context);
+ for(const cell of cells.slice(0,5))await body.handlers.click({target:cell.child});
+ assert.deepEqual(clipboard,['50000','5000','55000','3456.7','0']);assert.equal(notices.length,5);
+ assert.equal(cells[0].child.textContent,'50,000');assert.match(cells[2].child.attrs['aria-label'],/총 탁송비용/);
+ assert.equal(cells[5].child,null);assert.equal(cells[6].child,null);
 });
