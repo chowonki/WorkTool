@@ -188,3 +188,44 @@ test('duplicate review includes earlier dates and counts duplicate input plates 
  assert.equal(core.unique(rows).filter(r=>r.duplicateReview).length,1);
  assert.equal(rows[0].status,'confirmed');assert.equal(rows[0].duplicateReview,true);
 });
+
+function datedSheet(vendor,value,startRow=1){
+ if(vendor==='C'){
+  const sheets=rentokSheet('N','', '완료',startRow);sheets[0].rows[1][3]=value;return sheets;
+ }
+ const header=Array(11).fill(''),row=Array(11).fill('');header[0]='차량번호';row[0]='123가4567';
+ const state=vendor==='A'?1:2,cost=vendor==='A'?2:3,date=vendor==='A'?10:1;
+ header[state]='상태';row[state]='완료';header[cost]=vendor==='A'?'주유/부대비용 총액':'주유비';row[cost]=35000;
+ header[date]='탁송일시';row[date]=value;return [{name:'자료',rows:[header,row],startRow}];
+}
+test('vendor readers retain text dispatch times, seconds and date-only values',()=>{
+ for(const vendor of ['A','B','C'])for(const [value,want] of [
+  ['2026-11-04 14:30:00','2026-11-04 14:30'],
+  ['2026/11/4 9:05:17','2026-11-04 09:05:17'],
+  ['2026.11.04 오후 2:30','2026-11-04 14:30'],
+  ['2026-11-04 오전 12:05','2026-11-04 00:05'],
+  ['2026-11-04T14:30:00','2026-11-04 14:30'],
+  ['20261104 14:30','2026-11-04 14:30'],
+  ['2026-11-04','2026-11-04']
+ ]){
+  const core=setup(),record=core.readSheets(datedSheet(vendor,value,7),'업체.xlsx').records[0];
+  assert.equal(record.dispatchDate,want,vendor+' '+value);
+ }
+});
+test('Excel serial fractions preserve times independently of timezone',()=>{
+ const baseDay=(Date.UTC(2026,10,4)-Date.UTC(1899,11,30))/86400000;
+ for(const vendor of ['A','B','C'])for(const [fraction,want] of [[0,'2026-11-04'],[0.5,'2026-11-04 12:00'],[(14*3600+30*60+17)/86400,'2026-11-04 14:30:17']]){
+  const core=setup(),record=core.readSheets(datedSheet(vendor,baseDay+fraction),'자료.xlsx').records[0];
+  assert.equal(record.dispatchDate,want);
+ }
+});
+test('matching stays on the requested day while distinct times remain selectable and exportable',()=>{
+ const choices=new Map(),core=setup(choices),files=[{records:[trip('A',35000,'2026-11-04 09:00'),trip('A',35000,'2026-11-04 14:30'),trip('B',50000,'2026-11-05 08:00')]}];
+ const dated=[{plate:'123가4567',date:'2026-11-04 10:00'}];let row=core.match(dated,files)[0];
+ assert.equal(row.targetDate,'2026-11-04');assert.equal(row.amount,35000);assert.equal(row.recordChoices.length,3);assert.equal(row.duplicateRecords,0);
+ choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.dispatchDate==='2026-11-04 09:00').id);
+ row=core.match(dated,files)[0];assert.equal(row.dispatchDate,'2026-11-04 09:00');assert.equal(core.values(row)[0],'2026-11-04 09:00');assert.match(core.textExport([row]),/2026-11-04 09:00/);
+ assert.equal(row.dispatchDates.some(d=>d.slice(0,10)>='2026-11-04'&&d.slice(0,10)<='2026-11-04'),true);
+ const latest=core.match(input,files)[0];assert.equal(latest.dispatchDate,'2026-11-04 09:00');
+ choices.clear();assert.equal(core.match(input,files)[0].dispatchDate,'2026-11-05 08:00');
+});

@@ -24,8 +24,34 @@
     // Keep Rentok J-column carrier flags and memo metadata in page and worker readers.
     function installCarrierReader(core) {
       const readSheets = core.readSheets;
+      function dispatchDateTime(value,fallback='') {
+        if(value===null||value===undefined||String(value).trim()==='')return fallback;
+        const clock=(h,m,s=0)=>String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+(s?':'+String(s).padStart(2,'0'):'');
+        if(typeof value==='number'&&Number.isFinite(value)&&value>1000&&value<100000){
+          const seconds=Math.round(value*86400),d=new Date(Date.UTC(1899,11,30)+seconds*1000);
+          return d.toISOString().slice(0,10)+(Math.abs(value-Math.round(value))>1e-9?' '+clock(d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds()):'');
+        }
+        if(Object.prototype.toString.call(value)==='[object Date]'&&Number.isFinite(value.getTime()))return value.toISOString().slice(0,10)+' '+clock(value.getUTCHours(),value.getUTCMinutes(),value.getUTCSeconds());
+        const text=String(value).normalize('NFKC').trim();
+        const date=text.match(/^(\d{4})[.\/-](\d{1,2})[.\/-](\d{1,2})\.?(.*)$/)||text.match(/^(\d{4})(\d{2})(\d{2})(.*)$/);
+        if(!date)return fallback;
+        const day=date[1]+'-'+date[2].padStart(2,'0')+'-'+date[3].padStart(2,'0');
+        const tail=date[4].trim().replace(/^T/,'');if(!tail)return day;
+        const time=tail.match(/^(?:(오전|오후|AM|PM)\s*)?(\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.\d+)?)?\s*(AM|PM)?(?:Z|[+-]\d{2}:?\d{2})?$/i);
+        if(!time)return fallback||day;
+        let hour=Number(time[2]);const minute=Number(time[3]),second=Number(time[4]||0),period=(time[1]||time[5]||'').toUpperCase();
+        if(period){if(hour<1||hour>12)return fallback||day;hour=hour%12+(/오후|PM/.test(period)?12:0);}
+        if(hour>23||minute>59||second>59)return fallback||day;
+        return day+' '+clock(hour,minute,second);
+      }
       core.readSheets = function(sheets, name) {
         const result = readSheets(sheets, name);
+        for(const record of result.records){
+          const sheet=sheets.find(s=>s.name===record.sheet);
+          const raw=sheet?.rows[record.row-(sheet.startRow??1)]||[];
+          const value=raw[record.vendor==='A'?10:record.vendor==='B'?1:3];
+          record.dispatchDate=dispatchDateTime(value,record.dispatchDate);
+        }
         const metadata = new Map();
         for (const record of result.records) {
           if (record.vendor !== 'C' && String(record.rawCost ?? '').trim()==='')record.cost=record.vendor==='A'?0:null;
@@ -69,8 +95,8 @@
     let fuelSaved={};
     try{const saved=JSON.parse(localStorage.getItem(fuelStorageKey)||'{}');if(saved&&typeof saved==='object'&&!Array.isArray(saved))fuelSaved=saved;}catch{}
 function createFuelMatcher(core, originalMatch, getOverride = () => null, getSelection = () => null) {
-  const dateOf = r => /^\d{4}-\d{2}-\d{2}$/.test(r.dispatchDate || '') ? r.dispatchDate : '';
-  const identity = r => JSON.stringify([r.vendor,r.plate,dateOf(r),r.jobId || '',r.origin || '',r.memo || '',r.carrierFlag || '',r.state || '',r.rawCost ?? r.cost]);
+  const dateOf = r => /^\d{4}-\d{2}-\d{2}(?:$| )/.test(r.dispatchDate || '') ? r.dispatchDate.slice(0,10) : '';
+  const identity = r => JSON.stringify([r.vendor,r.plate,r.dispatchDate || '',r.jobId || '',r.origin || '',r.memo || '',r.carrierFlag || '',r.state || '',r.rawCost ?? r.cost]);
   return function(input, files) {
     const history = new Map();
     for (const file of files) for (const record of file.records || []) {
@@ -222,8 +248,11 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
     const key = r => JSON.stringify([r.plate,r.dispatchDate,r.amount,r.sources,r.status]);
     const originalIncludes = core.includes;
     let processing = 'all', carrierFilter = 'all', summaryFilter = null;
+    core.headers[0]='탁송일시';
+    const dateHeading=doc.querySelector('[data-sort="dispatchDate"]');
+    if(dateHeading)dateHeading.textContent='탁송일시 ↕';
     const originalNotes = core.notes, originalValues = core.values;
-    core.notes = r => [originalNotes(r), r.carrier ? '캐리어' : '', r.carrierMemo || '', r.fuelLabel || '', ...(r.fuelNotes || [])].filter(Boolean).join(' · ');
+    core.notes = r => [r.dispatchDate || '',originalNotes(r), r.carrier ? '캐리어' : '', r.carrierMemo || '', r.fuelLabel || '', ...(r.fuelNotes || [])].filter(Boolean).join(' · ');
     core.values = r => {const values=originalValues(r);values[8]=core.notes(r);return values;};
     core.textExport = rows => '\ufeff' + [core.headers, ...core.unique(rows).map(core.values)].map(row => row.map(v => String(v ?? '').replace(/[\t\r\n]/g,' ')).join('\t')).join('\r\n');
 
@@ -346,7 +375,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       const warnings=[];
       if(missing.length)warnings.push('미첨부 업체: '+missing.join(', ')+' — 해당 업체 차량은 확인할 수 없습니다.');
       for(const v of loaded){
-        const rows=records.filter(r=>r.vendor===v),available=rows.map(r=>r.dispatchDate||'').filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+        const rows=records.filter(r=>r.vendor===v),available=rows.map(r=>(r.dispatchDate||'').slice(0,10)).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
         if(dates.length&&!available.length)warnings.push(vendorNames[v]+': 원본 운행일자 없음');
         else if(dates.some(d=>d<available[0]||d>available[available.length-1]))warnings.push(vendorNames[v]+': 입력일 일부가 파일의 운행일 범위 밖입니다 ('+available[0]+' ~ '+available[available.length-1]+')');
       }
