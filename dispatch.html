@@ -75,6 +75,9 @@
           record.completedAt=readEvent(raw,columns?.completed||[]);
           const receivedColumn={A:8,B:0,C:2}[record.vendor];
           record.receivedAt=dispatchDateTime(raw[receivedColumn])||readEvent(raw,columns?.received||[]);
+          record.rawDispatchFee=raw[{A:41,B:20,C:18}[record.vendor]]??'';
+          const fee=core.money(record.rawDispatchFee);
+          record.dispatchFee=fee!==null&&fee>=0?fee:null;
         }
         const metadata = new Map();
         for (const record of result.records) {
@@ -122,7 +125,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
   const dateOf = r => /^\d{4}-\d{2}-\d{2}(?:$| )/.test(r.dispatchDate || '') ? r.dispatchDate.slice(0,10) : '';
   const recent = r => [r.completedAt,r.receivedAt].filter(v=>/^\d{4}-\d{2}-\d{2}(?:$| )/.test(v||'')).sort().at(-1)||r.dispatchDate||'';
   const ordered = rows => rows.slice().sort((a,b)=>recent(a).localeCompare(recent(b)));
-  const identity = r => JSON.stringify([r.vendor,r.plate,r.dispatchDate || '',r.completedAt || '',r.receivedAt || '',r.jobId || '',r.origin || '',r.memo || '',r.carrierFlag || '',r.state || '',r.rawCost ?? r.cost]);
+  const identity = r => JSON.stringify([r.vendor,r.plate,r.dispatchDate || '',r.completedAt || '',r.receivedAt || '',r.jobId || '',r.origin || '',r.memo || '',r.carrierFlag || '',r.state || '',r.rawCost ?? r.cost,r.rawDispatchFee ?? r.dispatchFee]);
   return function(input, files) {
     const history = new Map();
     for (const file of files) for (const record of file.records || []) {
@@ -164,10 +167,13 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       const jobIds=new Set(candidates.map(r=>r.jobId).filter(Boolean));
       const origins=new Set(done.map(r=>r.origin).filter(Boolean));
       const ambiguous=jobIds.size>1 || origins.size>1;
+      const feeConflict=!selectedRecord&&new Set(candidates.filter(r=>r.dispatchFee!=null).map(r=>r.dispatchFee)).size>1;
+      const dispatchFee=!feeConflict&&chosen?.dispatchFee!=null?chosen.dispatchFee:null;
       let row=originalMatch([v],[{name:'기준일 기록',records:chosen?[chosen]:[]}])[0];
       const carrierRecords=(selectedRecord?[chosen]:records).filter(r=>r.vendor==='C'&&r.carrier),carrier=carrierRecords.length>0;
       const fingerprint=JSON.stringify([v.plate,requestedDate,[...new Set(unique.map(identity))].sort()]);
       row={...row,inputDuplicate:counts.get(v.plate)>1,latestRecord:chosen,recordHistory:ordered(records),completedAt:chosen?.completedAt||'',receivedAt:chosen?.receivedAt||'',latestAt:chosen?recent(chosen):'',latestConflict:!selectedRecord&&conflict,
+        dispatchFee,dispatchVAT:dispatchFee===null?null:dispatchFee/10,feeConflict,
         selectionReason,carrier,carrierMemo:carrierRecords.map(r=>['캐리어탁송(J열): Y',r.memo].filter(Boolean).join(' · ')).join(' · '),
         duplicateRecords:records.length-unique.length,targetDate,requestedDate,
         choiceKey,recordChoices:ordered(unique).reverse().map(r=>({id:identity(r),record:r})),selectedRecordId:selectedRecord?identity(selectedRecord):'',
@@ -191,6 +197,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       if(chosen && core.complete(chosen) && chosen.vendor!=='C' && chosen.cost===null){
         row.fuelNotes.push(String(chosen.rawCost??'').trim()===''?'금액 미입력':'금액 형식 확인 필요');
       }
+      if(feeConflict)row.fuelNotes.push('같은 기준일'+' 탁송비용이 다릅니다. 표시할 탁송건을 선택해 주세요.');
       if(row.duplicateRecords)row.fuelNotes.push('내용이 같은 중복 기록 '+row.duplicateRecords+'건 제외');
       if(carrier){row.status='carrier';row.amount=null;row.cInquiry=false;row.meaning='캐리어';}
       row.fuelState=carrier?'exempt':row.status==='confirmed'?(row.amount===0?'zero':'verified'):row.status==='incomplete'?'waiting':row.status==='slack'?'inquiry':'needs';
@@ -273,7 +280,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
     if (!core || !app) return;
     const $ = id => doc.getElementById(id);
     const selected = new Set(), processed = new Set();
-    const key = r => JSON.stringify([r.plate,r.dispatchDate,r.amount,r.sources,r.status]);
+    const key = r => JSON.stringify([r.plate,r.dispatchDate,r.amount,r.dispatchFee,r.dispatchVAT,r.sources,r.status]);
     const originalIncludes = core.includes;
     let processing = 'all', carrierFilter = 'all', summaryFilter = null;
     core.headers[0]='탁송일시';
@@ -282,7 +289,49 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
     const originalNotes = core.notes, originalValues = core.values;
     core.notes = r => [r.dispatchDate || '',r.completedAt?'완료 '+r.completedAt:'',r.receivedAt?'접수 '+r.receivedAt:'',r.latestAt?'최신 기준 '+r.latestAt:'',originalNotes(r), r.carrier ? '캐리어' : '', r.carrierMemo || '', r.fuelLabel || '', ...(r.fuelNotes || [])].filter(Boolean).join(' · ');
     core.values = r => {const values=originalValues(r);values[8]=core.notes(r);return values;};
-    core.textExport = rows => '\ufeff' + [core.headers, ...core.unique(rows).map(core.values)].map(row => row.map(v => String(v ?? '').replace(/[\t\r\n]/g,' ')).join('\t')).join('\r\n');
+    function createDispatchFeeExports(core,app,win,doc){
+      const headers=()=>[...core.headers,'탁송비용(원)','탁송비용 부가세(원)'];
+      const values=r=>[...core.values(r),r.dispatchFee??null,r.dispatchVAT??null];
+      const number=value=>value==null?'—':Number(value).toLocaleString('ko-KR',{maximumFractionDigits:10});
+      const originalExcel=app.excelBlob;
+      async function excelBlob(rows){
+        const original=await originalExcel(rows),library=win.DispatchExcel;
+        const wb=await library.XlsxPopulate.fromDataAsync(await original.arrayBuffer()),sheet=wb.sheet(0);
+        sheet.range('A1:J1').merged(false);sheet.range('A2:J2').merged(false);
+        sheet.range('A1:L1').merged(true);sheet.range('A2:L2').merged(true);
+        sheet.cell('A2').value('주유비 10원 단위 반올림 · 탁송비용 원본 금액 · 탁송비용 부가세 10%');
+        sheet.range('K4:L4').value([headers().slice(-2)]).style('fill','244C3B').style('fontColor','FFFFFF').style('bold',true);
+        rows.forEach((r,i)=>{sheet.cell('K'+(i+5)).value(r.dispatchFee??'');sheet.cell('L'+(i+5)).value(r.dispatchVAT??'');});
+        for(const column of ['K','L'])sheet.column(column).width(24).style('numberFormat','#,##0.##########');
+        sheet.autoFilter(sheet.range(4,1,rows.length+4,12));
+        return new Blob([await library.outputAsync(wb)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      }
+      function pdfBlob(rows){
+        const pdf=new win.jspdf.jsPDF({unit:'mm',format:'a4',compress:true,putOnlyUsedFonts:true});
+        pdf.addFileToVFS('NanumGothic.ttf',doc.getElementById('pdf-font').textContent.trim());pdf.addFont('NanumGothic.ttf','Nanum','normal');pdf.setFont('Nanum');
+        const xs=[14,52,97,142],widths=[38,45,45,54],pages=Math.max(1,Math.ceil(rows.length/8));
+        const fit=(text,width)=>{let t=String(text);while(t&&pdf.getTextWidth(t)>width)t=t.slice(0,-1);return t===String(text)?t:t.slice(0,-1)+'…';};
+        for(let page=0;page<pages;page++){
+          if(page)pdf.addPage();pdf.setFontSize(18);pdf.setTextColor(36,76,59);pdf.text('탁송체크 · 조회결과',14,21);
+          pdf.setFontSize(8);pdf.setTextColor(100);pdf.text('차량 '+rows.length+'대 · 탁송비용 부가세 = 탁송비용 × 10%',14,31);
+          pdf.setFillColor(36,76,59);pdf.rect(14,40,182,11,'F');pdf.setTextColor(255);
+          ['차량번호','주유금액(원)','탁송비용(원)','탁송비용 부가세(원)'].forEach((title,i)=>pdf.text(title,xs[i]+2,47));
+          rows.slice(page*8,page*8+8).forEach((r,i)=>{
+            const y=53+i*26;if(i%2===0){pdf.setFillColor(245,248,245);pdf.rect(14,y,182,26,'F');}
+            pdf.setTextColor(55,69,62);pdf.setFontSize(8);
+            [r.plate,number(r.amount),number(r.dispatchFee),number(r.dispatchVAT)].forEach((value,j)=>pdf.text(fit(value,widths[j]-5),xs[j]+2,y+5));
+            pdf.setFontSize(7);pdf.text(fit((r.dispatchDate||'일시 없음')+' · '+(r.vendor||'업체 없음')+' · '+(r.rawState||core.statuses[r.status]||''),178),16,y+11);
+            const notes=pdf.splitTextToSize(core.notes(r),178).slice(0,2);pdf.text(notes,16,y+16);
+          });
+          pdf.setFontSize(8);pdf.setTextColor(150);pdf.text((page+1)+' / '+pages,196,286,{align:'right'});
+        }
+        return pdf.output('blob');
+      }
+      return {headers,values,excelBlob,pdfBlob};
+    }
+    const feeExports=createDispatchFeeExports(core,app,frame.contentWindow,doc);
+    app.excelBlob=feeExports.excelBlob;app.pdfBlob=feeExports.pdfBlob;
+    core.textExport=rows=>'\ufeff'+[feeExports.headers(),...core.unique(rows).map(feeExports.values)].map(row=>row.map(v=>String(v??'').replace(/[\t\r\n]/g,' ')).join('\t')).join('\r\n');
 
     core.includes = (r, filter) => { filter=summaryFilter || filter; return (!doc.getElementById('fuelStatusFilter') || $('fuelStatusFilter').value==='all' || ($('fuelStatusFilter').value==='manual' ? !!r.manualConfirmation : $('fuelStatusFilter').value==='needs' ? ['needs','inquiry'].includes(r.fuelState) : r.fuelState===$('fuelStatusFilter').value)) && (filter === 'duplicateReview' ? !!r.duplicateReview : filter === 'progress' ? (r.rawStates || []).includes('탁송 중') : filter === 'carrier' ? !!r.carrier : filter === 'confirmed' ? (r.rawStates || []).includes('탁송완료') : filter === 'review' ? ['needs','inquiry'].includes(r.fuelState) : originalIncludes(r, filter)) && (carrierFilter === 'all' || !!r.carrier === (carrierFilter === 'carrier')) && (processing === 'all' || processed.has(key(r)) === (processing === 'done')); };
     // Use the existing confirmed list for completed vehicles; keep its matching rules.
@@ -375,34 +424,39 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
     const clearList = doc.createElement('button');clearList.type='button';clearList.className='button';clearList.textContent='차량목록만 초기화';clearList.id='clearVehicleList';$('reset').before(clearList);
     const selectedOption = doc.createElement('option');selectedOption.value='selected';selectedOption.textContent='선택한 차량';$('scope').append(selectedOption);
     const head = doc.querySelector('#table thead tr');
+    const amountHead=head.querySelector('.number');
+    const fuelHeading=amountHead.querySelector('[data-sort="amount"]');if(fuelHeading)fuelHeading.textContent='주유금액 (원) ↕';
+    const feeHead=doc.createElement('th'),vatHead=doc.createElement('th');
+    feeHead.textContent='탁송비용 (원)';vatHead.textContent='탁송비용 부가세 (원)';feeHead.className=vatHead.className='number';
+    amountHead.after(feeHead,vatHead);
     const selectHead = doc.createElement('th');selectHead.innerHTML='<input type="checkbox" id="selectVisibleVehicles" class="dispatch-check" aria-label="현재 표시 조건의 차량 전체 선택">';head.prepend(selectHead);
     for (const label of ['처리','조회 근거 / 이전 기록']) {const th=doc.createElement('th');th.textContent=label;head.append(th);}
     function buildDispatchDemo(core){
       const day='2026-11-04';
-      const rec=(plate,state,cost,received,dispatch,completed,extra={})=>({plate,state,cost,received:day+' '+received,dispatch:day+' '+dispatch,completed:completed?day+' '+completed:'',origin:'서울특별시',...extra});
+      const rec=(plate,state,cost,received,dispatch,completed,extra={})=>({plate,state,cost,fee:50000,received:day+' '+received,dispatch:day+' '+dispatch,completed:completed?day+' '+completed:'',origin:'서울특별시',...extra});
       const sheet=(name,columns,records)=>{
         const width=Math.max(...Object.values(columns).map(([index])=>index))+1;
         const header=Array(width).fill('');for(const [index,title] of Object.values(columns))header[index]=title;
         return {name,rows:[header,...records.map(record=>{const row=Array(width).fill('');for(const [key,[index]] of Object.entries(columns))row[index]=record[key]??'';return row;})]};
       };
       const hanbit=sheet('체험 한빛탁송',{
-        job:[0,'탁송번호'],received:[8,'접수일시'],dispatch:[10,'탁송일시'],completed:[11,'탁송완료일시'],plate:[17,'차량번호'],origin:[18,'출발지 주소'],state:[25,'상태'],cost:[42,'주유/부대비용 총액']
+        job:[0,'탁송번호'],received:[8,'접수일시'],dispatch:[10,'탁송일시'],completed:[11,'탁송완료일시'],plate:[17,'차량번호'],origin:[18,'출발지 주소'],state:[25,'상태'],cost:[42,'주유/부대비용 총액'],fee:[41,'탁송비용']
       },[
         rec('12서7567','완료',12345,'08:30','09:00','10:10',{job:'DEMO-A-1'}),
-        rec('12서7567','완료',15000,'13:05','13:30','14:00',{job:'DEMO-A-2'}),
+        rec('12서7567','완료',15000,'13:05','13:30','14:00',{job:'DEMO-A-2',fee:65000}),
         rec('25마7579','완료',10000,'08:10','08:40','10:10',{job:'DEMO-A-3'}),
         rec('34나3975','배송완료',19995,'14:30','15:00','16:00',{job:'DEMO-A-4'})
       ]);
       const openmile=sheet('체험 오픈마일',{
-        received:[0,'접수일시'],dispatch:[1,'탁송일시'],completed:[2,'탁송완료일시'],job:[3,'오더번호'],plate:[14,'차량번호'],origin:[15,'출발지'],state:[18,'상태'],cost:[21,'주유비']
+        received:[0,'접수일시'],dispatch:[1,'탁송일시'],completed:[2,'탁송완료일시'],job:[3,'오더번호'],plate:[14,'차량번호'],origin:[15,'출발지'],state:[18,'상태'],cost:[21,'주유비'],fee:[20,'탁송비용']
       },[
         rec('55노4983','완료',0,'09:00','09:30','11:20',{job:'DEMO-B-1'}),
         rec('39수7009','진행중',10000,'11:20','11:45','',{job:'DEMO-B-2'}),
-        rec('25마7579','완료',20000,'13:10','13:40','15:00',{job:'DEMO-B-3'}),
+        rec('25마7579','완료',20000,'13:10','13:40','15:00',{job:'DEMO-B-3',fee:80000}),
         rec('29가6760','완료','','13:00','13:30','14:30',{job:'DEMO-B-4',origin:'대구광역시'})
       ]);
       const rentok=sheet('체험 렌톡',{
-        plate:[0,'출발지 차량번호'],state:[1,'운행상태'],received:[2,'요청 시각'],dispatch:[3,'출발시각'],origin:[4,'출발지 주소(현재차량 상세위치)'],completed:[5,'탁송완료일시'],job:[6,'운행번호'],flag:[9,'캐리어탁송'],memo:[10,'메모']
+        plate:[0,'출발지 차량번호'],state:[1,'운행상태'],received:[2,'요청 시각'],dispatch:[3,'출발시각'],origin:[4,'출발지 주소(현재차량 상세위치)'],completed:[5,'탁송완료일시'],job:[6,'운행번호'],flag:[9,'캐리어탁송'],memo:[10,'메모'],fee:[18,'탁송비용']
       },[
         rec('02두3821','완료',null,'10:10','10:30','11:20',{job:'DEMO-C-1',flag:'N',origin:'제주특별자치도 서귀포시'}),
         rec('77다1234','완료',null,'12:10','12:40','14:20',{job:'DEMO-C-2',flag:'Y',memo:'체험 캐리어탁송'})
@@ -422,7 +476,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       $('search').value='';$('vendorFilter').value='all';$('stateFilter').value='all';$('dateFrom').value='';$('dateTo').value='';$('fuelStatusFilter').value='all';
       processing='all';carrierFilter='all';$('processingFilter').value='all';$('carrierFilter').value='all';
       const meta=doc.querySelector('#fileList .filemeta');if(meta)meta.textContent='한빛탁송 · 오픈마일 · 렌톡 양식 · '+files[0].records.length+'건';
-      $('demoBanner').textContent='체험 데이터 (실제 업체 자료 아님) · 접수·완료 시각 포함 · 중복 검토 2대: 12서7567 / 25마7579 · 캐리어: 77다1234';
+      $('demoBanner').textContent='체험 데이터 (실제 업체 자료 아님) · 접수·완료 시각 · 탁송비용·부가세 포함 · 중복 검토 2대: 12서7567 / 25마7579 · 캐리어: 77다1234';
       doc.querySelector('.tabs [data-filter="all"]').click();$('run').click();
     };
     const fuelFilter=doc.createElement('label');fuelFilter.textContent='주유비 확인 ';
@@ -559,7 +613,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       carrierStat.classList.toggle('active',activeFilter==='carrier');
       carrierStat.setAttribute('aria-pressed',String(activeFilter==='carrier'));
       carrierStat.disabled=!carrierCount;
-      $('dispatchTotals').textContent=`완료차량 총액 ${total(all)}원 · 표시 ${visible.length}대 / ${total(visible)}원 · 선택 ${rows.length}대 / ${total(rows)}원 · 캐리어 ${all.filter(r=>r.carrier).length}대 · 처리 완료 ${all.filter(r=>processed.has(key(r))).length}대 (금액이 확인된 완료차량만 합산)`;
+      $('dispatchTotals').textContent=`완료차량 주유비 총액 ${total(all)}원 · 표시 ${visible.length}대 / ${total(visible)}원 · 선택 ${rows.length}대 / ${total(rows)}원 · 캐리어 ${all.filter(r=>r.carrier).length}대 · 처리 완료 ${all.filter(r=>processed.has(key(r))).length}대 (주유금액이 확인된 완료차량만 합산 · 탁송비용·부가세는 별도 항목)`;
       for(const vendorBox of vendorChoices.querySelectorAll('[data-select-vendor]')){
         const matches=vendorSelectionRows(visible,vendorBox.dataset.selectVendor);
         const count=matches.filter(r=>selected.has(r.plate)).length;
@@ -588,7 +642,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       r.recordChoices.forEach((choice,index)=>{
         const record=choice.record,option=doc.createElement('option');option.value=choice.id;
         const cost=record.carrier?'캐리어':!core.complete(record)?'미완료':record.vendor==='C'?'업체 문의':record.cost==null?'금액 미입력':Number.isSafeInteger(core.round10(record.cost))?core.round10(record.cost).toLocaleString('ko-KR')+'원':'금액 확인 필요';
-        option.textContent=(index+1)+'. '+(index===0?'[최신 비교] ':'')+'완료 '+(record.completedAt||'정보 없음')+' / 접수 '+(record.receivedAt||'정보 없음')+' / 탁송 '+(record.dispatchDate||'일자 없음')+' · '+({A:'한빛탁송',B:'오픈마일',C:'렌톡'}[record.vendor]||record.vendor)+' · '+(record.state||'상태 없음')+' · '+cost+' · '+(record.origin||'출발지 없음')+' · '+(record.jobId?'운행번호 '+record.jobId+' · ':'')+(record.file||'파일명 없음')+' / '+(record.sheet||'시트 없음')+' / '+(record.row||'?')+'행';
+        option.textContent=(index+1)+'. '+(index===0?'[최신 비교] ':'')+'완료 '+(record.completedAt||'정보 없음')+' / 접수 '+(record.receivedAt||'정보 없음')+' / 탁송 '+(record.dispatchDate||'일자 없음')+' · '+({A:'한빛탁송',B:'오픈마일',C:'렌톡'}[record.vendor]||record.vendor)+' · '+(record.state||'상태 없음')+' · 주유 '+cost+' · 탁송비 '+(record.dispatchFee==null?'미입력':record.dispatchFee.toLocaleString('ko-KR')+'원')+' · '+(record.origin||'출발지 없음')+' · '+(record.jobId?'운행번호 '+record.jobId+' · ':'')+(record.file||'파일명 없음')+' / '+(record.sheet||'시트 없음')+' / '+(record.row||'?')+'행';
         select.append(option);
       });
       select.value=r.selectedRecordId||'';label.append(select);
@@ -602,7 +656,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       container.append(timing,label,apply,hint);
     }
     function recordText(r, chosen) {
-      return `${chosen?'적용 기록':'이전 / 동시 기록'} · 탁송 ${r.dispatchDate||'일자 없음'}\n완료 ${r.completedAt||'정보 없음'} · 접수 ${r.receivedAt||'정보 없음'}\n${({A:'한빛탁송',B:'오픈마일',C:'렌톡'})[r.vendor]||r.vendor} · ${r.state||'상태 없음'} · ${r.cost==null?'금액 없음':String(r.cost)+'원'}\n${r.file||'파일명 없음'} / ${r.sheet||'시트 없음'} / ${r.row||'?'}행${r.memo?'\n메모: '+r.memo:''}${r.vendor==='C'?'\n캐리어탁송(J열): '+(r.carrierFlag||'빈칸'):''}${r.carrier?'\n분류: 캐리어':''}`;
+      return `${chosen?'적용 기록':'이전 / 동시 기록'} · 탁송 ${r.dispatchDate||'일자 없음'}\n완료 ${r.completedAt||'정보 없음'} · 접수 ${r.receivedAt||'정보 없음'}\n${({A:'한빛탁송',B:'오픈마일',C:'렌톡'})[r.vendor]||r.vendor} · ${r.state||'상태 없음'} · ${r.cost==null?'금액 없음':String(r.cost)+'원'}\n탁송비용 ${r.dispatchFee==null?'미입력':String(r.dispatchFee)+'원'} · 부가세 ${r.dispatchFee==null?'미입력':String(r.dispatchFee/10)+'원'}\n${r.file||'파일명 없음'} / ${r.sheet||'시트 없음'} / ${r.row||'?'}행${r.memo?'\n메모: '+r.memo:''}${r.vendor==='C'?'\n캐리어탁송(J열): '+(r.carrierFlag||'빈칸'):''}${r.carrier?'\n분류: 캐리어':''}`;
     }
     function enhance() {
       const visible=visibleRows(),plates=new Set(visible.map(r=>r.plate));
@@ -612,6 +666,11 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
         const plate=tr.querySelector('td.plate')?.textContent.trim(),r=byPlate.get(plate);if(!r)continue;
         if (!tr.dataset.enhanced) {
           tr.dataset.enhanced='true';
+          const feeCell=doc.createElement('td'),vatCell=doc.createElement('td');feeCell.className='number dispatch-fee';vatCell.className='number dispatch-vat';
+          feeCell.textContent=r.feeConflict?'선택 필요':r.dispatchFee==null?'—':r.dispatchFee.toLocaleString('ko-KR',{maximumFractionDigits:10});
+          vatCell.textContent=r.feeConflict?'선택 필요':r.dispatchVAT==null?'—':r.dispatchVAT.toLocaleString('ko-KR',{maximumFractionDigits:10});
+          feeCell.title=r.dispatchFee==null?'탁송비용 미입력 또는 탁송건 선택 필요':'원본 탁송비용';vatCell.title='탁송비용 × 10%';
+          tr.querySelector('td.amount').after(feeCell,vatCell);
           const td=doc.createElement('td'),box=doc.createElement('input');box.type='checkbox';box.className='dispatch-check vehicle-select';box.dataset.plate=plate;box.setAttribute('aria-label',plate+' 선택');
           box.onchange=()=>{if(box.checked)selected.add(plate);else selected.delete(plate);syncSelection()};td.append(box);tr.prepend(td);
           const doneCell=doc.createElement('td'),done=doc.createElement('input');done.type='checkbox';done.className='dispatch-check vehicle-done';done.setAttribute('aria-label',plate+' 처리 완료');
@@ -653,15 +712,15 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
     const reset=$('reset').onclick;$('reset').onclick=()=>{reset();if(!app.getFiles().length&&!$('input').value){selected.clear();processed.clear();tripSelections.clear();$('fuelStatusFilter').value='all';processing='all';carrierFilter='all';$('carrierFilter').value='all';$('processingFilter').value='all';$('dateFrom').value='';$('dateTo').value='';redraw()}};
     let exporting=false,exportSerial=0;
     doc.querySelectorAll('[data-export]').forEach(button=>{
-      const original=button.onclick;
       button.onclick=async event=>{
-        if($('scope').value!=='selected')return original.call(button,event);
-        const rows=selectedRows();if(!rows.length){notify('저장할 차량을 선택해 주세요.');return;}
+        const scope=$('scope').value;
+        const rows=scope==='selected'?selectedRows():scope==='visible'?visibleRows():core.unique(app.getResults().filter(r=>scope!=='confirmed'||r.status==='confirmed'));
+        if(!rows.length){notify('선택한 저장 범위에 차량이 없습니다.');return;}
         if(exporting||doc.body.classList.contains('busy'))return;exporting=true;
         try {
           const type=button.dataset.export,blob=type==='txt'?new Blob([core.textExport(rows)],{type:'text/plain;charset=utf-8'}):type==='xlsx'?await app.excelBlob(rows):app.pdfBlob(rows);
-          const url=URL.createObjectURL(blob),a=doc.createElement('a');a.href=url;a.download='탁송조회_선택_'+new Date().toLocaleString('sv-SE',{timeZone:'Asia/Seoul',hour12:false}).replace(/[-:]/g,'').replace(' ','_')+'_'+(++exportSerial)+'.'+type;doc.body.append(a);
-          try{a.click()}finally{a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}notify(rows.length+'대 선택 저장 요청 완료');
+          const url=URL.createObjectURL(blob),a=doc.createElement('a');a.href=url;a.download=($('demoBanner').hidden?'':'체험_')+'탁송조회_'+(scope==='selected'?'선택_':'')+new Date().toLocaleString('sv-SE',{timeZone:'Asia/Seoul',hour12:false}).replace(/[-:]/g,'').replace(' ','_')+'_'+(++exportSerial)+'.'+type;doc.body.append(a);
+          try{a.click()}finally{a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}notify(rows.length+'대 저장 요청 완료');
         }catch(error){notify('저장하지 못했습니다: '+error.message)}finally{exporting=false;}
       };
     });
