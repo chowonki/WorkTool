@@ -2,6 +2,10 @@
 
 탁송 차량 조회와 하나은행 다계좌이체 파일 생성을 위한 브라우저 기반 업무 도구입니다. 로그인 없이 사용하며, 입력 내용과 첨부 파일은 브라우저에서 처리합니다.
 
+## 변경 이력
+
+[Change Log 페이지](./changelog.html) · [CHANGELOG.md](./CHANGELOG.md)에서 날짜별 주요 변경사항을 확인할 수 있습니다. 홈과 두 도구 상단에서도 새 탭으로 열 수 있습니다.
+
 ## 주요 기능
 
 | 도구 | 설명 |
@@ -105,6 +109,8 @@ Python 3가 설치된 환경에서 실행한 뒤 [http://localhost:8000](http://
 
 ```text
 WorkTool/
+├── CHANGELOG.md        # 날짜별 변경 이력
+├── changelog.html      # 웹 변경 이력 페이지
 ├── index.html          # 업무 도구 홈
 ├── dispatch.html       # 탁송체크 진입 화면 및 기능 확장
 ├── dispatch-guide.html # 탁송체크 상세 사용방법
