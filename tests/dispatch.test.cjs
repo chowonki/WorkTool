@@ -291,3 +291,31 @@ test('Rentok duplicate requests sort by C-column timestamps regardless of source
  assert.equal(row.latestAt,'2026-11-04 18:00');assert.equal(row.recordChoices.length,2);assert.equal(row.duplicateReview,true);
  assert.equal(row.recordChoices[0].record.receivedAt,'2026-11-04 18:00');assert.equal(row.cInquiry,true);
 });
+
+function vendorRequestSheet(vendor,requestTime){
+ const sheet=datedSheet(vendor,'2026-11-04 09:00',6)[0];
+ if(vendor==='B'){
+  sheet.rows[0][5]='차량번호';sheet.rows[1][5]=sheet.rows[1][0];
+ }
+ const col=vendor==='A'?8:0;
+ sheet.rows[0][col]='접수 시각 (업체 지정 열)';sheet.rows[1][col]=requestTime;
+ return sheet;
+}
+test('Hanbit I and Openmile A supply the received timestamp before header matches',()=>{
+ const serial=(Date.UTC(2026,10,4)-Date.UTC(1899,11,30))/86400000+0.75;
+ for(const vendor of ['A','B'])for(const value of ['2026-11-04 18:00',serial]){
+  const sheet=vendorRequestSheet(vendor,value);
+  sheet.rows[0].push('접수일시');sheet.rows[1].push('2026-11-05 20:00');
+  const record=setup().readSheets([sheet],'업체.xlsx').records[0];
+  assert.equal(record.receivedAt,'2026-11-04 18:00');assert.equal(record.dispatchDate,'2026-11-04 09:00');assert.equal(record.plate,'123가4567');
+ }
+});
+test('Hanbit and Openmile duplicates use fixed request columns for newest-first comparison',()=>{
+ for(const vendor of ['A','B']){
+  const sheet=vendorRequestSheet(vendor,'2026-11-04 18:00'),older=[...sheet.rows[1]];
+  older[vendor==='A'?8:0]='2026-11-04 10:00';sheet.rows.push(older);
+  const core=setup(),file=core.readSheets([sheet],'업체.xlsx'),row=core.match(input,[file])[0];
+  assert.equal(row.latestAt,'2026-11-04 18:00');assert.equal(row.recordChoices.length,2);
+  assert.equal(row.recordChoices[0].record.receivedAt,'2026-11-04 18:00');assert.equal(row.duplicateReview,true);
+ }
+});
