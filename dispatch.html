@@ -46,11 +46,34 @@
       }
       core.readSheets = function(sheets, name) {
         const result = readSheets(sheets, name);
+        const eventColumns=new Map();
+        const cleanHeader=value=>String(value??'').normalize('NFKC').replace(/\s+/g,'');
+        for(const sheet of sheets){
+          const header=sheet.rows.slice(0,30).find(row=>row.some(v=>['차량번호','출발지차량번호'].includes(cleanHeader(v)))&&row.some(v=>['상태','운행상태'].includes(cleanHeader(v))));
+          const columns=pattern=>header?header.map((v,i)=>pattern.test(cleanHeader(v))?i:-1).filter(i=>i>=0):[];
+          eventColumns.set(sheet.name,{
+            completed:columns(/^(?:탁송|운행|배송|배달)?완료(?:일시|시각|시간|일자|일)$/),
+            received:columns(/^(?:탁송)?(?:접수|요청)(?:일시|시각|시간|일자|일)$/)
+          });
+        }
+        const readEvent=(raw,columns)=>{
+          const values=columns.map(i=>raw[i]),dates=values.map(v=>dispatchDateTime(v)).filter(Boolean);
+          const day=dates.find(v=>/^\d{4}-\d{2}-\d{2}$/.test(v));
+          if(day)for(const value of values){
+            const time=String(value??'').trim();
+            if(/^(?:(?:오전|오후|AM|PM)\s*)?\d{1,2}:\d{1,2}(?::\d{1,2})?\s*(?:AM|PM)?$/i.test(time))dates.push(dispatchDateTime(day+' '+time));
+            else if(typeof value==='number'&&value>0&&value<1)dates.push(dispatchDateTime(day+' '+new Date(Math.round(value*86400000)).toISOString().slice(11,19)));
+          }
+          return dates.filter(Boolean).sort().at(-1)||'';
+        };
         for(const record of result.records){
           const sheet=sheets.find(s=>s.name===record.sheet);
           const raw=sheet?.rows[record.row-(sheet.startRow??1)]||[];
           const value=raw[record.vendor==='A'?10:record.vendor==='B'?1:3];
           record.dispatchDate=dispatchDateTime(value,record.dispatchDate);
+          const columns=eventColumns.get(record.sheet);
+          record.completedAt=readEvent(raw,columns?.completed||[]);
+          record.receivedAt=readEvent(raw,columns?.received||[]);
         }
         const metadata = new Map();
         for (const record of result.records) {
@@ -96,7 +119,9 @@
     try{const saved=JSON.parse(localStorage.getItem(fuelStorageKey)||'{}');if(saved&&typeof saved==='object'&&!Array.isArray(saved))fuelSaved=saved;}catch{}
 function createFuelMatcher(core, originalMatch, getOverride = () => null, getSelection = () => null) {
   const dateOf = r => /^\d{4}-\d{2}-\d{2}(?:$| )/.test(r.dispatchDate || '') ? r.dispatchDate.slice(0,10) : '';
-  const identity = r => JSON.stringify([r.vendor,r.plate,r.dispatchDate || '',r.jobId || '',r.origin || '',r.memo || '',r.carrierFlag || '',r.state || '',r.rawCost ?? r.cost]);
+  const recent = r => [r.completedAt,r.receivedAt].filter(v=>/^\d{4}-\d{2}-\d{2}(?:$| )/.test(v||'')).sort().at(-1)||r.dispatchDate||'';
+  const ordered = rows => rows.slice().sort((a,b)=>recent(a).localeCompare(recent(b)));
+  const identity = r => JSON.stringify([r.vendor,r.plate,r.dispatchDate || '',r.completedAt || '',r.receivedAt || '',r.jobId || '',r.origin || '',r.memo || '',r.carrierFlag || '',r.state || '',r.rawCost ?? r.cost]);
   return function(input, files) {
     const history = new Map();
     for (const file of files) for (const record of file.records || []) {
@@ -108,23 +133,24 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
     const counts=new Map(),inputDates=new Map();input.forEach(v=>{counts.set(v.plate,(counts.get(v.plate)||0)+1);if(!inputDates.has(v.plate))inputDates.set(v.plate,new Set());const d=(v.date||'').slice(0,10);if(d)inputDates.get(v.plate).add(d);});
     return input.map(v=>{
       const records=history.get(v.plate)||[],unique=[...new Map(records.map(r=>[identity(r),r])).values()];
-      const requestedDate=(v.date||'').slice(0,10)||(inputDates.get(v.plate).size===1?[...inputDates.get(v.plate)][0]:''),latestDate=unique.reduce((max,r)=>dateOf(r)>max?dateOf(r):max,'');
+      const requestedDate=(v.date||'').slice(0,10)||(inputDates.get(v.plate).size===1?[...inputDates.get(v.plate)][0]:''),latestDate=dateOf(ordered(unique).at(-1)||{});
       let targetDate=requestedDate || latestDate;
       const choiceKey=JSON.stringify([v.plate,unique.map(identity).sort()]);
       const selectedId=getSelection(choiceKey);
       const selectedRecord=unique.find(r=>identity(r)===selectedId);
-      const candidates=unique.filter(r=>dateOf(r)===targetDate);
-      let chosen=candidates[candidates.length-1],selectionReason='';
+      const candidates=ordered(unique.filter(r=>dateOf(r)===targetDate));
+      const eventTiming=candidates.some(r=>r.completedAt||r.receivedAt);
+      let chosen=candidates[candidates.length-1],selectionReason=eventTiming?'탁송완료·접수일시 중 최신 시각 기준으로 우선 표시합니다.':'';
       // Spreadsheet row order is not an event timestamp: Openmile may list
       // a cancelled attempt after an active replacement on the same date.
-      if(chosen?.vendor==='B' && /취소|캔슬|cancel/i.test(chosen.state||'')){
+      if(!eventTiming && chosen?.vendor==='B' && /취소|캔슬|cancel/i.test(chosen.state||'')){
         const active=candidates.filter(r=>r.vendor==='B' && originalMatch([v],[{records:[r]}])[0].rawStates.includes('탁송 중'));
         if(active.length){
           chosen=active[active.length-1];
           selectionReason='동일 기준일 오픈마일 진행·취소 기록 공존: 진행 건 적용, 취소 건은 조회 근거에 보존 (행 순서는 진행 시각을 뜻하지 않음)';
         }
       }
-      if(chosen?.vendor==='B' && !core.complete(chosen) && !/취소|캔슬|cancel/i.test(chosen.state||'')){
+      if(!eventTiming && chosen?.vendor==='B' && !core.complete(chosen) && !/취소|캔슬|cancel/i.test(chosen.state||'')){
         const completed=candidates.filter(r=>r.vendor==='B'&&core.complete(r));
         if(completed.length){chosen=completed[completed.length-1];selectionReason='동일 기준일 오픈마일 기록 중 완료 기록 우선 적용';}
       }
@@ -140,12 +166,13 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       let row=originalMatch([v],[{name:'기준일 기록',records:chosen?[chosen]:[]}])[0];
       const carrierRecords=(selectedRecord?[chosen]:records).filter(r=>r.vendor==='C'&&r.carrier),carrier=carrierRecords.length>0;
       const fingerprint=JSON.stringify([v.plate,requestedDate,[...new Set(unique.map(identity))].sort()]);
-      row={...row,inputDuplicate:counts.get(v.plate)>1,latestRecord:chosen,recordHistory:records,latestConflict:!selectedRecord&&conflict,
+      row={...row,inputDuplicate:counts.get(v.plate)>1,latestRecord:chosen,recordHistory:ordered(records),completedAt:chosen?.completedAt||'',receivedAt:chosen?.receivedAt||'',latestAt:chosen?recent(chosen):'',latestConflict:!selectedRecord&&conflict,
         selectionReason,carrier,carrierMemo:carrierRecords.map(r=>['캐리어탁송(J열): Y',r.memo].filter(Boolean).join(' · ')).join(' · '),
         duplicateRecords:records.length-unique.length,targetDate,requestedDate,
-        choiceKey,recordChoices:unique.map(r=>({id:identity(r),record:r})),selectedRecordId:selectedRecord?identity(selectedRecord):'',
+        choiceKey,recordChoices:ordered(unique).reverse().map(r=>({id:identity(r),record:r})),selectedRecordId:selectedRecord?identity(selectedRecord):'',
         duplicateReview:unique.length>1&&!selectedRecord,
         reviewKey:selectedRecord?JSON.stringify([fingerprint,identity(selectedRecord)]):fingerprint,fuelNotes:[]};
+      if(!selectedRecord&&eventTiming)row.fuelNotes.push(selectionReason+' 기준: '+row.latestAt);
       if(selectedRecord){
         row.fuelNotes.push(selectionReason);
         if(requestedDate&&requestedDate!==targetDate)row.fuelNotes.push('입력일'+' '+requestedDate+'과 다른 운행 기록을 직접 선택했습니다.');
@@ -252,7 +279,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
     const dateHeading=doc.querySelector('[data-sort="dispatchDate"]');
     if(dateHeading)dateHeading.textContent='탁송일시 ↕';
     const originalNotes = core.notes, originalValues = core.values;
-    core.notes = r => [r.dispatchDate || '',originalNotes(r), r.carrier ? '캐리어' : '', r.carrierMemo || '', r.fuelLabel || '', ...(r.fuelNotes || [])].filter(Boolean).join(' · ');
+    core.notes = r => [r.dispatchDate || '',r.completedAt?'완료 '+r.completedAt:'',r.receivedAt?'접수 '+r.receivedAt:'',r.latestAt?'최신 기준 '+r.latestAt:'',originalNotes(r), r.carrier ? '캐리어' : '', r.carrierMemo || '', r.fuelLabel || '', ...(r.fuelNotes || [])].filter(Boolean).join(' · ');
     core.values = r => {const values=originalValues(r);values[8]=core.notes(r);return values;};
     core.textExport = rows => '\ufeff' + [core.headers, ...core.unique(rows).map(core.values)].map(row => row.map(v => String(v ?? '').replace(/[\t\r\n]/g,' ')).join('\t')).join('\r\n');
 
@@ -358,7 +385,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
     }
     fuelFilter.append(fuelSelect);tools.prepend(fuelFilter);
     const diagnostics=doc.createElement('div');diagnostics.className='hint';diagnostics.id='fuelDiagnostics';diagnostics.setAttribute('role','status');tools.append(diagnostics);
-    const fuelHint=doc.createElement('div');fuelHint.className='hint';fuelHint.textContent='날짜가 있는 입력은 같은 날짜의 기록만 조회합니다. 날짜가 없으면 최신일 기준입니다. 한빛탁송의 주유/부대비용 빈칸은 0원으로 처리합니다. 오픈마일의 빈 금액은 미입력, 숫자 0은 주유비 없음으로 구분합니다. 상태 색상: 확인 필요는 주황색, 미조회는 회색, 미완료(완료 대기)는 파란색입니다. 서로 다른 운행은 자동 합산하지 않습니다. 동일 차량에 여러 기록이 있으면 조회 근거에서 표시할 탁송건을 선택할 수 있습니다. 수동확인은 사유와 함께 이 브라우저에 최대 500건 저장되며 원본 기록이 바뀌면 다시 확인합니다.';tools.append(fuelHint);
+    const fuelHint=doc.createElement('div');fuelHint.className='hint';fuelHint.textContent='날짜가 있는 입력은 같은 날짜의 기록만 조회합니다. 날짜가 없으면 완료·접수일시 중 최신 시각을 비교하고, 없으면 탁송일시를 사용합니다. 한빛탁송의 주유/부대비용 빈칸은 0원으로 처리합니다. 오픈마일의 빈 금액은 미입력, 숫자 0은 주유비 없음으로 구분합니다. 상태 색상: 확인 필요는 주황색, 미조회는 회색, 미완료(완료 대기)는 파란색입니다. 서로 다른 운행은 자동 합산하지 않습니다. 동일 차량에 여러 기록이 있으면 조회 근거에서 표시할 탁송건을 선택할 수 있습니다. 수동확인은 사유와 함께 이 브라우저에 최대 500건 저장되며 원본 기록이 바뀌면 다시 확인합니다.';tools.append(fuelHint);
     const eraseConfirmations=doc.createElement('button');eraseConfirmations.type='button';eraseConfirmations.className='button compact';eraseConfirmations.textContent='저장된 수동확인 전체 삭제';tools.append(eraseConfirmations);
     eraseConfirmations.onclick=()=>{
       if(!Object.keys(fuelSaved).length){notify('저장된 수동확인이 없습니다.');return;}
@@ -514,20 +541,21 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       r.recordChoices.forEach((choice,index)=>{
         const record=choice.record,option=doc.createElement('option');option.value=choice.id;
         const cost=record.carrier?'캐리어':!core.complete(record)?'미완료':record.vendor==='C'?'업체 문의':record.cost==null?'금액 미입력':Number.isSafeInteger(core.round10(record.cost))?core.round10(record.cost).toLocaleString('ko-KR')+'원':'금액 확인 필요';
-        option.textContent=(index+1)+'. '+(record.dispatchDate||'일자 없음')+' · '+({A:'한빛탁송',B:'오픈마일',C:'렌톡'}[record.vendor]||record.vendor)+' · '+(record.state||'상태 없음')+' · '+cost+' · '+(record.origin||'출발지 없음')+' · '+(record.jobId?'운행번호 '+record.jobId+' · ':'')+(record.file||'파일명 없음')+' / '+(record.sheet||'시트 없음')+' / '+(record.row||'?')+'행';
+        option.textContent=(index+1)+'. '+(index===0?'[최신 비교] ':'')+'완료 '+(record.completedAt||'정보 없음')+' / 접수 '+(record.receivedAt||'정보 없음')+' / 탁송 '+(record.dispatchDate||'일자 없음')+' · '+({A:'한빛탁송',B:'오픈마일',C:'렌톡'}[record.vendor]||record.vendor)+' · '+(record.state||'상태 없음')+' · '+cost+' · '+(record.origin||'출발지 없음')+' · '+(record.jobId?'운행번호 '+record.jobId+' · ':'')+(record.file||'파일명 없음')+' / '+(record.sheet||'시트 없음')+' / '+(record.row||'?')+'행';
         select.append(option);
       });
       select.value=r.selectedRecordId||'';label.append(select);
       apply.type='button';apply.textContent='선택한 탁송건 적용';apply.className='button compact';
-      hint.textContent='입력 날짜와 다른 기록도 직접 선택할 수 있습니다. 선택한 건의 상태·금액을 적용하며 자동 합산하지 않습니다. 자동 조회로 되돌리려면 첫 항목을 적용하세요.';
+      hint.textContent='완료·접수일시 중 최신 시각 순으로 정렬합니다. 해당 시각이 없으면 탁송일시를 비교합니다. 입력 날짜와 다른 기록도 직접 선택할 수 있습니다. 선택한 건의 상태·금액을 적용하며 자동 합산하지 않습니다. 자동 조회로 되돌리려면 첫 항목을 적용하세요.';
       apply.onclick=()=>{
         if(select.value)tripSelections.set(r.choiceKey,select.value);else tripSelections.delete(r.choiceKey);
         $('run').click();notify(select.value?'선택한 탁송건을 적용했습니다. 필터에 따라 목록에서 숨겨질 수 있습니다.':'자동 조회 기준으로 되돌렸습니다.');
       };
-      container.append(label,apply,hint);
+      const timing=doc.createElement('p');timing.textContent='현재 표시 기준: '+(r.latestAt||'일시 정보 없음')+' · 완료 '+(r.completedAt||'정보 없음')+' · 접수 '+(r.receivedAt||'정보 없음');
+      container.append(timing,label,apply,hint);
     }
     function recordText(r, chosen) {
-      return `${chosen?'적용 기록':'이전 / 동시 기록'} · ${r.dispatchDate||'일자 없음'}\n${({A:'한빛탁송',B:'오픈마일',C:'렌톡'})[r.vendor]||r.vendor} · ${r.state||'상태 없음'} · ${r.cost==null?'금액 없음':String(r.cost)+'원'}\n${r.file||'파일명 없음'} / ${r.sheet||'시트 없음'} / ${r.row||'?'}행${r.memo?'\n메모: '+r.memo:''}${r.vendor==='C'?'\n캐리어탁송(J열): '+(r.carrierFlag||'빈칸'):''}${r.carrier?'\n분류: 캐리어':''}`;
+      return `${chosen?'적용 기록':'이전 / 동시 기록'} · 탁송 ${r.dispatchDate||'일자 없음'}\n완료 ${r.completedAt||'정보 없음'} · 접수 ${r.receivedAt||'정보 없음'}\n${({A:'한빛탁송',B:'오픈마일',C:'렌톡'})[r.vendor]||r.vendor} · ${r.state||'상태 없음'} · ${r.cost==null?'금액 없음':String(r.cost)+'원'}\n${r.file||'파일명 없음'} / ${r.sheet||'시트 없음'} / ${r.row||'?'}행${r.memo?'\n메모: '+r.memo:''}${r.vendor==='C'?'\n캐리어탁송(J열): '+(r.carrierFlag||'빈칸'):''}${r.carrier?'\n분류: 캐리어':''}`;
     }
     function enhance() {
       const visible=visibleRows(),plates=new Set(visible.map(r=>r.plate));

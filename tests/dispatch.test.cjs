@@ -153,7 +153,7 @@ test('selected pending, blank cost and Rentok carrier flags retain their own sta
  const choices=new Map(),core=setup(choices),files=[{records:[trip('A',35000),trip('B',10000,'2026-11-03',{state:'진행중'}),trip('B',null,'2026-11-02',{rawCost:''}),trip('C',null,'2026-11-01',{carrier:true,carrierFlag:'Y'}),trip('C',null,'2026-11-02',{carrier:false,carrierFlag:'N'})]}];
  let row=core.match(input,files)[0];
  for(const [index,status,fuel,amount,inquiry] of [[0,'confirmed','verified',35000,false],[1,'incomplete','waiting',null,false],[2,'cost','needs',null,false],[3,'carrier','exempt',null,false],[4,'slack','inquiry',null,true]]){
-  choices.set(row.choiceKey,row.recordChoices[index].id);row=core.match(input,files)[0];
+  const expected=files[0].records[index];choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.vendor===expected.vendor&&c.record.dispatchDate===expected.dispatchDate&&c.record.state===expected.state).id);row=core.match(input,files)[0];
   assert.equal(row.status,status);assert.equal(row.fuelState,fuel);assert.equal(row.amount,amount);assert.equal(row.cInquiry,inquiry);
  }
 });
@@ -166,11 +166,11 @@ test('record changes discard old trip choices and identical duplicates share one
 });
 test('manual fuel confirmations are isolated for each chosen trip',()=>{
  const choices=new Map(),confirmations=new Map(),core=setup(choices,confirmations),files=[{records:[trip('A',35000),trip('B',50000)]}];
- let row=core.match(input,files)[0];choices.set(row.choiceKey,row.recordChoices[0].id);row=core.match(input,files)[0];
+ let row=core.match(input,files)[0];choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.vendor==='A').id);row=core.match(input,files)[0];
  confirmations.set(row.reviewKey,{amount:36000,reason:'업체 확인',savedAt:'오늘'});
  assert.equal(core.match(input,files)[0].amount,36000);
- choices.set(row.choiceKey,row.recordChoices[1].id);row=core.match(input,files)[0];assert.equal(row.amount,50000);assert.equal(row.manualConfirmation,undefined);
- choices.set(row.choiceKey,row.recordChoices[0].id);assert.equal(core.match(input,files)[0].amount,36000);
+ choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.vendor==='B').id);row=core.match(input,files)[0];assert.equal(row.amount,50000);assert.equal(row.manualConfirmation,undefined);
+ choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.vendor==='A').id);assert.equal(core.match(input,files)[0].amount,36000);
 });
 
 test('duplicate review counts only distinct records and clears when a trip is chosen',()=>{
@@ -228,4 +228,43 @@ test('matching stays on the requested day while distinct times remain selectable
  assert.equal(row.dispatchDates.some(d=>d.slice(0,10)>='2026-11-04'&&d.slice(0,10)<='2026-11-04'),true);
  const latest=core.match(input,files)[0];assert.equal(latest.dispatchDate,'2026-11-04 09:00');
  choices.clear();assert.equal(core.match(input,files)[0].dispatchDate,'2026-11-05 08:00');
+});
+
+test('readers preserve completed and received timestamps by header, including split time columns',()=>{
+ for(const vendor of ['A','B','C']){
+  const sheets=datedSheet(vendor,'2026-11-03 09:00',4),header=sheets[0].rows[0],raw=sheets[0].rows[1];
+  header.push('탁송 완료 일시','탁송접수일자','탁송접수시간');raw.push('2026-11-04 16:25:07','2026-11-04','오후 5:30');
+  const core=setup(),record=core.readSheets(sheets,'업체.xlsx').records[0];
+  assert.equal(record.completedAt,'2026-11-04 16:25:07');assert.equal(record.receivedAt,'2026-11-04 17:30');
+ }
+ const sheets=datedSheet('A','2026-11-03');
+ const serial=(Date.UTC(2026,10,4)-Date.UTC(1899,11,30))/86400000+0.5;
+ sheets[0].rows[0].push('운행완료일시','요청시각');sheets[0].rows[1].push(serial,'2026-11-04 09:00');
+ const record=setup().readSheets(sheets,'업체.xlsx').records[0];assert.equal(record.completedAt,'2026-11-04 12:00');assert.equal(record.receivedAt,'2026-11-04 09:00');
+});
+test('latest completed or received time wins independently of spreadsheet row order',()=>{
+ const a=trip('A',35000,'2026-11-03 09:00',{completedAt:'2026-11-04 15:00',receivedAt:'2026-11-02 10:00'});
+ const b=trip('B',35000,'2026-11-03 14:00',{completedAt:'2026-11-03 16:00',receivedAt:'2026-11-04 18:00'});
+ for(const records of [[a,b],[b,a]]){
+  const row=setup().match(input,[{records}])[0];
+  assert.equal(row.latestRecord.vendor,'B');assert.equal(row.latestAt,'2026-11-04 18:00');assert.equal(row.receivedAt,'2026-11-04 18:00');assert.equal(row.recordChoices[0].record.vendor,'B');
+ }
+ b.receivedAt='2026-11-04 12:00';const row=setup().match(input,[{records:[a,b]}])[0];assert.equal(row.latestRecord.vendor,'A');assert.equal(row.latestAt,'2026-11-04 15:00');
+});
+test('latest event can select an earlier dispatch day while explicit input dates stay scoped',()=>{
+ const a=trip('A',35000,'2026-11-01 09:00',{completedAt:'2026-11-04 18:00'}),b=trip('B',50000,'2026-11-03 09:00',{receivedAt:'2026-11-03 12:00'}),core=setup(),files=[{records:[a,b]}];
+ let row=core.match(input,files)[0];assert.equal(row.latestRecord.vendor,'A');assert.equal(row.targetDate,'2026-11-01');assert.equal(row.amount,35000);
+ row=core.match([{plate:'123가4567',date:'2026-11-03 10:00'}],files)[0];assert.equal(row.latestRecord.vendor,'B');assert.equal(row.amount,50000);
+});
+test('event timestamps keep conflicting rows distinct and changes invalidate trip selection',()=>{
+ const choices=new Map(),core=setup(choices),a=trip('A',35000,'2026-11-03',{completedAt:'2026-11-03 10:00'}),b={...a,cost:50000,rawCost:50000,completedAt:'2026-11-03 18:00'},files=[{records:[b,a]}];
+ let row=core.match(input,files)[0];assert.equal(row.latestAt,'2026-11-03 18:00');assert.equal(row.status,'conflict');assert.equal(row.amount,null);
+ choices.set(row.choiceKey,row.recordChoices[0].id);row=core.match(input,files)[0];assert.equal(row.amount,50000);
+ b.completedAt='2026-11-03 19:00';row=core.match(input,files)[0];assert.equal(row.selectedRecordId,'');assert.equal(row.duplicateReview,true);
+ const same=setup().match(input,[{records:[a,{...a,completedAt:'2026-11-03 11:00'}]}])[0];assert.equal(same.recordChoices.length,2);assert.equal(same.duplicateRecords,0);
+});
+test('missing event columns are explicit blanks and use dispatch time as fallback',()=>{
+ const core=setup(),record=core.readSheets(datedSheet('A','2026-11-04 14:30'),'자료.xlsx').records[0];
+ assert.equal(record.completedAt,'');assert.equal(record.receivedAt,'');
+ const row=core.match(input,[{records:[record]}])[0];assert.equal(row.latestAt,'2026-11-04 14:30');assert.equal(row.amount,35000);
 });
