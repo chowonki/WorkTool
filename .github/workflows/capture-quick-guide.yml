@@ -1,4 +1,5 @@
 name: Capture visual quick-start screenshots
+# Refresh after final navigation changes
 on:
   push:
     branches: [ux/visual-quick-guide]
