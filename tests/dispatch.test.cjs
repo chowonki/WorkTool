@@ -420,3 +420,30 @@ test('individual fee, VAT and total clicks copy only the displayed numeric value
  assert.equal(cells[0].child.textContent,'50,000');assert.match(cells[2].child.attrs['aria-label'],/총 탁송비용/);
  assert.equal(cells[5].child,null);assert.equal(cells[6].child,null);
 });
+
+test('repeated plate lookups preserve results, dates and duplicate-review choices',()=>{
+ const core=setup(),files=[{records:[trip('A',35000,'2026-11-04 09:00'),trip('B',50000,'2026-11-05 09:00')]}];
+ const source=Array.from({length:500},()=>({plate:'123가4567',date:'2026-11-05'}));
+ const rows=core.match(source,files);
+ assert.equal(rows.length,500);
+ for(let i=0;i<rows.length;i++){
+  assert.equal(rows[i].targetDate,'2026-11-05');
+  assert.equal(rows[i].amount,50000);
+  assert.equal(rows[i].recordChoices.length,2);
+  assert.equal(rows[i].duplicateReview,true);
+ }
+ assert.equal(new Set(rows.map(row=>row.choiceKey)).size,1);
+ const differentDates=core.match([{plate:'123가4567',date:'2026-11-04'},{plate:'123가4567',date:'2026-11-05'}],files);
+ assert.ok(differentDates.every(row=>row.status==='tripReview'&&row.amount===null));
+});
+
+test('duplicate trip identity ignores only insignificant text formatting',()=>{
+ const core=setup(),a=trip('A',35000,'2026-11-04'),b={...a,origin:' 서울 ',memo:'  차량   확인 ',jobId:' ＡＢＣ '};
+ a.origin='서울';a.memo='차량 확인';a.jobId='ABC';
+ const same=core.match(input,[{records:[a,b]}])[0];
+ assert.equal(same.recordChoices.length,1);
+ assert.equal(same.duplicateRecords,1);
+ const distinct=core.match(input,[{records:[a,{...b,memo:'차량 재확인'}]}])[0];
+ assert.equal(distinct.recordChoices.length,2);
+ assert.equal(distinct.duplicateReview,true);
+});

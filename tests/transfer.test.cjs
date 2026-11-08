@@ -143,3 +143,25 @@ test('multiple transfers include the exact total without counting automatic spli
  assert.ok(invalid.text.endsWith('(총액 금액 확인 필요)'));
  assert.equal(context.transferComment([{amount:'1000000',commentTarget:'고객계좌'}]).text,'금액 100만원 고객계좌로 송금완료');
 });
+
+test('Excel XML removes forbidden control characters and preserves valid text',()=>{
+ const value='  앞쪽'+String.fromCharCode(0,1)+'중간'+String.fromCharCode(11,31)+'끝'+String.fromCharCode(65534,65535)+' & < > " \'  ';
+ const helper=html.match(/const xml=s=>[\s\S]*?;const crcTable=/)?.[0];
+ assert.ok(helper,'실제 Excel XML 이스케이프 함수가 존재해야 합니다.');
+ vm.runInContext(helper.replace(/;const crcTable=$/,''),context);
+ const actual=run('xml('+JSON.stringify(value)+')');
+ assert.equal(actual,'  앞쪽중간끝 &amp; &lt; &gt; &quot; &apos;  ');
+ assert.equal(run('xml('+JSON.stringify('A\\tB\\nC\\rD')+')'),'A\\tB\\nC\\rD');
+ assert.match(html,/xml:space="preserve"/);
+});
+
+test('duplicate check canonicalizes bank aliases, account separators and plate whitespace',()=>{
+ run("data=[{bank:'KB',account:'123-456-789012',amount:'35000',plate:'123가4567'},{bank:'국민은행',account:'123456789012',amount:'35000',plate:'123가4567'}]");
+ assert.ok(run('validate(data[0])').includes('동일 계좌·금액·차량번호 중복'));
+ assert.ok(run('validate(data[1])').includes('동일 계좌·금액·차량번호 중복'));
+ run("data[1].splitGroup='split-test';data[0].splitGroup='split-test'");
+ assert.ok(!run('validate(data[0])').includes('동일 계좌·금액·차량번호 중복'));
+ run("data[1].splitGroup='';data[1].amount='35001'");
+ assert.ok(!run('validate(data[0])').includes('동일 계좌·금액·차량번호 중복'));
+ run('data=[]');
+});

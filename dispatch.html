@@ -125,7 +125,8 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
   const dateOf = r => /^\d{4}-\d{2}-\d{2}(?:$| )/.test(r.dispatchDate || '') ? r.dispatchDate.slice(0,10) : '';
   const recent = r => [r.completedAt,r.receivedAt].filter(v=>/^\d{4}-\d{2}-\d{2}(?:$| )/.test(v||'')).sort().at(-1)||r.dispatchDate||'';
   const ordered = rows => rows.slice().sort((a,b)=>recent(a).localeCompare(recent(b)));
-  const identity = r => JSON.stringify([r.vendor,r.plate,r.dispatchDate || '',r.completedAt || '',r.receivedAt || '',r.jobId || '',r.origin || '',r.memo || '',r.carrierFlag || '',r.state || '',r.rawCost ?? r.cost,r.rawDispatchFee ?? r.dispatchFee]);
+  const normalizedText = value => String(value??'').normalize('NFKC').replace(/\s+/g,' ').trim();
+  const identity = r => JSON.stringify([r.vendor,r.plate,r.dispatchDate || '',r.completedAt || '',r.receivedAt || '',normalizedText(r.jobId),normalizedText(r.origin),normalizedText(r.memo),normalizedText(r.carrierFlag),normalizedText(r.state),r.rawCost ?? r.cost,r.rawDispatchFee ?? r.dispatchFee]);
   return function(input, files) {
     const history = new Map();
     for (const file of files) for (const record of file.records || []) {
@@ -135,14 +136,23 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       history.get(r.plate).push(r);
     }
     const counts=new Map(),inputDates=new Map();input.forEach(v=>{counts.set(v.plate,(counts.get(v.plate)||0)+1);if(!inputDates.has(v.plate))inputDates.set(v.plate,new Set());const d=(v.date||'').slice(0,10);if(d)inputDates.get(v.plate).add(d);});
+    // Each plate can occur repeatedly in a pasted list; normalize and sort its
+    // source records once per lookup instead of doing it again for every row.
+    const prepared=new Map();
+    for(const [plate,records] of history){
+      const unique=[...new Map(records.map(r=>[identity(r),r])).values()];
+      const sorted=ordered(unique),ids=unique.map(identity).sort(),byDate=new Map();
+      for(const r of sorted){const date=dateOf(r);if(!byDate.has(date))byDate.set(date,[]);byDate.get(date).push(r);}
+      prepared.set(plate,{unique,sorted,ids,byDate,historySorted:ordered(records),recordChoices:sorted.slice().reverse().map(r=>({id:identity(r),record:r})),latestDate:dateOf(sorted.at(-1)||{}),choiceKey:JSON.stringify([plate,ids])});
+    }
     return input.map(v=>{
-      const records=history.get(v.plate)||[],unique=[...new Map(records.map(r=>[identity(r),r])).values()];
-      const requestedDate=(v.date||'').slice(0,10)||(inputDates.get(v.plate).size===1?[...inputDates.get(v.plate)][0]:''),latestDate=dateOf(ordered(unique).at(-1)||{});
+      const records=history.get(v.plate)||[],info=prepared.get(v.plate);
+      const unique=info?.unique||[],requestedDate=(v.date||'').slice(0,10)||(inputDates.get(v.plate).size===1?[...inputDates.get(v.plate)][0]:''),latestDate=info?.latestDate||'';
       let targetDate=requestedDate || latestDate;
-      const choiceKey=JSON.stringify([v.plate,unique.map(identity).sort()]);
+      const choiceKey=info?.choiceKey||JSON.stringify([v.plate,[]]);
       const selectedId=getSelection(choiceKey);
       const selectedRecord=unique.find(r=>identity(r)===selectedId);
-      const candidates=ordered(unique.filter(r=>dateOf(r)===targetDate));
+      const candidates=info?.byDate.get(targetDate)||[];
       const eventTiming=candidates.some(r=>r.completedAt||r.receivedAt);
       let chosen=candidates[candidates.length-1],selectionReason=eventTiming?'탁송완료·접수일시 중 최신 시각 기준으로 우선 표시합니다.':'';
       // Spreadsheet row order is not an event timestamp: Openmile may list
@@ -171,12 +181,12 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       const dispatchFee=!feeConflict&&chosen?.dispatchFee!=null?chosen.dispatchFee:null;
       let row=originalMatch([v],[{name:'기준일 기록',records:chosen?[chosen]:[]}])[0];
       const carrierRecords=(selectedRecord?[chosen]:records).filter(r=>r.vendor==='C'&&r.carrier),carrier=carrierRecords.length>0;
-      const fingerprint=JSON.stringify([v.plate,requestedDate,[...new Set(unique.map(identity))].sort()]);
-      row={...row,inputDuplicate:counts.get(v.plate)>1,latestRecord:chosen,recordHistory:ordered(records),completedAt:chosen?.completedAt||'',receivedAt:chosen?.receivedAt||'',latestAt:chosen?recent(chosen):'',latestConflict:!selectedRecord&&conflict,
+      const fingerprint=JSON.stringify([v.plate,requestedDate,info?.ids||[]]);
+      row={...row,inputDuplicate:counts.get(v.plate)>1,latestRecord:chosen,recordHistory:info?.historySorted||[],completedAt:chosen?.completedAt||'',receivedAt:chosen?.receivedAt||'',latestAt:chosen?recent(chosen):'',latestConflict:!selectedRecord&&conflict,
         dispatchFee,dispatchVAT:dispatchFee===null?null:dispatchFee/10,dispatchTotal:dispatchFee===null?null:dispatchFee+dispatchFee/10,feeConflict,
         selectionReason,carrier,carrierMemo:carrierRecords.map(r=>['캐리어탁송(J열): Y',r.memo].filter(Boolean).join(' · ')).join(' · '),
         duplicateRecords:records.length-unique.length,targetDate,requestedDate,
-        choiceKey,recordChoices:ordered(unique).reverse().map(r=>({id:identity(r),record:r})),selectedRecordId:selectedRecord?identity(selectedRecord):'',
+        choiceKey,recordChoices:info?.recordChoices||[],selectedRecordId:selectedRecord?identity(selectedRecord):'',
         duplicateReview:unique.length>1&&!selectedRecord,
         reviewKey:selectedRecord?JSON.stringify([fingerprint,identity(selectedRecord)]):fingerprint,fuelNotes:[]};
       if(!selectedRecord&&eventTiming)row.fuelNotes.push(selectionReason+' 기준: '+row.latestAt);
