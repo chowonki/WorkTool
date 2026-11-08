@@ -146,6 +146,9 @@ test('multiple transfers include the exact total without counting automatic spli
 
 test('Excel XML removes forbidden control characters and preserves valid text',()=>{
  const value='  앞쪽'+String.fromCharCode(0,1)+'중간'+String.fromCharCode(11,31)+'끝'+String.fromCharCode(65534,65535)+' & < > " \'  ';
+ const helper=html.match(/const xml=s=>[\s\S]*?;const crcTable=/)?.[0];
+ assert.ok(helper,'실제 Excel XML 이스케이프 함수가 존재해야 합니다.');
+ vm.runInContext(helper.replace(/;const crcTable=$/,''),context);
  const actual=run('xml('+JSON.stringify(value)+')');
  assert.equal(actual,'  앞쪽중간끝 &amp; &lt; &gt; &quot; &apos;  ');
  assert.equal(run('xml('+JSON.stringify('A\\tB\\nC\\rD')+')'),'A\\tB\\nC\\rD');
