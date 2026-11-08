@@ -492,3 +492,13 @@ test('vendor date range scan handles large unsorted records and missing dates',(
  assert.equal(ranges.get('C').first,'');
  assert.equal(ranges.get('C').last,'');
 });
+
+test('beginner dispatch walkthrough keeps iframe workflow and accessible quick actions',()=>{
+ assert.match(page,/<section class="dispatch-start" aria-label="탁송체크 처음 사용 안내">/);
+ for(const step of ['업체 엑셀 첨부','차량번호 목록 붙여넣기','조회·확인 후 저장'])assert.ok(page.includes(step));
+ assert.match(page,/<button type="button" id="dispatchDemoGuide">체험 데이터로 연습하기<\/button>/);
+ assert.match(page,/<button type="button" id="dispatchInputGuide">차량목록 입력칸으로 이동<\/button>/);
+ assert.match(page,/demoGuide\.onclick=\(\)=>\{const demo=doc\.getElementById\('demo'\);if\(demo\)demo\.click\(\)/);
+ assert.match(page,/inputGuide\.onclick=\(\)=>\{const input=doc\.getElementById\('input'\);if\(input\)\{input\.focus\(\)/);
+ assert.match(page,/<iframe src="\.\/dispatch-tool\.html\?v=/);
+});
