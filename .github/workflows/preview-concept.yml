@@ -1,5 +1,6 @@
 name: Concept visual preview (temporary)
 # Includes desktop and phone-sized layout verification
+# Checks stacked mobile result positions
 on:
   push:
     branches: [ux/concept-dashboard-redesign]
