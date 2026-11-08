@@ -195,6 +195,9 @@ function transferCommentGroups(rows){
   const key=row.commentGroup||'manual-'+index;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row);
  });return [...groups.values()];
 }
+function confirmTransferCommentCopy(ask=message=>window.confirm(message)){
+ return ask('은행에서 실제 송금 완료 상태와 수취인·금액을 확인하셨습니까? 확인한 경우에만 송금완료 문구를 복사합니다.');
+}
 function renderTransferComments(){
  const saved=!data.length&&!!lastDownloadState,rows=data.length?data:(lastDownloadState?.rows||[]),container=$('transferComments');
  container.replaceChildren();$('commentSource').textContent=rows.length?(saved?'마지막 다운로드 내역 · 실제 송금 후 아래 문구를 클릭해 복사하세요.':'현재 이체 내역 · 스레드별 문구입니다. 실제 송금 후 클릭해 복사하세요.'):'추출한 이체 내역이 있으면 스레드별 문구가 표시됩니다.';
@@ -203,7 +206,7 @@ function renderTransferComments(){
   const title=document.createElement('strong'),plates=[...new Set(group.flatMap(r=>r.commentPlates||[r.plate]).filter(Boolean))];title.textContent='스레드 '+(index+1)+(plates.length?' · '+plates.join(', '):'');card.append(title);
   const result=transferComment(group),button=document.createElement('button');button.type='button';button.className='comment-copy';button.textContent=result.text;button.disabled=!result.ready;button.title=result.ready?'클릭하여 코멘트 복사':'금액과 코멘트 구분명을 확인하세요';
   const feedback=document.createElement('span');feedback.className='hint';feedback.setAttribute('role','status');
-  button.onclick=async()=>{if(!window.confirm('은행에서 실제 송금 완료 상태와 수취인·금액을 확인하셨습니까? 확인한 경우에만 송금완료 문구를 복사합니다.')){feedback.textContent='송금 확인 후 복사해 주세요.';return;}try{await copyTransferComment(result.text);feedback.textContent='복사 완료 · 실제 송금 확인은 사용자 책임입니다.';}catch{feedback.textContent='복사하지 못했습니다. 아래 문구를 직접 선택해 복사하세요.';button.hidden=true;const manual=document.createElement('textarea');manual.readOnly=true;manual.value=result.text;manual.setAttribute('aria-label','직접 복사할 코멘트');card.append(manual);manual.focus();manual.select();}};
+  button.onclick=async()=>{if(!confirmTransferCommentCopy()){feedback.textContent='송금 확인 후 복사해 주세요.';return;}try{await copyTransferComment(result.text);feedback.textContent='복사 완료 · 실제 송금 확인은 사용자 책임입니다.';}catch{feedback.textContent='복사하지 못했습니다. 아래 문구를 직접 선택해 복사하세요.';button.hidden=true;const manual=document.createElement('textarea');manual.readOnly=true;manual.value=result.text;manual.setAttribute('aria-label','직접 복사할 코멘트');card.append(manual);manual.focus();manual.select();}};
   card.append(button,feedback);
   if(!result.ready){const hint=document.createElement('p');hint.className='hint';hint.textContent=saved?'마지막 다운로드 내역을 복원한 뒤 금액·코멘트 구분명을 입력하면 복사할 수 있습니다.':'표의 금액과 코멘트 구분명을 확인해 주세요. 구분명 미기재는 이체파일 다운로드를 막지 않습니다.';card.append(hint);}
   container.append(card);
