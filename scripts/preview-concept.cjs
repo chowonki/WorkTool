@@ -38,6 +38,12 @@ try {
  assert.ok(mobileFrame,'mobile dispatch iframe');
  const mobileGrid=await mobileFrame.evaluate(()=>getComputedStyle(document.querySelector('.workspace')).gridTemplateColumns);
  console.log('Mobile dispatch grid:',mobileGrid);
+ const mobileMetrics=await mobileFrame.evaluate(()=>{
+  const rect=id=>{const el=document.querySelector(id);if(!el)return null;const r=el.getBoundingClientRect();const st=getComputedStyle(el);return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height),display:st.display,gridRow:st.gridRow,position:st.position};};
+  return {bar:rect('.topbar'),workspace:rect('.workspace'),inputs:rect('.inputs'),results:rect('.results'),run:rect('#run'),filecard:rect('.filescard'),bodyScrollHeight:document.body.scrollHeight};
+ });
+ console.log('Mobile dispatch bounding metrics:',JSON.stringify(mobileMetrics));
+
  assert.equal(mobileGrid.trim().split(/\s+/).length,1,'mobile dispatch should stack cards');
  await mobileFrame.locator('.workspace').screenshot({path:'guide/theme-preview-dispatch-mobile.png'});
  await page.goto('http://127.0.0.1:8765/transfer.html',{waitUntil:'domcontentloaded'});
