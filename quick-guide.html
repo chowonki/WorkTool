@@ -44,7 +44,7 @@ section.guide{background:#fff;border:1px solid #dce7e1;border-radius:18px;paddin
 .go{display:inline-block;text-decoration:none;background:#0b7e6a;color:#fff;font-weight:800;padding:11px 18px;border-radius:9px;margin-top:16px}
 .note{font-size:13px;border:1px solid #f0e0b4;background:#fff8e8;border-radius:10px;padding:13px 15px;margin-top:20px;color:#785a27}
 footer{border-top:1px solid #dce7e1;margin-top:36px;padding-top:18px;font-size:13px;color:#658077}
-@media(max-width:760px){main{padding:25px 14px 45px}.top{padding:13px 18px;gap:12px}.choose,.steps,.screen-grid{grid-template-columns:1fr}.screen-grid .figure-card img{aspect-ratio:auto;max-height:340px;object-fit:cover;object-position:top}section.guide{padding:17px}.figure-card figcaption{display:block}.figure-card a{display:inline-block;margin-top:5px}}
+.dispatch-sources{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin:20px 0}.source-block{border:1px solid #dce9e1;border-radius:12px;background:#f9fcfa;padding:17px;min-width:0}.source-block h3{font-size:17px;line-height:1.5;margin:10px 0 12px}.source-block ol{padding-left:20px;font-size:13px;color:#466859}.source-block li{margin-bottom:7px}.source-step{font-size:12px;font-weight:800;color:#16765b;background:#e5f3ea;border-radius:6px;padding:4px 8px}.source-outcome{margin:14px 0 0;color:#267353;font-size:13px;font-weight:750}.source-alert{padding:12px 15px;background:#fff6e5;border:1px solid #eddba7;border-radius:10px;color:#694e21;font-size:13px;line-height:1.65}.source-block strong{color:#1a5b44}@media(max-width:760px){.dispatch-sources{grid-template-columns:1fr}main{padding:25px 14px 45px}.top{padding:13px 18px;gap:12px}.choose,.steps,.screen-grid{grid-template-columns:1fr}.screen-grid .figure-card img{aspect-ratio:auto;max-height:340px;object-fit:cover;object-position:top}section.guide{padding:17px}.figure-card figcaption{display:block}.figure-card a{display:inline-block;margin-top:5px}}
 </style>
 </head>
 <body>
@@ -55,16 +55,22 @@ footer{border-top:1px solid #dce7e1;margin-top:36px;padding-top:18px;font-size:1
 <p class="intro">실제 WorkTool 화면을 캡처했습니다. 각 사진을 누르면 크게 볼 수 있습니다. 처음 사용하신다면 아래에서 업무를 선택하세요.</p>
 <div class="choose"><a href="#dispatch">🚗 탁송체크 사용법<span>업체 파일과 차량번호로 조회하기</span></a><a href="#transfer">📄 하나은행 이체파일 사용법<span>Slack 원문으로 Excel 파일 만들기</span></a></div>
 <section class="guide" id="dispatch" aria-labelledby="dispatchTitle">
-<span class="kicker">탁송체크</span>
-<h2 id="dispatchTitle">차량 조회는 이렇게 시작하세요</h2>
-<p class="section-description">업체 엑셀과 차량번호를 준비하고, 결과에 누락이나 중복이 없는지 확인합니다.</p>
-<div class="figure-card"><figure><a href="./guide/dispatch-screen.png" target="_blank" rel="noopener" aria-label="탁송체크 전체 화면 크게 보기"><img src="./guide/dispatch-screen.png" width="1366" height="1000" loading="lazy" alt="탁송체크 실제 화면: 왼쪽 차량목록 입력과 업체 파일 첨부, 오른쪽 조회 결과와 검토 상태"></a><figcaption><span>화면 왼쪽에서 차량목록과 업체 파일을 입력하고, 오른쪽에서 결과를 확인합니다.</span><a href="./guide/dispatch-screen.png" target="_blank" rel="noopener">화면 확대 보기 ↗</a></figcaption></figure></div>
+<span class="kicker">탁송체크 · 실제 업무 준비</span>
+<h2 id="dispatchTitle">차량번호 스크립트 실행부터 3사 시트 첨부까지</h2>
+<p class="section-description">WorkTool에서 조회하기 전에 필요한 원본을 준비하는 순서입니다. <strong>차량목록은 사내 스크립트에서</strong>, <strong>업체파일은 탁송 3사 조회 화면에서</strong> 가져옵니다.</p>
+<div class="dispatch-sources" aria-label="탁송 조회에 필요한 원본 준비 방법">
+<div class="source-block"><span class="source-step">원본 준비 1</span><h3>차량목록 = ‘탁송출발 주유비 미입력’ 스크립트</h3><ol><li>사내 <strong>탁송출발 주유비 미입력</strong> 스크립트를 실행합니다.</li><li>조회 결과에서 <strong>차량번호를 추출하고 복사</strong>합니다.</li><li>WorkTool 왼쪽의 <strong>차량목록 입력</strong> 칸에 붙여넣습니다.</li></ol><p class="source-outcome">결과: 조회할 차량번호 목록이 준비됩니다.</p></div>
+<div class="source-block"><span class="source-step">원본 준비 2</span><h3>업체파일 = 탁송 3사 ‘탁송기한’ 조회 시트</h3><ol><li><strong>한빛탁송 · 오픈마일 · 렌톡</strong>에서 각각 탁송기한을 조회합니다.</li><li>대상 기간을 선택하고 <strong>조회 후 시트 다운로드</strong>를 진행합니다.</li><li>다운로드한 시트 3개를 WorkTool <strong>업체 파일 첨부</strong>에 넣습니다.</li></ol><p class="source-outcome">결과: 차량번호와 비교할 업체별 원본 파일이 준비됩니다.</p></div>
+</div>
+<p class="source-alert"><strong>렌톡은 반드시 확인:</strong> 시트 조회 기준을 <strong>‘요청시각’에서 ‘출발시각’</strong>으로 변경한 후 대상 기간을 설정해 다운로드하세요. 세 업체의 조회 기간이 맞는지도 확인해 주세요.</p>
+<div class="figure-card"><figure><a href="./guide/dispatch-screen.png" target="_blank" rel="noopener" aria-label="탁송체크 전체 화면 크게 보기"><img src="./guide/dispatch-screen.png" width="1366" height="1000" loading="lazy" alt="탁송체크 실제 화면: 왼쪽 차량목록 입력과 업체 파일 첨부, 오른쪽 조회 결과와 검토 상태"></a><figcaption><span>스크린샷은 <strong>WorkTool 입력·조회 화면</strong>입니다. 스크립트와 3사 조회 화면은 포함하지 않습니다.</span><a href="./guide/dispatch-screen.png" target="_blank" rel="noopener">화면 확대 보기 ↗</a></figcaption></figure></div>
 <ol class="steps">
-<li><strong>업체 엑셀 첨부</strong><p>한빛탁송·오픈마일·렌톡 파일을 화면 왼쪽의 첨부 영역에 넣습니다.</p></li>
-<li><strong>차량번호 입력</strong><p>조회할 차량번호 목록을 붙여넣습니다. 날짜와 함께 복사한 내용도 가능합니다.</p></li>
-<li><strong>조회·검토·저장</strong><p>조회 버튼을 누르고 중복·미완료·금액 확인 필요 항목을 검토한 후 저장합니다.</p></li>
+<li><strong>차량번호 붙여넣기</strong><p>스크립트에서 복사한 차량번호를 화면 왼쪽 <strong>차량목록 입력</strong>에 붙여넣습니다.</p></li>
+<li><strong>업체 시트 첨부</strong><p>3사 탁송기한 조회에서 내려받은 시트를 <strong>업체 파일 첨부</strong>에 넣고 인식 여부를 확인합니다.</p></li>
+<li><strong>조회·검토·저장</strong><p><strong>차량 조회하기</strong>를 누르고 미조회·주유비 확인 필요·중복 기록을 검토한 후 결과를 저장합니다.</p></li>
 </ol>
 <a class="go" href="./dispatch.html">탁송체크 열기 →</a>
+<p class="section-description">상태별 금액 처리나 중복 차량 선택 기준은 <a href="./dispatch-guide.html" target="_blank" rel="noopener">탁송체크 상세 사용방법</a>에서 확인하세요.</p>
 </section>
 <section class="guide" id="transfer" aria-labelledby="transferTitle">
 <span class="kicker">하나은행 이체파일</span>
