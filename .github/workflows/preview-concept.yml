@@ -1,4 +1,5 @@
 name: Concept visual preview (temporary)
+# Includes desktop and phone-sized layout verification
 on:
   push:
     branches: [ux/concept-dashboard-redesign]
