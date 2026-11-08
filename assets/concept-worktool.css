@@ -77,6 +77,7 @@ html.concept-dispatch body,html.concept-transfer body,html.worktool-dispatch-fra
 
 /* Dispatch inner app: its original HTML/JS and all controls remain unchanged. */
 .worktool-dispatch-frame body{background:#f5f8f6!important}
+.worktool-dispatch-frame .topbar{display:none!important}
 .worktool-dispatch-frame .topbar{
  background:#fff!important;border-bottom:1px solid var(--wt-border)!important;
  min-height:70px!important;padding:15px 25px!important;
