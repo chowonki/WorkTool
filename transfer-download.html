@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="WorkTool 하나은행 이체파일: Excel 다운로드 및 완료 안내">
+<title>Excel 다운로드 및 완료 안내 · 하나은행 이체파일 · WorkTool</title>
+<link rel="stylesheet" href="./assets/transfer-wizard.css?v=20261108">
+</head>
+<body data-stage="download">
+<header class="topbar"><a class="brand" href="./index.html"><span>↗</span> WorkTool</a><nav class="topnav" aria-label="업무 도구 이동"><a href="./dispatch.html">탁송체크</a><a href="./transfer-input.html" data-workflow-link aria-current="page">하나은행 이체파일</a><a href="./quick-guide.html#transfer" target="_blank" rel="noopener">그림 사용법 ↗</a></nav></header>
+<main class="shell">
+<header class="wizard-header"><p class="eyebrow">HANA BANK · 3 / 3단계</p><h1>Excel 다운로드 및 완료 안내</h1><p class="intro">검토한 내역을 은행 업로드용 Excel 파일로 저장합니다. 실제 송금 여부는 은행에서 확인하세요.</p><nav class="steps" aria-label="이체파일 만들기 단계"><a href="./transfer-input.html" data-workflow-link><span class="number">1</span><span><span class="step-name">원문 입력</span><span class="step-desc">Slack 내용 붙여넣기</span></span></a><a href="./transfer-review.html" data-workflow-link><span class="number">2</span><span><span class="step-name">이체 내역 검토</span><span class="step-desc">계좌·금액·메모 확인</span></span></a><a href="./transfer-download.html" data-workflow-link aria-current="step"><span class="number">3</span><span><span class="step-name">Excel 다운로드</span><span class="step-desc">파일 저장 후 은행 확인</span></span></a></nav></header>
+<section class="page-content" aria-label="Excel 다운로드 및 완료 안내 실제 작업 영역">
+<iframe id="transferWorkflowFrame" class="frame" src="./transfer.html?step=download" title="하나은행 이체파일 다운로드 및 완료 안내" loading="eager" allow="clipboard-write"></iframe>
+</section>
+<div class="stage-status" id="workflowStatus" role="status" aria-live="polite"><strong>작업 상태</strong><p class="message" id="workflowNotice">작성된 이체 내역을 불러오는 중입니다.</p></div>
+<nav class="stage-actions" aria-label="단계 이동"><div class="left-actions"><a class="action" data-workflow-link href="./transfer-review.html">← 이전 단계</a></div><div class="right-actions"><button class="action danger" type="button" id="workflowRestart">새 이체 작업 시작</button></div></nav>
+<p class="storage-notice"><strong>주의:</strong> 다운로드는 송금 실행이 아닙니다. 은행 업로드 화면에서 수취인·계좌번호·금액을 다시 확인한 뒤 송금을 진행하세요.</p>
+</main>
+<script src="./assets/transfer-wizard.js?v=20261108" defer></script>
+</body></html>

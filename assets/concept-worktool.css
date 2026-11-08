@@ -341,3 +341,39 @@ html.concept-home body{background:#f3f7f5;color:#1a3d2e;font-family:-apple-syste
 
 /* The outer page already supplies navigation; avoid a duplicate nested header. */
 html.worktool-dispatch-frame body > header.topbar{display:none!important;visibility:hidden!important;height:0!important;min-height:0!important;padding:0!important;border:0!important}
+
+
+/* Shared bank transfer engine embedded in independent workflow route pages.
+   Keep all form controls alive for existing parsing, validation and exporting. */
+html.transfer-workflow-embedded body{
+ background:transparent!important;margin:0!important;
+}
+html.transfer-workflow-embedded :is(.toolnav,.page-intro){display:none!important}
+html.transfer-workflow-embedded main{
+ margin:0!important;padding:0!important;max-width:none!important;width:100%!important;
+}
+html.transfer-workflow-embedded :is(#stepInput,#stepReview,#stepDownload,#stepComments){
+ display:none!important;
+}
+html.transfer-workflow-embedded[data-workflow-step="input"] #stepInput,
+html.transfer-workflow-embedded[data-workflow-step="review"] #stepReview,
+html.transfer-workflow-embedded[data-workflow-step="download"] #stepDownload,
+html.transfer-workflow-embedded[data-workflow-step="download"] #stepComments{
+ display:block!important;
+}
+html.transfer-workflow-embedded .step-panel{
+ box-shadow:none!important;margin:0!important;
+ border:0!important;border-radius:0!important;padding:14px 8px 18px!important;
+}
+html.transfer-workflow-embedded #stepComments{
+ margin:14px 0 0!important;box-shadow:none!important;border:1px solid #dbe9df!important;
+}
+html.transfer-workflow-embedded .step-title{margin-bottom:17px!important}
+html.transfer-workflow-embedded .input-sideguide{position:static!important}
+html.transfer-workflow-embedded .step-title>span{width:33px!important;height:33px!important;font-size:15px!important}
+html.transfer-workflow-embedded .step-title h2{font-size:21px!important}
+html.transfer-workflow-embedded .thread-entry textarea{min-height:200px!important}
+@media(max-width:760px){
+ html.transfer-workflow-embedded .step-panel{padding:10px 0 18px!important}
+ html.transfer-workflow-embedded .input-grid{grid-template-columns:1fr!important}
+}
