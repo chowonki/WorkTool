@@ -1,0 +1,18 @@
+name: Inspect dashboard structure (temporary)
+on:
+  push:
+    branches: [ux/concept-dashboard-redesign]
+    paths:
+      - .github/workflows/inspect-structure.yml
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/http.log 2>&1 &
+          npm install --no-save --no-package-lock playwright-core@1.58.2
+          CHROME_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)" node scripts/inspect-structure.cjs
