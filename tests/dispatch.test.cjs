@@ -423,14 +423,16 @@ test('individual fee, VAT and total clicks copy only the displayed numeric value
 
 test('repeated plate lookups preserve results, dates and duplicate-review choices',()=>{
  const core=setup(),files=[{records:[trip('A',35000,'2026-11-04 09:00'),trip('B',50000,'2026-11-05 09:00')]}];
- const source=Array.from({length:500},(_,i)=>({plate:'123가4567',date:i%2?'2026-11-04':'2026-11-05'}));
+ const source=Array.from({length:500},()=>({plate:'123가4567',date:'2026-11-05'}));
  const rows=core.match(source,files);
  assert.equal(rows.length,500);
  for(let i=0;i<rows.length;i++){
-  assert.equal(rows[i].targetDate,i%2?'2026-11-04':'2026-11-05');
-  assert.equal(rows[i].amount,i%2?35000:50000);
+  assert.equal(rows[i].targetDate,'2026-11-05');
+  assert.equal(rows[i].amount,50000);
   assert.equal(rows[i].recordChoices.length,2);
   assert.equal(rows[i].duplicateReview,true);
  }
  assert.equal(new Set(rows.map(row=>row.choiceKey)).size,1);
+ const differentDates=core.match([{plate:'123가4567',date:'2026-11-04'},{plate:'123가4567',date:'2026-11-05'}],files);
+ assert.ok(differentDates.every(row=>row.status==='tripReview'&&row.amount===null));
 });
