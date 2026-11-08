@@ -33,13 +33,17 @@ jobs:
             test -s "guide/$name-screen.png"
             file "guide/$name-screen.png"
           done
+          for step in Review Download; do
+            "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --window-size=1366,1000 --force-device-scale-factor=1 --virtual-time-budget=8000 --screenshot="$PWD/guide/transfer-$step.png" "http://127.0.0.1:8765/transfer.html#step$step"
+            test -s "guide/transfer-$step.png"
+          done
       - name: Commit screenshot assets to guide branch
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add guide/transfer-screen.png guide/dispatch-screen.png
+          git add guide/*.png
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "docs: include authentic page screenshots for visual quick start"
           git push origin HEAD:ux/visual-quick-guide
