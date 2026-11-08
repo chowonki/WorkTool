@@ -423,6 +423,90 @@ function uniqueTransferFilename(rows=data, now=new Date()){
   return `${label}_${total}_${stamp.slice(4)}${exportSequence>1?'_'+exportSequence:''}.xlsx`;
 }
 function excel(){if(data.length>MAX_TRANSFERS){alert('최대 100건까지만 다운로드할 수 있습니다. 초과된 행을 삭제하거나 나눠서 처리하세요.');return}if(!data.length||data.some(r=>validate(r).length)){alert('검토가 필요한 행을 수정한 후 다운로드하세요.');return}const cms=$('cms').value.trim();const hanaBank=b=>({'국민은행':'국민','신한은행':'신한','우리은행':'우리','농협은행':'농협','기업은행':'기업','하나은행':'하나','저축은행':'저축','iM뱅크':'대구','SC제일은행':'SC제일','수협은행':'수협'}[b]||b.replace(/은행$/,''));const values=[['입금은행','입금계좌번호','입금액(원)','출금통장표시','입금통장표시','CMS코드'],...data.map(r=>[hanaBank(canonicalBank(r.bank)),r.account,Number(r.amount),r.outMemo??r.plate,r.inMemo??r.plate,cms])];const sheetRows=values.map((row,i)=>`<row r="${i+1}">${row.map((v,j)=>{const ref=String.fromCharCode(65+j)+(i+1);return j===2&&i>0?`<c r="${ref}"><v>${v}</v></c>`:`<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xml(v)}</t></is></c>`}).join('')}</row>`).join('');const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="18" customWidth="1"/><col min="2" max="2" width="24" customWidth="1"/><col min="3" max="3" width="16" customWidth="1"/><col min="4" max="6" width="20" customWidth="1"/></cols><sheetData>${sheetRows}</sheetData></worksheet>`;const entries=[['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'],['_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],['xl/workbook.xml','<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="이체검토" sheetId="1" r:id="rId1"/></sheets></workbook>'],['xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'],['xl/worksheets/sheet1.xml',sheet]];const blob=zip(entries),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=uniqueTransferFilename();const downloadState=snapshot();document.body.appendChild(a);try{a.click()}finally{a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}lastDownloadState=downloadState;$('parseNotice').textContent='이체파일 다운로드를 요청했습니다. 실제 저장 여부를 확인한 뒤 전체 초기화해 주세요. 재다운로드 시 중복 송금에 유의하세요.';renderTransferComments();}$('download').onclick=excel;render();
+/*
+ * Multipage transfer workflow adapter.
+ * The core parser, editor, validators, bank exporter and confirmation dialogs stay
+ * in this one document; the three route pages embed it in the same-origin iframe.
+ * SessionStorage is tab-scoped, temporary and never sent to a server.
+ */
+const TRANSFER_WORKFLOW_KEY='worktool.transfer.wizard.v1';
+const TRANSFER_WORKFLOW_TTL=4*60*60*1000;
+const workflowStep=new URLSearchParams(window.location.search).get('step');
+const workflowEnabled=['input','review','download'].includes(workflowStep);
+let workflowSaveTimer=null;
+function workflowSummary(){
+ return {count:data.length,invalid:data.filter(row=>validate(row).length).length,total:amountSum(data)};
+}
+function workflowNotify(){
+ if(!workflowEnabled||window.parent===window)return;
+ window.parent.postMessage({type:'worktool-transfer-status',step:workflowStep,...workflowSummary()},window.location.origin);
+}
+function workflowSave(){
+ if(!workflowEnabled)return true;
+ if(document.querySelector('dialog[open]')){
+  $('parseNotice').textContent='차량번호 확인 팝업을 먼저 완료하거나 취소해 주세요.';
+  return false;
+ }
+ try{
+  const payload={version:1,savedAt:Date.now(),state:snapshot(),undoState,lastDownloadState,commentSerial};
+  window.sessionStorage.setItem(TRANSFER_WORKFLOW_KEY,JSON.stringify(payload));
+  workflowNotify();
+  return true;
+ }catch(error){
+  $('parseNotice').textContent='단계 이동을 위한 임시 저장에 실패했습니다. 브라우저 저장소 설정을 확인해 주세요. 현재 내용은 유지됩니다.';
+  return false;
+ }
+}
+function workflowRestore(){
+ if(!workflowEnabled)return;
+ let payload;
+ try{
+  const raw=window.sessionStorage.getItem(TRANSFER_WORKFLOW_KEY);
+  if(!raw)return;
+  payload=JSON.parse(raw);
+  if(payload?.version!==1||!Number.isFinite(payload.savedAt)||Date.now()-payload.savedAt>TRANSFER_WORKFLOW_TTL||
+     !payload.state||!Array.isArray(payload.state.rows)||payload.state.rows.length>MAX_TRANSFERS||
+     !Array.isArray(payload.state.threads)||payload.state.threads.length>MAX_TRANSFERS+1){
+   window.sessionStorage.removeItem(TRANSFER_WORKFLOW_KEY);return;
+  }
+  restoreState(payload.state);
+  undoState=payload.undoState&&Array.isArray(payload.undoState.rows)?payload.undoState:null;
+  lastDownloadState=payload.lastDownloadState&&Array.isArray(payload.lastDownloadState.rows)?payload.lastDownloadState:null;
+  commentSerial=Number.isSafeInteger(payload.commentSerial)&&payload.commentSerial>=0?payload.commentSerial:0;
+  $('parseNotice').textContent=payload.state.rows.length?'이전 단계에서 작성한 이체 내역을 복원했습니다.':'같은 탭에서 작성한 내용을 복원했습니다.';
+ }catch(error){
+  $('parseNotice').textContent='임시 저장 정보를 읽지 못했습니다. 필요한 내용을 다시 확인해 주세요.';
+ }
+}
+function workflowResetAll(){
+ if(!workflowEnabled)return false;
+ resetTransfer('새 이체 작업 시작');
+ undoState=null;
+ lastDownloadState=null;
+ commentSerial=0;
+ if(workflowSaveTimer){clearTimeout(workflowSaveTimer);workflowSaveTimer=null;}
+ try{window.sessionStorage.removeItem(TRANSFER_WORKFLOW_KEY)}
+ catch(error){return false}
+ workflowNotify();
+ return true;
+}
+if(workflowEnabled){
+ document.documentElement.classList.add('transfer-workflow-embedded');
+ document.documentElement.dataset.workflowStep=workflowStep;
+ workflowRestore();
+ workflowNotify();
+ window.addEventListener('pagehide',workflowSave);
+ const scheduleSave=()=>{
+  if(workflowSaveTimer)clearTimeout(workflowSaveTimer);
+  workflowSaveTimer=setTimeout(()=>{workflowSaveTimer=null;workflowSave()},280);
+ };
+ document.addEventListener('input',scheduleSave);
+ document.addEventListener('change',scheduleSave);
+ document.addEventListener('click',event=>{
+  if(event.target.closest('button,summary'))scheduleSave();
+ });
+}
+
 </script></body></html>
 
 
