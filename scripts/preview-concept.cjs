@@ -31,5 +31,19 @@ try {
  await page.locator('#stepDownload').screenshot({path:'guide/theme-preview-transfer-download.png'});
  const grid=await page.locator('.input-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns);
  console.log('Transfer input grid:',grid);
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('http://127.0.0.1:8765/dispatch.html',{waitUntil:'domcontentloaded'});
+ await page.waitForTimeout(1200);
+ const mobileFrame=page.frames().find(f=>f.url().includes('dispatch-tool.html'));
+ assert.ok(mobileFrame,'mobile dispatch iframe');
+ const mobileGrid=await mobileFrame.evaluate(()=>getComputedStyle(document.querySelector('.workspace')).gridTemplateColumns);
+ console.log('Mobile dispatch grid:',mobileGrid);
+ assert.equal(mobileGrid.trim().split(/\s+/).length,1,'mobile dispatch should stack cards');
+ await mobileFrame.locator('.workspace').screenshot({path:'guide/theme-preview-dispatch-mobile.png'});
+ await page.goto('http://127.0.0.1:8765/transfer.html',{waitUntil:'domcontentloaded'});
+ const mobileTransferGrid=await page.locator('.input-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns);
+ console.log('Mobile transfer grid:',mobileTransferGrid);
+ assert.equal(mobileTransferGrid.trim().split(/\s+/).length,1,'mobile transfer should stack columns');
+ await page.locator('#stepInput').screenshot({path:'guide/theme-preview-transfer-mobile.png'});
 } finally {await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1});
