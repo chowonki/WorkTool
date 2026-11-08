@@ -145,9 +145,9 @@ test('multiple transfers include the exact total without counting automatic spli
 });
 
 test('Excel XML removes forbidden control characters and preserves valid text',()=>{
- const value='  앞쪽\\u0000\\u0001중간\\u000B\\u001F끝\\uFFFE\\uFFFF & < > " \\'  ';
- const actual=run("xml("+JSON.stringify("  앞쪽 중간끝￾￿ & < > " '  ")+")");
+ const value='  앞쪽'+String.fromCharCode(0,1)+'중간'+String.fromCharCode(11,31)+'끝'+String.fromCharCode(65534,65535)+' & < > " \'  ';
+ const actual=run('xml('+JSON.stringify(value)+')');
  assert.equal(actual,'  앞쪽중간끝 &amp; &lt; &gt; &quot; &apos;  ');
- assert.equal(run("xml("+JSON.stringify('A\tB\nC\rD')+")"),'A\tB\nC\rD');
+ assert.equal(run('xml('+JSON.stringify('A\\tB\\nC\\rD')+')'),'A\\tB\\nC\\rD');
  assert.match(html,/xml:space="preserve"/);
 });
