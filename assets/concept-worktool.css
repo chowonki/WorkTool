@@ -1,0 +1,314 @@
+/* WorkTool concept-inspired UI. Visual layer only: business logic untouched. */
+:root{
+ --wt-accent:#087c61;--wt-accent-dark:#075743;--wt-pale:#e9f5ef;
+ --wt-ink:#182f2b;--wt-muted:#557068;--wt-border:#d8e5df;
+ --wt-bg:#f3f7f5;--wt-shadow:0 5px 22px rgba(26,72,55,.055);
+}
+html.concept-dispatch,html.concept-transfer,html.worktool-dispatch-frame{color-scheme:light;scroll-behavior:smooth}
+html.concept-dispatch body,html.concept-transfer body,html.worktool-dispatch-frame body{
+ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif!important;
+ color:var(--wt-ink);background:var(--wt-bg);
+}
+:is(.concept-dispatch,.concept-transfer,.worktool-dispatch-frame) :is(a,button,input,textarea,select,summary):focus-visible{
+ outline:3px solid #38a887!important;outline-offset:3px;
+}
+:is(.concept-dispatch,.concept-transfer,.worktool-dispatch-frame) button:not(:disabled){
+ transition:background-color .14s,border-color .14s,box-shadow .14s,transform .14s;
+}
+:is(.concept-dispatch,.concept-transfer,.worktool-dispatch-frame) button:hover:not(:disabled){
+ box-shadow:0 3px 12px rgba(13,93,67,.10);
+}
+:is(.concept-dispatch,.concept-transfer,.worktool-dispatch-frame) input:is([type="text"],[type="search"]), 
+:is(.concept-dispatch,.concept-transfer,.worktool-dispatch-frame) textarea,
+:is(.concept-dispatch,.concept-transfer,.worktool-dispatch-frame) select{
+ border:1px solid #bfd2c8;border-radius:9px;background:#fff;color:#223b32;
+}
+
+/* Dispatch page top navigation, hero, and process cards. */
+.concept-dispatch nav[aria-label="기능 이동"]{
+ min-height:66px;height:auto;padding:9px clamp(16px,2.7vw,42px);
+ gap:8px;background:#fff;border-bottom:1px solid var(--wt-border);
+ box-shadow:0 2px 7px rgba(20,80,55,.035);white-space:normal;
+}
+.concept-dispatch nav[aria-label="기능 이동"] a{
+ padding:10px 14px;color:#446256;font-size:13px;font-weight:700;
+ border-radius:9px;line-height:1.4;
+}
+.concept-dispatch nav[aria-label="기능 이동"] a:first-child{font-weight:850;color:var(--wt-accent-dark);font-size:16px;margin-right:auto}
+.concept-dispatch nav[aria-label="기능 이동"] a[aria-current="page"]{color:var(--wt-accent-dark);background:#e4f4eb}
+.concept-dispatch nav[aria-label="기능 이동"] a:hover{background:#f0f7f2}
+.concept-dispatch .dispatch-start{
+ background:linear-gradient(110deg,#e6f3eb 0%,#f3f9f5 58%,#eaf6ef 100%);
+ padding:18px clamp(16px,2.7vw,42px) 20px;border-bottom:1px solid #cae0d3;
+}
+.concept-dispatch .dispatch-start-title{margin-bottom:13px;gap:11px}
+.concept-dispatch .dispatch-start-title strong{font-size:19px;letter-spacing:-.45px;color:#153f32}
+.concept-dispatch .dispatch-start-title>span{font-size:13px;color:#476c5c}
+.concept-dispatch .dispatch-start-title>a{font-weight:750;color:var(--wt-accent-dark);text-decoration:none;padding:7px 10px;border-radius:7px}
+.concept-dispatch .dispatch-start-title>a:hover{background:#d7ede1}
+.concept-dispatch .dispatch-steps{gap:13px}
+.concept-dispatch .dispatch-steps li{
+ gap:12px;align-items:flex-start;min-height:92px;padding:16px 16px;
+ background:#fff;border:1px solid #d3e5d9;border-radius:14px;
+ box-shadow:0 2px 12px rgba(15,90,57,.05);
+}
+.concept-dispatch .dispatch-steps b{
+ width:37px;height:37px;background:var(--wt-accent);font-size:17px;
+ box-shadow:0 2px 8px rgba(6,103,68,.16)
+}
+.concept-dispatch .dispatch-steps strong{font-size:15px;line-height:1.4;color:#1a3c30}
+.concept-dispatch .dispatch-steps small{
+ font-size:12px;line-height:1.5;margin-top:5px;color:#52766a;
+}
+.concept-dispatch .dispatch-beginner-actions{margin-top:14px;gap:11px}
+.concept-dispatch .dispatch-visual-guide{
+ padding:10px 16px;border:1px solid var(--wt-accent-dark);
+ background:var(--wt-accent-dark);border-radius:10px;font-size:13px;
+}
+.concept-dispatch .dispatch-beginner-actions button{
+ border:1px solid #b4d5c3;padding:10px 15px;
+ border-radius:10px;color:var(--wt-accent-dark);
+}
+.concept-dispatch .dispatch-beginner-actions small{font-size:12px;color:#5a745f}
+.concept-dispatch iframe{
+ display:block;width:100%;height:calc(100dvh - 284px);
+ min-height:740px;border:0;
+}
+
+/* Dispatch inner app: its original HTML/JS and all controls remain unchanged. */
+.worktool-dispatch-frame body{background:#f5f8f6!important}
+.worktool-dispatch-frame .topbar{
+ background:#fff!important;border-bottom:1px solid var(--wt-border)!important;
+ min-height:70px!important;padding:15px 25px!important;
+}
+.worktool-dispatch-frame .brand{font-weight:850!important;font-size:21px!important;color:#173f30}
+.worktool-dispatch-frame .brandmark{background:var(--wt-accent-dark)!important;color:#fff!important;border-radius:10px!important}
+.worktool-dispatch-frame .topright{gap:12px}
+.worktool-dispatch-frame main{
+ max-width:1840px!important;margin:0 auto!important;padding:25px clamp(14px,2.5vw,40px) 50px!important;
+}
+.worktool-dispatch-frame .pagehead{
+ background:#fff;border:1px solid var(--wt-border);border-radius:15px;
+ padding:21px 25px!important;margin-bottom:19px!important;
+ box-shadow:var(--wt-shadow);
+}
+.worktool-dispatch-frame .pagehead h1{font-size:clamp(24px,2.2vw,31px)!important;line-height:1.25;letter-spacing:-.65px}
+.worktool-dispatch-frame .pagehead p{font-size:13px!important;color:var(--wt-muted)}
+.worktool-dispatch-frame .eyebrow{color:var(--wt-accent)!important;font-weight:800!important}
+.worktool-dispatch-frame .headbuttons .button:not(.primary){border-radius:9px!important;background:#f1f6f2!important;color:#385d4a!important;border:1px solid #dbe8df!important}
+.worktool-dispatch-frame .workspace{
+ display:grid!important;grid-template-columns:minmax(315px,360px) minmax(0,1fr)!important;
+ gap:18px!important;align-items:start!important;
+}
+.worktool-dispatch-frame .inputs{min-width:0;display:grid;gap:15px}
+.worktool-dispatch-frame .results{min-width:0}
+.worktool-dispatch-frame .card{
+ border:1px solid var(--wt-border)!important;border-radius:15px!important;
+ background:#fff!important;box-shadow:var(--wt-shadow)!important;
+}
+.worktool-dispatch-frame .inputcard,.worktool-dispatch-frame .filescard{padding:20px!important}
+.worktool-dispatch-frame .steptitle{gap:9px!important}
+.worktool-dispatch-frame .steptitle h2,.worktool-dispatch-frame .resulthead h2{
+ color:#173b30;font-weight:800!important;font-size:19px!important;
+}
+.worktool-dispatch-frame .step{
+ background:var(--wt-accent)!important;color:#fff!important;border-radius:50%!important;
+ min-width:28px;min-height:28px;display:inline-grid!important;place-items:center!important;font-size:13px!important;
+}
+.worktool-dispatch-frame .sectionhint{font-size:13px!important;color:#557269!important;line-height:1.6}
+.worktool-dispatch-frame #input{
+ min-height:220px!important;padding:14px!important;font-size:14px!important;
+ line-height:1.65!important;background:#fbfdfb!important;
+}
+.worktool-dispatch-frame .drop{
+ background:#f5fbf7!important;border:2px dashed #8abfa3!important;border-radius:13px!important;
+ min-height:116px!important;color:#215c43!important;
+}
+.worktool-dispatch-frame .drop:hover{background:#e9f6ee!important;border-color:var(--wt-accent)!important}
+.worktool-dispatch-frame #fileList{font-size:13px!important}
+.worktool-dispatch-frame .button.primary,.worktool-dispatch-frame #run{
+ background:linear-gradient(125deg,#0c8263,#076b52)!important;color:#fff!important;
+ border:1px solid #087257!important;border-radius:11px!important;
+ font-size:16px!important;font-weight:800!important;box-shadow:0 4px 12px rgba(7,105,73,.13)!important;
+}
+.worktool-dispatch-frame #run{min-height:52px!important}
+.worktool-dispatch-frame .duplicate-review-banner{
+ border:1px solid #ebd4a2!important;background:#fff9e9!important;
+ color:#73501e!important;border-radius:12px!important;padding:13px 16px!important;
+ margin-bottom:15px!important;
+}
+.worktool-dispatch-frame .stats{
+ display:grid!important;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))!important;gap:10px!important;
+ margin-bottom:17px!important;
+}
+.worktool-dispatch-frame .stats .stat{
+ min-height:92px!important;background:#fff!important;border:1px solid #d9e5df!important;
+ border-radius:12px!important;box-shadow:0 2px 8px rgba(22,70,56,.035)!important;
+ padding:13px 15px!important;text-align:left!important;
+}
+.worktool-dispatch-frame .stats .stat.active{background:#eaf6ef!important;border-color:#70b499!important}
+.worktool-dispatch-frame .stats .stat strong{font-size:24px!important;color:#1b4232!important}
+.worktool-dispatch-frame .resultcard{padding:18px 20px!important}
+.worktool-dispatch-frame .resulthead{padding-bottom:14px!important}
+.worktool-dispatch-frame .tabs{gap:7px!important}
+.worktool-dispatch-frame .tab{
+ padding:9px 12px!important;border-radius:9px!important;background:#f5f8f6!important;
+ color:#47665b!important;border:1px solid #e0e9e3!important;
+}
+.worktool-dispatch-frame .tab.active{background:#e1f1e7!important;color:#075f45!important;border-color:#90c3a6!important}
+.worktool-dispatch-frame .filterbar,.worktool-dispatch-frame .dispatch-tools{
+ border-color:#e4eee8!important;
+}
+.worktool-dispatch-frame .tablewrap{border:1px solid #e0e9e3;border-radius:11px;overflow:auto!important}
+.worktool-dispatch-frame #table{border-collapse:separate!important;border-spacing:0!important;font-size:13px}
+.worktool-dispatch-frame #table th{background:#eaf1ec!important;color:#204b3a!important;font-weight:800!important;white-space:nowrap}
+.worktool-dispatch-frame #table td{border-bottom:1px solid #eef2ef!important}
+.worktool-dispatch-frame #table tr:hover td{background:#f7faf8}
+.worktool-dispatch-frame :is(.button,.tab,.stat,.drop,.textbutton){cursor:pointer}
+.worktool-dispatch-frame a{color:#0b684b!important}
+
+/* Transfer: bright header and step-by-step bank workflow. */
+.concept-transfer body{background:#f3f7f5!important}
+.concept-transfer .toolnav{
+ min-height:64px;padding:10px clamp(16px,3.2vw,48px)!important;
+ background:#fff!important;color:#2f5847!important;
+ border-bottom:1px solid #d8e8df!important;box-shadow:0 2px 9px rgba(10,70,44,.03);
+ gap:7px!important;
+}
+.concept-transfer .toolnav a{
+ padding:11px 14px!important;border-radius:9px!important;color:#4a695c!important;font-weight:700;
+}
+.concept-transfer .toolnav a.homelink{font-weight:850!important;color:#105b45!important;font-size:16px}
+.concept-transfer .toolnav a[aria-current=page]{background:#e6f5ea!important;color:#075d42!important}
+.concept-transfer main{max-width:1330px!important;margin:24px auto 70px!important;padding:0 clamp(15px,3vw,40px)!important}
+.concept-transfer .page-intro{
+ background:linear-gradient(117deg,#e9f5ec 0%,#f3faf5 75%,#e6f4e9 100%);
+ border:1px solid #cae2d1;border-radius:18px;padding:26px 28px 23px!important;
+ box-shadow:var(--wt-shadow);margin-bottom:22px;
+}
+.concept-transfer .page-intro h1{color:#183d2f;font-size:clamp(23px,2.6vw,33px)!important;font-weight:850!important;margin:8px 0 5px}
+.concept-transfer .intro-sub{color:#496d5c!important;font-size:14px}
+.concept-transfer .page-intro .eyebrow{color:#0c7958!important;font-weight:850!important}
+.concept-transfer .process-nav{gap:13px!important;margin:22px 0 13px!important}
+.concept-transfer .process-nav a{
+ border:1px solid #cde2d4!important;box-shadow:0 1px 8px rgba(30,90,62,.045)!important;
+ padding:15px!important;min-height:83px!important;border-radius:13px!important;
+ align-items:center!important;
+}
+.concept-transfer .process-nav a:hover{background:#f2f9f4!important;border-color:#70b18f!important}
+.concept-transfer .process-nav b,.concept-transfer .step-title>span{
+ background:#0b8061!important;color:#fff!important;
+ width:38px!important;height:38px!important;border-radius:50%!important;
+ font-size:17px!important;
+}
+.concept-transfer .process-nav strong{font-size:15px!important;color:#234b39!important}
+.concept-transfer .process-nav small{font-size:12px!important;color:#597666!important}
+.concept-transfer .important-inline{
+ background:#fff8e7!important;border:1px solid #ebd7ad!important;
+ color:#71511a!important;border-radius:10px!important;padding:12px 15px!important;font-size:13px!important;
+}
+.concept-transfer .step-panel{
+ border:1px solid var(--wt-border)!important;box-shadow:var(--wt-shadow)!important;
+ background:#fff!important;border-radius:17px!important;
+ padding:25px 28px!important;margin:18px 0 22px!important;
+}
+.concept-transfer .step-title{border-bottom:1px solid #e8efea;padding-bottom:17px;margin-bottom:21px!important}
+.concept-transfer .step-title h2{font-size:22px!important;color:#183d30!important}
+.concept-transfer .step-title p{color:#587467!important;font-size:13px!important}
+.concept-transfer .input-grid{
+ display:grid;grid-template-columns:minmax(0,1fr) 275px;gap:18px;align-items:start;
+}
+.concept-transfer .input-work{min-width:0}
+.concept-transfer .input-sideguide{
+ background:#f6faf7;border:1px solid #dcebe0;border-radius:13px;
+ padding:17px 18px;position:sticky;top:15px;
+}
+.concept-transfer .input-sideguide h3{margin:0 0 12px!important;color:#176147;font-size:17px}
+.concept-transfer .input-sideguide ol{padding-left:20px;margin:0}
+.concept-transfer .input-sideguide li{font-size:13px;line-height:1.65;color:#425c4d;margin:0 0 12px}
+.concept-transfer .input-sideguide p{
+ font-size:12px;line-height:1.6;margin:14px 0 0;padding:10px;
+ border-radius:8px;background:#fff7e7;color:#785721;
+}
+.concept-transfer .thread-entry{border:1px solid #dce7e0!important;border-radius:11px!important;padding:15px!important;background:#fcfdfc}
+.concept-transfer .thread-entry textarea,.concept-transfer textarea.threadRaw{
+ background:#fff!important;min-height:195px!important;border-color:#bfd5c8!important;
+ font-size:14px!important;line-height:1.7!important;
+}
+.concept-transfer #parse,.concept-transfer #download{
+ background:linear-gradient(130deg,#0b8061,#07684e)!important;color:#fff!important;
+ border-radius:10px!important;padding:14px 21px!important;font-size:16px!important;
+ border:1px solid #096f54!important;box-shadow:0 4px 11px rgba(6,105,75,.13);
+}
+.concept-transfer .quick-visual a{border-radius:9px!important;background:#fff!important;color:#126247!important;border-color:#aed2bd!important}
+.concept-transfer .recovery-area{padding-top:12px;border-top:1px solid #e8eee9}
+.concept-transfer .help-details,.concept-transfer .advanced-options{
+ background:#f9fcfa!important;border-color:#dce9e0!important;border-radius:10px!important;
+}
+.concept-transfer .review-checklist{
+ display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:0 0 17px;
+}
+.concept-transfer .review-checklist strong{font-size:13px;color:#456b58;margin-right:4px}
+.concept-transfer .review-checklist span{
+ display:inline-flex;align-items:center;font-size:12px;
+ padding:7px 11px;background:#eaf5ee;color:#236748;border:1px solid #cbe4d3;
+ border-radius:999px;font-weight:800;
+}
+.concept-transfer .review-summary>p{
+ background:#eaf6ef!important;border:1px solid #d2e8d9;
+ padding:13px 16px!important;font-weight:750!important;
+}
+.concept-transfer #stepReview .warning{background:#fff8e9!important;color:#79571d!important;border:1px solid #f0dfbb!important;line-height:1.7!important}
+.concept-transfer .scroll{border:1px solid #dfebe3;border-radius:12px;overflow:auto}
+.concept-transfer table{border-collapse:separate;border-spacing:0}
+.concept-transfer th{background:#eaf2ed!important;color:#244b37;font-weight:800;padding:13px 10px!important}
+.concept-transfer td{border-color:#e6eee8!important;padding:12px 9px!important}
+.concept-transfer tr:hover td{background:#f7fbf8}
+.concept-transfer td input{border-radius:8px!important;min-height:38px!important;border-color:#b9d1c2!important}
+.concept-transfer #stepDownload{
+ background:linear-gradient(120deg,#fff 70%,#f1f9f4 100%)!important;
+}
+.concept-transfer .download-note{font-size:14px;color:#416653!important}
+.concept-transfer .download-cta{min-height:55px!important;font-weight:850!important}
+.concept-transfer #stepComments{
+ background:#fff;border:1px solid #dce6df;border-radius:15px;padding:22px 26px;
+ box-shadow:var(--wt-shadow);
+}
+.concept-transfer .comment-card{border-color:#e3ebe5!important}
+.concept-transfer .comment-copy{border:1px solid #c6dfce!important;border-radius:10px!important;background:#ecf7ef!important;color:#1c6143!important}
+.concept-transfer .warning{border-radius:10px}
+.concept-transfer #missingPlateDialog{
+ border:1px solid #cadfd1!important;box-shadow:0 24px 90px rgba(15,61,43,.26);
+}
+@media(max-width:1050px){
+ .concept-transfer .input-grid{grid-template-columns:minmax(0,1fr)}
+ .concept-transfer .input-sideguide{position:static}
+ .concept-dispatch .dispatch-steps li{min-height:114px}
+ .worktool-dispatch-frame .workspace{grid-template-columns:minmax(265px,320px) minmax(0,1fr)!important}
+}
+@media(max-width:760px){
+ .concept-dispatch .dispatch-start{padding:12px 13px}
+ .concept-dispatch nav[aria-label="기능 이동"]{padding:8px 10px}
+ .concept-dispatch nav[aria-label="기능 이동"] a{padding:8px 10px}
+ .concept-dispatch .dispatch-steps{grid-template-columns:1fr!important;gap:7px}
+ .concept-dispatch .dispatch-steps li{min-height:0;padding:10px 12px;align-items:center}
+ .concept-dispatch .dispatch-steps small{font-size:11px}
+ .concept-dispatch .dispatch-steps b{width:31px;height:31px;font-size:14px}
+ .concept-dispatch iframe{height:calc(100dvh - 385px);min-height:630px}
+ .worktool-dispatch-frame main{padding:12px!important}
+ .worktool-dispatch-frame .workspace{grid-template-columns:minmax(0,1fr)!important}
+ .worktool-dispatch-frame .pagehead{padding:16px!important}
+ .worktool-dispatch-frame .stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .worktool-dispatch-frame .inputcard,.worktool-dispatch-frame .filescard{padding:16px!important}
+ .worktool-dispatch-frame .resultcard{padding:13px!important}
+ .concept-transfer main{margin:14px auto!important;padding:0 11px!important}
+ .concept-transfer .page-intro{padding:19px 15px!important}
+ .concept-transfer .process-nav{grid-template-columns:1fr!important;gap:7px!important}
+ .concept-transfer .process-nav a{min-height:0!important;padding:11px!important}
+ .concept-transfer .step-panel{padding:17px 14px!important;margin:13px 0!important}
+ .concept-transfer .step-title h2{font-size:18px!important}
+ .concept-transfer .input-sideguide{padding:13px}
+ .concept-transfer #stepComments{padding:16px}
+ .concept-transfer .review-checklist{gap:6px}
+}
+@media(prefers-reduced-motion:reduce){html.concept-dispatch,html.concept-transfer,html.worktool-dispatch-frame{scroll-behavior:auto}}
