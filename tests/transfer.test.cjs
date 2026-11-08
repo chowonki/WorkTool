@@ -308,3 +308,17 @@ test('missing plate popup is not shown for an existing plate',async()=>{
  await fresh.parse();
  assert.equal(vm.runInContext('data[0].plate',fresh),'123가4567');
 });
+
+test('beginner transfer walkthrough retains each original control and validation flow',()=>{
+ const order=['id="stepInput"','id="stepReview"','id="stepDownload"'];
+ let previous=-1;
+ for(const marker of order){const at=html.indexOf(marker);assert.ok(at>previous,marker);previous=at;}
+ for(const id of ['raw','threads','addThread','parse','clear','undo','restoreDownload','rows','summary','totals','errorsOnly','selectAll','deleteSelected','add','download','transferComments','outMemo','inMemo','cms']){
+  assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,'control '+id);
+ }
+ assert.match(html,/<details class="advanced-options">/);
+ assert.match(html,/<summary>통장 메모·CMS코드 변경 \(선택 사항\)<\/summary>/);
+ assert.match(html,/<button id="download" class="download-cta">/);
+ assert.match(html,/엑셀 파일 생성은 실제 송금이 아닙니다|엑셀 생성은 실제 송금이 아닙니다/);
+ assert.match(html,/<details class="help-details"><summary>추출이 잘 안 될 때/);
+});
