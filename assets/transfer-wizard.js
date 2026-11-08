@@ -77,6 +77,11 @@ frame.addEventListener('load',()=>{
 window.addEventListener('message',event=>{
  if(event.origin!==origin||event.source!==frame.contentWindow)return;
  if(event.data?.type==='worktool-transfer-status')showStatus(event.data);
+ if(event.data?.type==='worktool-transfer-extracted'&&stage==='input'&&
+    Number.isInteger(event.data.count)&&event.data.count>0){
+  navigate(routes.review);
+  return;
+ }
  fitFrame();
 });
 window.addEventListener('resize',fitFrame);
