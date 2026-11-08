@@ -436,3 +436,14 @@ test('repeated plate lookups preserve results, dates and duplicate-review choice
  const differentDates=core.match([{plate:'123가4567',date:'2026-11-04'},{plate:'123가4567',date:'2026-11-05'}],files);
  assert.ok(differentDates.every(row=>row.status==='tripReview'&&row.amount===null));
 });
+
+test('duplicate trip identity ignores only insignificant text formatting',()=>{
+ const core=setup(),a=trip('A',35000,'2026-11-04'),b={...a,origin:' 서울 ',memo:'  차량   확인 ',jobId:' ＡＢＣ '};
+ a.origin='서울';a.memo='차량 확인';a.jobId='ABC';
+ const same=core.match(input,[{records:[a,b]}])[0];
+ assert.equal(same.recordChoices.length,1);
+ assert.equal(same.duplicateRecords,1);
+ const distinct=core.match(input,[{records:[a,{...b,memo:'차량 재확인'}]}])[0];
+ assert.equal(distinct.recordChoices.length,2);
+ assert.equal(distinct.duplicateReview,true);
+});
