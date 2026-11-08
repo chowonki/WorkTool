@@ -143,3 +143,11 @@ test('multiple transfers include the exact total without counting automatic spli
  assert.ok(invalid.text.endsWith('(총액 금액 확인 필요)'));
  assert.equal(context.transferComment([{amount:'1000000',commentTarget:'고객계좌'}]).text,'금액 100만원 고객계좌로 송금완료');
 });
+
+test('Excel XML removes forbidden control characters and preserves valid text',()=>{
+ const value='  앞쪽\\u0000\\u0001중간\\u000B\\u001F끝\\uFFFE\\uFFFF & < > " \\'  ';
+ const actual=run("xml("+JSON.stringify("  앞쪽 중간끝￾￿ & < > " '  ")+")");
+ assert.equal(actual,'  앞쪽중간끝 &amp; &lt; &gt; &quot; &apos;  ');
+ assert.equal(run("xml("+JSON.stringify('A\tB\nC\rD')+")"),'A\tB\nC\rD');
+ assert.match(html,/xml:space="preserve"/);
+});
