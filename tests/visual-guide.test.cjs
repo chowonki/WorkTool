@@ -28,10 +28,10 @@ test('screen guides use real PNG assets with Korean-readable screenshots',()=>{
  }
 });
 test('the guide uses expandable screenshots and keeps actual tool navigation',()=>{
- assert.match(guide,/<img src="\.\/guide\/dispatch-screen\.png"/);
- assert.match(guide,/<img src="\.\/guide\/transfer-screen\.png"/);
- assert.match(guide,/<img src="\.\/guide\/transfer-Review\.png"/);
- assert.match(guide,/<img src="\.\/guide\/transfer-Download\.png"/);
+ assert.match(guide,/<img src="\.\/guide\/dispatch-annotated\.png"/);
+ assert.match(guide,/<img src="\.\/guide\/transfer-input-annotated\.png"/);
+ assert.match(guide,/<img src="\.\/guide\/transfer-review-annotated\.png"/);
+ assert.match(guide,/<img src="\.\/guide\/transfer-download-annotated\.png"/);
  assert.match(guide,/href="\.\/dispatch\.html"/);
  assert.match(guide,/href="\.\/transfer\.html"/);
  assert.match(guide,/target="_blank" rel="noopener"/);
@@ -48,4 +48,18 @@ test('dispatch screenshot guide names the real internal sources and preserves sa
  assert.ok(dispatch.includes('탁송출발 주유비 미입력'));
  assert.ok(dispatch.includes('탁송기한'));
  assert.ok(home.includes('탁송출발 주유비 미입력'));
+});
+
+test('all four annotated screenshots are valid and included in both help pages',()=>{
+ const dispatchHelp=read('dispatch-guide.html'),transferHelp=read('transfer-guide.html');
+ for(const name of ['dispatch-annotated.png','transfer-input-annotated.png','transfer-review-annotated.png','transfer-download-annotated.png']){
+  const relative='guide/'+name;
+  const bytes=fs.readFileSync(path.join(root,relative));
+  assert.equal(bytes.subarray(0,8).toString('hex'),'89504e470d0a1a0a',relative);
+  assert.ok(bytes.length>30000,relative+' must contain annotation artwork');
+  assert.ok(guide.includes('./'+relative),relative+' missing in quick guide');
+  assert.ok((name.startsWith('dispatch')?dispatchHelp:transferHelp).includes('./'+relative),relative+' missing in detailed guide');
+ }
+ assert.match(guide,/주석 없는 원본/);
+ assert.match(guide,/번호·화살표·설명/);
 });
