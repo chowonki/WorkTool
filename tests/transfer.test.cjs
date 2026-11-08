@@ -194,8 +194,20 @@ test('missing plate input validates Korean formats, spacing and full-width text'
  ])assert.equal(context.normalizeMissingPlate(value),want,value);
 });
 
-test('missing plate dialog supports applying, skipping and cancelling safely',async()=>{
- const ids=['missingPlateDialog','missingPlateForm','missingPlateInput','missingPlateApply','missingPlateSkip','missingPlateCancel','missingPlateError','missingPlateContext'];
+test('vehicle plate and arbitrary transfer memo use separate validation rules',()=>{
+ const plate=context.transferDialogEntry('plate','１２３가４５６７');
+ assert.equal(plate.plate,'123가4567');assert.equal(plate.memo,'');
+ assert.equal(context.transferDialogEntry('plate','차대금'),null);
+ const memo=context.transferDialogEntry('memo','  차대금 정산  ');
+ assert.equal(memo.plate,'');assert.equal(memo.memo,'차대금 정산');
+ assert.equal(context.transferDialogEntry('memo',''),null);
+ assert.equal(context.transferDialogEntry('memo','x'.repeat(41)),null);
+ assert.equal(context.transferDialogEntry('memo','abc\n123'),null);
+ assert.equal(context.transferDialogEntry('other','123가4567'),null);
+});
+
+test('missing plate dialog supports plate, memo, skip and cancel',async()=>{
+ const ids=['missingPlateDialog','missingPlateForm','missingPlateInput','missingPlateApply','missingPlateSkip','missingPlateCancel','missingPlateError','missingPlateContext','missingPlateModePlate','missingPlateModeMemo','missingPlateInputLabel','missingPlatePreview'];
  const elements=Object.fromEntries(ids.map(id=>[id,{value:'',textContent:'',disabled:false,focus(){this.focused=true}}]));
  const dialog=elements.missingPlateDialog;
  dialog.addEventListener=(type,fn)=>{assert.equal(type,'close');dialog.onclose=fn};
@@ -214,12 +226,20 @@ test('missing plate dialog supports applying, skipping and cancelling safely',as
  field.value='１２３가４５６７';field.oninput();
  assert.equal(elements.missingPlateApply.disabled,false);
  elements.missingPlateForm.onsubmit({preventDefault(){}});
- let answer=await pending;assert.equal(answer.action,'apply');assert.equal(answer.plate,'123가4567');
- pending=context.requestMissingPlate('입력창 2');elements.missingPlateSkip.onclick();
+ let answer=await pending;assert.equal(answer.action,'apply');assert.equal(answer.plate,'123가4567');assert.equal(answer.memo,'');
+ pending=context.requestMissingPlate('입력창 2');
+ elements.missingPlateModePlate.checked=false;elements.missingPlateModeMemo.checked=true;
+ elements.missingPlateModeMemo.onchange();
+ field.value='차대금 정산';field.oninput();
+ assert.equal(elements.missingPlateApply.disabled,false);
+ assert.match(elements.missingPlatePreview.textContent,/입금통장표시: 차대금 정산/);
+ elements.missingPlateForm.onsubmit({preventDefault(){}});
+ answer=await pending;assert.equal(answer.action,'apply');assert.equal(answer.plate,'');assert.equal(answer.memo,'차대금 정산');
+ pending=context.requestMissingPlate('입력창 3');elements.missingPlateSkip.onclick();
  answer=await pending;assert.equal(answer.action,'skip');assert.equal(answer.plate,'');
- pending=context.requestMissingPlate('입력창 3');elements.missingPlateCancel.onclick();
+ pending=context.requestMissingPlate('입력창 4');elements.missingPlateCancel.onclick();
  answer=await pending;assert.equal(answer.action,'cancel');assert.equal(answer.plate,'');
- pending=context.requestMissingPlate('입력창 4');dialog.close('');
+ pending=context.requestMissingPlate('입력창 5');dialog.close('');
  answer=await pending;assert.equal(answer.action,'cancel');
 });
 
@@ -237,6 +257,23 @@ test('missing plate extraction populates transfer rows and both bank memos',asyn
  assert.equal(data[0].outMemo,'123가4567');assert.equal(data[0].inMemo,'123가4567');
  assert.equal(data[0].commentPlates[0],'123가4567');
  assert.equal(input.value,'');assert.equal(parseButton.disabled,false);
+});
+
+test('custom transfer memo appears only in inbound bank memo while outbound remains plate-only',async()=>{
+ const fresh=vm.createContext({});
+ vm.runInContext(source,fresh);
+ const input={value:'국민은행\n123-456-789012\n35,000원',dataset:{},focus(){}};
+ const parseButton={disabled:false},notice={textContent:''};
+ fresh.document={querySelectorAll:selector=>selector==='.threadRaw'?[input]:[],getElementById:id=>({parse:parseButton,parseNotice:notice}[id])};
+ fresh.alert=()=>{throw Error('unexpected alert')};
+ vm.runInContext("requestMissingPlate=async()=>({action:'apply',plate:'',memo:'고객 환급금'});render=()=>{};renumberThreads=()=>{}",fresh);
+ await fresh.parse();
+ const rows=vm.runInContext('data',fresh);
+ assert.equal(rows.length,1);assert.equal(rows[0].plate,'');
+ assert.equal(rows[0].outMemo,'');
+ assert.equal(rows[0].inMemo,'고객 환급금');
+ assert.equal(rows[0].commentPlates.length,0);
+ assert.equal(input.value,'');
 });
 
 test('missing plate skip leaves plate blank and cancel preserves all input',async()=>{
