@@ -1,9 +1,23 @@
 name: Transfer wizard browser test
 on:
   push:
-    branches: [feature/transfer-multipage-workflow]
+    branches: [main]
     paths:
+      - transfer.html
+      - transfer-*.html
+      - assets/transfer-wizard.*
+      - assets/concept-worktool.css
+      - scripts/e2e-transfer-wizard.cjs
       - .github/workflows/transfer-wizard-browser.yml
+  pull_request:
+    paths:
+      - transfer.html
+      - transfer-*.html
+      - assets/transfer-wizard.*
+      - assets/concept-worktool.css
+      - scripts/e2e-transfer-wizard.cjs
+      - .github/workflows/transfer-wizard-browser.yml
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
