@@ -473,6 +473,8 @@ function workflowRestore(){
   undoState=payload.undoState&&Array.isArray(payload.undoState.rows)?payload.undoState:null;
   lastDownloadState=payload.lastDownloadState&&Array.isArray(payload.lastDownloadState.rows)?payload.lastDownloadState:null;
   commentSerial=Number.isSafeInteger(payload.commentSerial)&&payload.commentSerial>=0?payload.commentSerial:0;
+  refreshSelection();
+  renderTransferComments();
   $('parseNotice').textContent=payload.state.rows.length?'이전 단계에서 작성한 이체 내역을 복원했습니다.':'같은 탭에서 작성한 내용을 복원했습니다.';
  }catch(error){
   $('parseNotice').textContent='임시 저장 정보를 읽지 못했습니다. 필요한 내용을 다시 확인해 주세요.';
