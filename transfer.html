@@ -482,13 +482,18 @@ function workflowRestore(){
 }
 function workflowResetAll(){
  if(!workflowEnabled)return false;
+ if(document.querySelector('dialog[open]')){
+  $('parseNotice').textContent='열려 있는 확인 팝업을 먼저 완료하거나 취소해 주세요.';
+  return false;
+ }
+ // Verify sensitive session data can be deleted BEFORE resetting the live editor.
+ try{window.sessionStorage.removeItem(TRANSFER_WORKFLOW_KEY)}
+ catch(error){return false}
+ if(workflowSaveTimer){clearTimeout(workflowSaveTimer);workflowSaveTimer=null;}
  resetTransfer('새 이체 작업 시작');
  undoState=null;
  lastDownloadState=null;
  commentSerial=0;
- if(workflowSaveTimer){clearTimeout(workflowSaveTimer);workflowSaveTimer=null;}
- try{window.sessionStorage.removeItem(TRANSFER_WORKFLOW_KEY)}
- catch(error){return false}
  workflowNotify();
  return true;
 }
