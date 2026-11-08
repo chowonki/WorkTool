@@ -1,0 +1,35 @@
+name: Concept visual preview (temporary)
+on:
+  push:
+    branches: [ux/concept-dashboard-redesign]
+    paths:
+      - .github/workflows/preview-concept.yml
+permissions:
+  contents: write
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Korean fonts and browser harness
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-nanum
+          fc-cache -f
+          npm install --no-save --no-package-lock playwright-core@1.58.2
+      - name: Test actual controls and capture screen previews
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/worktool-theme.log 2>&1 &
+          sleep 2
+          CHROME_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)" node scripts/preview-concept.cjs
+      - name: Commit temporary screenshots to branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add guide/theme-preview-*.png
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "test: capture design comparison previews"
+          git push origin HEAD:ux/concept-dashboard-redesign
