@@ -322,3 +322,40 @@ test('beginner transfer walkthrough retains each original control and validation
  assert.match(html,/엑셀 파일 생성은 실제 송금이 아닙니다|엑셀 생성은 실제 송금이 아닙니다/);
  assert.match(html,/<details class="help-details"><summary>추출이 잘 안 될 때/);
 });
+
+test('bank dropdown contains all supported banks and maps detected Slack bank aliases',()=>{
+ const names=run('bankNames');
+ assert.ok(names.length>=25,'the dropdown should include all supported institutions');
+ assert.equal(new Set(names).size,names.length,'bank names must not repeat');
+ for(const name of ['국민은행','하나은행','농협은행','저축은행','한국산업은행','산림조합','지역농축협','HSBC은행']){
+  assert.ok(names.includes(name),name);
+ }
+ for(const [source,name] of [
+  ['KB국민은행','국민은행'],
+  ['KEB하나','하나은행'],
+  ['IBK기업은행','기업은행'],
+  ['KDB산업은행','한국산업은행'],
+  ['지역농축협','지역농축협'],
+  ['HSBC은행','HSBC은행']
+ ]){
+  const found=run('bankOf('+JSON.stringify(source)+')');
+  assert.equal(found,name,source);
+  const select=context.bankSelectHtml(found,0);
+  assert.match(select,new RegExp('<option value="'+name+'" selected>'));
+ }
+ const unknown=context.bankSelectHtml('미등록은행',0);
+ assert.match(unknown,/인식되지 않은 은행: 미등록은행/);
+ assert.match(unknown,/<option value="미등록은행" selected disabled>/);
+ const blank=context.bankSelectHtml('',1);
+ assert.match(blank,/은행을 선택하세요/);
+ assert.match(blank,/data-k="bank"/);
+});
+
+test('successful wizard extraction signals the next stage, while the classic page stays put',()=>{
+ const wrapper=readFileSync(require('node:path').join(__dirname,'../assets/transfer-wizard.js'),'utf8');
+ assert.match(html,/type:'worktool-transfer-extracted',count:data.length/);
+ assert.match(html,/workflowEnabled&&workflowStep==='input'/);
+ assert.match(wrapper,/event\.data\?\.type==='worktool-transfer-extracted'/);
+ assert.match(wrapper,/navigate\(routes\.review\)/);
+ assert.match(wrapper,/Number\.isInteger\(event\.data\.count\)&&event\.data\.count>0/);
+});
