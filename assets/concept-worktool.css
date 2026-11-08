@@ -338,3 +338,6 @@ html.concept-home body{background:#f3f7f5;color:#1a3d2e;font-family:-apple-syste
 .concept-home .cta{background:#0a7858;color:#fff!important;border:0;border-radius:11px;padding:14px 17px;font-size:15px;font-weight:800}
 .concept-home .footnote{background:#f9fcfa;border-color:#dae9e0}
 @media(max-width:650px){.concept-home main{padding-top:28px}.concept-home .tool{padding:22px}.concept-home .cta{font-size:14px}}
+
+/* The outer page already supplies navigation; avoid a duplicate nested header. */
+html.worktool-dispatch-frame body > header.topbar{display:none!important;visibility:hidden!important;height:0!important;min-height:0!important;padding:0!important;border:0!important}
