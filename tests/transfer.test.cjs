@@ -184,3 +184,90 @@ test('download must retain transfer rows until explicit user reset',()=>{
  assert.ok(excelSource.includes('renderTransferComments()'));
  assert.match(excelSource,/실제 저장 여부를 확인/);
 });
+
+test('missing plate input validates Korean formats, spacing and full-width text',()=>{
+ for(const [value,want] of [
+  ['123가4567','123가4567'],['１２３가４５６７','123가4567'],
+  ['123 가 4567','123가4567'],['서울12가3456','서울12가3456'],
+  ['45나6789','45나6789'],['1234567',''],['123A4567',''],
+  ['123가456',''],['123가45678',''],['','']
+ ])assert.equal(context.normalizeMissingPlate(value),want,value);
+});
+
+test('missing plate dialog supports applying, skipping and cancelling safely',async()=>{
+ const ids=['missingPlateDialog','missingPlateForm','missingPlateInput','missingPlateApply','missingPlateSkip','missingPlateCancel','missingPlateError','missingPlateContext'];
+ const elements=Object.fromEntries(ids.map(id=>[id,{value:'',textContent:'',disabled:false,focus(){this.focused=true}}]));
+ const dialog=elements.missingPlateDialog;
+ dialog.addEventListener=(type,fn)=>{assert.equal(type,'close');dialog.onclose=fn};
+ dialog.showModal=()=>{dialog.open=true};
+ dialog.close=value=>{dialog.returnValue=value;dialog.open=false;dialog.onclose()};
+ context.document={getElementById:id=>elements[id]};
+ let pending=context.requestMissingPlate('입력창 1 · 스레드 1');
+ assert.equal(dialog.open,true);
+ assert.match(elements.missingPlateContext.textContent,/입력창 1/);
+ const field=elements.missingPlateInput;
+ field.value='잘못된 번호';field.oninput();
+ assert.equal(elements.missingPlateApply.disabled,true);
+ let prevented=false;
+ elements.missingPlateForm.onsubmit({preventDefault(){prevented=true}});
+ assert.equal(prevented,true);assert.equal(dialog.open,true);
+ field.value='１２３가４５６７';field.oninput();
+ assert.equal(elements.missingPlateApply.disabled,false);
+ elements.missingPlateForm.onsubmit({preventDefault(){}});
+ let answer=await pending;assert.equal(answer.action,'apply');assert.equal(answer.plate,'123가4567');
+ pending=context.requestMissingPlate('입력창 2');elements.missingPlateSkip.onclick();
+ answer=await pending;assert.equal(answer.action,'skip');assert.equal(answer.plate,'');
+ pending=context.requestMissingPlate('입력창 3');elements.missingPlateCancel.onclick();
+ answer=await pending;assert.equal(answer.action,'cancel');assert.equal(answer.plate,'');
+ pending=context.requestMissingPlate('입력창 4');dialog.close('');
+ answer=await pending;assert.equal(answer.action,'cancel');
+});
+
+test('missing plate extraction populates transfer rows and both bank memos',async()=>{
+ const fresh=vm.createContext({});
+ vm.runInContext(source,fresh);
+ const input={value:'국민은행\n123-456-789012\n35,000원',dataset:{},focus(){}};
+ const parseButton={disabled:false},notice={textContent:''};
+ fresh.document={querySelectorAll:selector=>selector==='.threadRaw'?[input]:[],getElementById:id=>({parse:parseButton,parseNotice:notice}[id])};
+ fresh.alert=()=>{throw Error('unexpected alert')};
+ vm.runInContext("requestMissingPlate=async()=>({action:'apply',plate:'123가4567'});render=()=>{};renumberThreads=()=>{}",fresh);
+ await fresh.parse();
+ const data=vm.runInContext('data',fresh);
+ assert.equal(data.length,1);assert.equal(data[0].plate,'123가4567');
+ assert.equal(data[0].outMemo,'123가4567');assert.equal(data[0].inMemo,'123가4567');
+ assert.equal(data[0].commentPlates[0],'123가4567');
+ assert.equal(input.value,'');assert.equal(parseButton.disabled,false);
+});
+
+test('missing plate skip leaves plate blank and cancel preserves all input',async()=>{
+ const harness=async(action)=>{
+  const fresh=vm.createContext({});
+  vm.runInContext(source,fresh);
+  const input={value:'국민은행\n123-456-789012\n35,000원',dataset:{},focus(){}};
+  const parseButton={disabled:false},notice={textContent:''};
+  fresh.document={querySelectorAll:selector=>selector==='.threadRaw'?[input]:[],getElementById:id=>({parse:parseButton,parseNotice:notice}[id])};
+  fresh.alert=()=>{throw Error('unexpected alert')};
+  vm.runInContext("requestMissingPlate=async()=>({action:'"+action+"',plate:''});render=()=>{};renumberThreads=()=>{}",fresh);
+  await fresh.parse();
+  return {data:vm.runInContext('data',fresh),input,parseButton,notice};
+ };
+ const skip=await harness('skip');
+ assert.equal(skip.data.length,1);assert.equal(skip.data[0].plate,'');
+ assert.equal(skip.data[0].outMemo,'');assert.equal(skip.data[0].inMemo,'');
+ assert.match(skip.notice.textContent,/빈칸/);
+ const cancel=await harness('cancel');
+ assert.equal(cancel.data.length,0);
+ assert.match(cancel.input.value,/35,000원/);
+ assert.equal(cancel.parseButton.disabled,false);
+});
+
+test('missing plate popup is not shown for an existing plate',async()=>{
+ const fresh=vm.createContext({});
+ vm.runInContext(source,fresh);
+ const input={value:'123가4567\n국민은행\n123-456-789012\n35,000원',dataset:{},focus(){}};
+ fresh.document={querySelectorAll:selector=>selector==='.threadRaw'?[input]:[],getElementById:id=>({parse:{disabled:false},parseNotice:{textContent:''}}[id])};
+ fresh.alert=()=>{throw Error('unexpected alert')};
+ vm.runInContext("requestMissingPlate=async()=>{throw Error('unneeded popup')};render=()=>{};renumberThreads=()=>{}",fresh);
+ await fresh.parse();
+ assert.equal(vm.runInContext('data[0].plate',fresh),'123가4567');
+});
