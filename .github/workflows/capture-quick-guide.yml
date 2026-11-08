@@ -1,0 +1,38 @@
+name: Capture visual quick-start screenshots
+on:
+  push:
+    branches: [ux/visual-quick-guide]
+    paths:
+      - .github/workflows/capture-quick-guide.yml
+permissions:
+  contents: write
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Screenshot the actual WorkTool pages with headless Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p guide
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/worktool-visual-server.log 2>&1 &
+          sleep 2
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          echo "Browser: $CHROME"
+          for name in transfer dispatch; do
+            "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --window-size=1366,1000 --force-device-scale-factor=1 --virtual-time-budget=8000 --screenshot="$PWD/guide/$name-screen.png" "http://127.0.0.1:8765/$name.html"
+            test -s "guide/$name-screen.png"
+            file "guide/$name-screen.png"
+          done
+      - name: Commit screenshot assets to guide branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add guide/transfer-screen.png guide/dispatch-screen.png
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "docs: include authentic page screenshots for visual quick start"
+          git push origin HEAD:ux/visual-quick-guide
