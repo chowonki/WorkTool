@@ -154,3 +154,14 @@ test('Excel XML removes forbidden control characters and preserves valid text',(
  assert.equal(run('xml('+JSON.stringify('A\\tB\\nC\\rD')+')'),'A\\tB\\nC\\rD');
  assert.match(html,/xml:space="preserve"/);
 });
+
+test('duplicate check canonicalizes bank aliases, account separators and plate whitespace',()=>{
+ run("data=[{bank:'KB',account:'123-456-789012',amount:'35000',plate:'123가4567'},{bank:'국민은행',account:'123456789012',amount:'35000',plate:'123가4567'}]");
+ assert.ok(run('validate(data[0])').includes('동일 계좌·금액·차량번호 중복'));
+ assert.ok(run('validate(data[1])').includes('동일 계좌·금액·차량번호 중복'));
+ run("data[1].splitGroup='split-test';data[0].splitGroup='split-test'");
+ assert.ok(!run('validate(data[0])').includes('동일 계좌·금액·차량번호 중복'));
+ run("data[1].splitGroup='';data[1].amount='35001'");
+ assert.ok(!run('validate(data[0])').includes('동일 계좌·금액·차량번호 중복'));
+ run('data=[]');
+});
