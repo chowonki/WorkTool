@@ -377,3 +377,7 @@ html.transfer-workflow-embedded .thread-entry textarea{min-height:200px!importan
  html.transfer-workflow-embedded .step-panel{padding:10px 0 18px!important}
  html.transfer-workflow-embedded .input-grid{grid-template-columns:1fr!important}
 }
+
+/* Native bank selector in the transfer review table. */
+.concept-transfer td select[data-k="bank"]{display:block;width:100%;min-width:145px;min-height:40px;padding:9px 10px;border-radius:8px;border:1px solid #b9d1c2;background:#fff;color:#173f2f;font-size:13px}
+.concept-transfer td select[data-k="bank"]:focus-visible{outline:3px solid #38a887;outline-offset:2px}
