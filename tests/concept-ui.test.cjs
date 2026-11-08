@@ -32,7 +32,7 @@ test('real bank workflow still has its original forms, actions and safeguards',(
  }
  assert.match(html,/<div class="input-grid"><div class="input-work">/);
  assert.match(html,/<aside class="input-sideguide"/);
- assert.match(html,/입금통장에만 적용/);
+ assert.match(html,/입금통장표시에만 적용/);
  assert.match(html,/<div class="review-checklist"/);
  assert.match(html,/엑셀 파일 생성은 실제 송금이 아닙니다/);
  assert.match(html,/function validate\(/);
