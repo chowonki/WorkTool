@@ -125,7 +125,8 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
   const dateOf = r => /^\d{4}-\d{2}-\d{2}(?:$| )/.test(r.dispatchDate || '') ? r.dispatchDate.slice(0,10) : '';
   const recent = r => [r.completedAt,r.receivedAt].filter(v=>/^\d{4}-\d{2}-\d{2}(?:$| )/.test(v||'')).sort().at(-1)||r.dispatchDate||'';
   const ordered = rows => rows.slice().sort((a,b)=>recent(a).localeCompare(recent(b)));
-  const identity = r => JSON.stringify([r.vendor,r.plate,r.dispatchDate || '',r.completedAt || '',r.receivedAt || '',r.jobId || '',r.origin || '',r.memo || '',r.carrierFlag || '',r.state || '',r.rawCost ?? r.cost,r.rawDispatchFee ?? r.dispatchFee]);
+  const normalizedText = value => String(value??'').normalize('NFKC').replace(/\s+/g,' ').trim();
+  const identity = r => JSON.stringify([r.vendor,r.plate,r.dispatchDate || '',r.completedAt || '',r.receivedAt || '',normalizedText(r.jobId),normalizedText(r.origin),normalizedText(r.memo),normalizedText(r.carrierFlag),normalizedText(r.state),r.rawCost ?? r.cost,r.rawDispatchFee ?? r.dispatchFee]);
   return function(input, files) {
     const history = new Map();
     for (const file of files) for (const record of file.records || []) {
