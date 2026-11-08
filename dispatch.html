@@ -142,7 +142,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       const unique=[...new Map(records.map(r=>[identity(r),r])).values()];
       const sorted=ordered(unique),ids=unique.map(identity).sort(),byDate=new Map();
       for(const r of sorted){const date=dateOf(r);if(!byDate.has(date))byDate.set(date,[]);byDate.get(date).push(r);}
-      prepared.set(plate,{unique,sorted,ids,byDate,latestDate:dateOf(sorted.at(-1)||{}),choiceKey:JSON.stringify([plate,ids])});
+      prepared.set(plate,{unique,sorted,ids,byDate,historySorted:ordered(records),recordChoices:sorted.slice().reverse().map(r=>({id:identity(r),record:r})),latestDate:dateOf(sorted.at(-1)||{}),choiceKey:JSON.stringify([plate,ids])});
     }
     return input.map(v=>{
       const records=history.get(v.plate)||[],info=prepared.get(v.plate);
@@ -180,12 +180,12 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       const dispatchFee=!feeConflict&&chosen?.dispatchFee!=null?chosen.dispatchFee:null;
       let row=originalMatch([v],[{name:'기준일 기록',records:chosen?[chosen]:[]}])[0];
       const carrierRecords=(selectedRecord?[chosen]:records).filter(r=>r.vendor==='C'&&r.carrier),carrier=carrierRecords.length>0;
-      const fingerprint=JSON.stringify([v.plate,requestedDate,[...new Set(unique.map(identity))].sort()]);
-      row={...row,inputDuplicate:counts.get(v.plate)>1,latestRecord:chosen,recordHistory:ordered(records),completedAt:chosen?.completedAt||'',receivedAt:chosen?.receivedAt||'',latestAt:chosen?recent(chosen):'',latestConflict:!selectedRecord&&conflict,
+      const fingerprint=JSON.stringify([v.plate,requestedDate,info?.ids||[]]);
+      row={...row,inputDuplicate:counts.get(v.plate)>1,latestRecord:chosen,recordHistory:info?.historySorted||[],completedAt:chosen?.completedAt||'',receivedAt:chosen?.receivedAt||'',latestAt:chosen?recent(chosen):'',latestConflict:!selectedRecord&&conflict,
         dispatchFee,dispatchVAT:dispatchFee===null?null:dispatchFee/10,dispatchTotal:dispatchFee===null?null:dispatchFee+dispatchFee/10,feeConflict,
         selectionReason,carrier,carrierMemo:carrierRecords.map(r=>['캐리어탁송(J열): Y',r.memo].filter(Boolean).join(' · ')).join(' · '),
         duplicateRecords:records.length-unique.length,targetDate,requestedDate,
-        choiceKey,recordChoices:ordered(unique).reverse().map(r=>({id:identity(r),record:r})),selectedRecordId:selectedRecord?identity(selectedRecord):'',
+        choiceKey,recordChoices:info?.recordChoices||[],selectedRecordId:selectedRecord?identity(selectedRecord):'',
         duplicateReview:unique.length>1&&!selectedRecord,
         reviewKey:selectedRecord?JSON.stringify([fingerprint,identity(selectedRecord)]):fingerprint,fuelNotes:[]};
       if(!selectedRecord&&eventTiming)row.fuelNotes.push(selectionReason+' 기준: '+row.latestAt);
