@@ -33,7 +33,7 @@ test('the guide uses expandable screenshots and keeps actual tool navigation',()
  assert.match(guide,/<img src="\.\/guide\/transfer-review-annotated\.png"/);
  assert.match(guide,/<img src="\.\/guide\/transfer-download-annotated\.png"/);
  assert.match(guide,/href="\.\/dispatch\.html"/);
- assert.match(guide,/href="\.\/transfer\.html"/);
+ assert.match(guide,/href="\.\/transfer-input\.html"/);
  assert.match(guide,/target="_blank" rel="noopener"/);
 });
 test('dispatch screenshot guide names the real internal sources and preserves safe order',()=>{
