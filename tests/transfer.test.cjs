@@ -165,3 +165,22 @@ test('duplicate check canonicalizes bank aliases, account separators and plate w
  assert.ok(!run('validate(data[0])').includes('동일 계좌·금액·차량번호 중복'));
  run('data=[]');
 });
+
+test('completion comment copy asks for a real bank confirmation',()=>{
+ let message='';
+ assert.equal(run("confirmTransferCommentCopy(text=>{return false})"),false);
+ assert.equal(run("confirmTransferCommentCopy(text=>{return /송금 완료/.test(text)})"),true);
+ const callback=text=>{message=text;return false};
+ assert.equal(context.confirmTransferCommentCopy(callback),false);
+ assert.match(message,/수취인·금액/);
+ const click=html.match(/button\.onclick=async\(\)=>\{if\(!confirmTransferCommentCopy\(\)\)/);
+ assert.ok(click,'코멘트 버튼이 확인 함수를 실행해야 합니다.');
+});
+
+test('download must retain transfer rows until explicit user reset',()=>{
+ const excelSource=html.slice(html.indexOf('function excel(){'),html.indexOf("$('download').onclick=excel;"));
+ assert.ok(excelSource.includes('lastDownloadState=downloadState'));
+ assert.ok(!excelSource.includes('resetTransfer('));
+ assert.ok(excelSource.includes('renderTransferComments()'));
+ assert.match(excelSource,/실제 저장 여부를 확인/);
+});

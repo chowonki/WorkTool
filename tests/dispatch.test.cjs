@@ -447,3 +447,48 @@ test('duplicate trip identity ignores only insignificant text formatting',()=>{
  assert.equal(distinct.recordChoices.length,2);
  assert.equal(distinct.duplicateReview,true);
 });
+
+test('carrier status is scoped to requested date and selected trip',()=>{
+ const choices=new Map(),core=setup(choices);
+ const records=[trip('C',null,'2026-11-01',{carrier:true,carrierFlag:'Y'}),trip('C',null,'2026-11-03',{carrier:false,carrierFlag:'N'})];
+ const files=[{records}];
+ let row=core.match([{plate:'123가4567',date:'2026-11-03'}],files)[0];
+ assert.equal(row.carrier,false);assert.equal(row.status,'slack');assert.equal(row.fuelState,'inquiry');
+ row=core.match([{plate:'123가4567',date:'2026-11-02'}],files)[0];
+ assert.equal(row.carrier,false);assert.equal(row.status,'dateReview');
+ row=core.match([{plate:'123가4567',date:'2026-11-01'}],files)[0];
+ assert.equal(row.carrier,true);assert.equal(row.status,'carrier');
+ const key=row.choiceKey,normal=row.recordChoices.find(choice=>choice.record.dispatchDate==='2026-11-03');
+ choices.set(key,normal.id);
+ row=core.match([{plate:'123가4567',date:'2026-11-01'}],files)[0];
+ assert.equal(row.carrier,false);assert.equal(row.status,'slack');
+});
+
+test('manual confirmation cannot bypass trip conflicts or missing-date reviews',()=>{
+ const confirmations=new Map(),core=setup(new Map(),confirmations);
+ const files=[{records:[trip('A',35000),trip('B',50000)]}];
+ const conflict=core.match(input,files)[0];
+ assert.equal(conflict.status,'conflict');assert.equal(conflict.canConfirm,false);
+ confirmations.set(conflict.reviewKey,{amount:36000,reason:'사전 수동확인',savedAt:'오늘'});
+ const checked=core.match(input,files)[0];
+ assert.equal(checked.status,'conflict');assert.equal(checked.amount,null);
+ assert.equal(checked.manualConfirmation,undefined);
+ const missing=core.match([{plate:'123가4567',date:'2026-11-02'}],files)[0];
+ assert.equal(missing.status,'dateReview');assert.equal(missing.canConfirm,false);
+});
+
+test('vendor date range scan handles large unsorted records and missing dates',()=>{
+ const source=page.slice(page.indexOf('    function vendorDateRanges('),page.indexOf('    function updateFuelDiagnostics('));
+ assert.ok(source.includes('function vendorDateRanges'));
+ const context=vm.createContext({});
+ vm.runInContext(source,context);
+ const records=Array.from({length:20000},(_,i)=>({vendor:i%2?'A':'B',dispatchDate:i%3===0?'':(i%2?'2026-12-31':'2026-01-01')}));
+ records.push({vendor:'A',dispatchDate:'2026-02-01'},{vendor:'B',dispatchDate:'2026-11-30'},{vendor:'C',dispatchDate:''});
+ const ranges=vm.runInContext('vendorDateRanges',context)(records);
+ assert.equal(ranges.get('A').first,'2026-02-01');
+ assert.equal(ranges.get('A').last,'2026-12-31');
+ assert.equal(ranges.get('B').first,'2026-01-01');
+ assert.equal(ranges.get('B').last,'2026-11-30');
+ assert.equal(ranges.get('C').first,'');
+ assert.equal(ranges.get('C').last,'');
+});

@@ -180,7 +180,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       const feeConflict=!selectedRecord&&new Set(candidates.filter(r=>r.dispatchFee!=null).map(r=>r.dispatchFee)).size>1;
       const dispatchFee=!feeConflict&&chosen?.dispatchFee!=null?chosen.dispatchFee:null;
       let row=originalMatch([v],[{name:'기준일 기록',records:chosen?[chosen]:[]}])[0];
-      const carrierRecords=(selectedRecord?[chosen]:records).filter(r=>r.vendor==='C'&&r.carrier),carrier=carrierRecords.length>0;
+      const carrierRecords=(selectedRecord?[chosen]:candidates).filter(r=>r.vendor==='C'&&r.carrier),carrier=carrierRecords.length>0;
       const fingerprint=JSON.stringify([v.plate,requestedDate,info?.ids||[]]);
       row={...row,inputDuplicate:counts.get(v.plate)>1,latestRecord:chosen,recordHistory:info?.historySorted||[],completedAt:chosen?.completedAt||'',receivedAt:chosen?.receivedAt||'',latestAt:chosen?recent(chosen):'',latestConflict:!selectedRecord&&conflict,
         dispatchFee,dispatchVAT:dispatchFee===null?null:dispatchFee/10,dispatchTotal:dispatchFee===null?null:dispatchFee+dispatchFee/10,feeConflict,
@@ -213,7 +213,7 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
       row.fuelState=carrier?'exempt':row.status==='confirmed'?(row.amount===0?'zero':'verified'):row.status==='incomplete'?'waiting':row.status==='slack'?'inquiry':'needs';
       row.fuelLabel=({exempt:'캐리어 제외',zero:'없음(0원)',verified:'확인됨',waiting:'완료 대기',inquiry:'업체 문의',needs:'확인 필요'})[row.fuelState];
       const override=getOverride(row.reviewKey);
-      row.canConfirm=!!chosen&&core.complete(chosen)&&!carrier;
+      row.canConfirm=!!chosen&&core.complete(chosen)&&!carrier&&!row.duplicateReview&&!feeConflict&&!['conflict','tripReview','dateReview'].includes(row.status);
       if(override && row.canConfirm && Number.isSafeInteger(override.amount)&&override.amount>=0 && override.reason){
         row.status='confirmed';row.amount=override.amount;row.fuelState=override.amount===0?'zero':'verified';row.fuelLabel=override.amount===0?'없음(0원) · 수동확인':'확인됨 · 수동확인';
         row.manualConfirmation=override;row.fuelNotes.push('수동확인: '+override.reason+' ('+override.savedAt+')');
@@ -505,17 +505,28 @@ function createFuelMatcher(core, originalMatch, getOverride = () => null, getSel
     };
     fuelSelect.onchange=()=>{selected.clear();redraw();};
     const fuelTh=doc.createElement('th');fuelTh.textContent='주유비 확인 / 수동확인';head.append(fuelTh);
+    function vendorDateRanges(records){
+      const ranges=new Map();
+      for(const r of records){
+        const vendor=r.vendor,date=String(r.dispatchDate||'').slice(0,10);
+        if(!ranges.has(vendor))ranges.set(vendor,{first:'',last:''});
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(date))continue;
+        const range=ranges.get(vendor);
+        if(!range.first||date<range.first)range.first=date;
+        if(!range.last||date>range.last)range.last=date;
+      }
+      return ranges;
+    }
     function updateFuelDiagnostics(){
       const files=app.getFiles(),records=files.flatMap(f=>f.records||[]),all=core.unique(app.getResults());
-      const vendorNames={A:'한빛탁송',B:'오픈마일',C:'렌톡'},loaded=new Set(records.map(r=>r.vendor));
-      const missing=Object.keys(vendorNames).filter(v=>!loaded.has(v)).map(v=>vendorNames[v]);
+      const vendorNames={A:'한빛탁송',B:'오픈마일',C:'렌톡'},ranges=vendorDateRanges(records);
+      const missing=Object.keys(vendorNames).filter(v=>!ranges.has(v)).map(v=>vendorNames[v]);
       const dates=[...new Set(core.parseInput($('input').value).vehicles.map(v=>(v.date||'').slice(0,10)).filter(Boolean))].sort();
       const warnings=[];
       if(missing.length)warnings.push('미첨부 업체: '+missing.join(', ')+' — 해당 업체 차량은 확인할 수 없습니다.');
-      for(const v of loaded){
-        const rows=records.filter(r=>r.vendor===v),available=rows.map(r=>(r.dispatchDate||'').slice(0,10)).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
-        if(dates.length&&!available.length)warnings.push(vendorNames[v]+': 원본 운행일자 없음');
-        else if(dates.some(d=>d<available[0]||d>available[available.length-1]))warnings.push(vendorNames[v]+': 입력일 일부가 파일의 운행일 범위 밖입니다 ('+available[0]+' ~ '+available[available.length-1]+')');
+      for(const [v,range] of ranges){
+        if(dates.length&&!range.first)warnings.push(vendorNames[v]+': 원본 운행일자 없음');
+        else if(dates.some(d=>d<range.first||d>range.last))warnings.push(vendorNames[v]+': 입력일 일부가 파일의 운행일 범위 밖입니다 ('+range.first+' ~ '+range.last+')');
       }
       diagnostics.textContent='주유비 확인 필요 '+all.filter(r=>['needs','inquiry'].includes(r.fuelState)).length+'대 · 없음(0원) '+all.filter(r=>r.fuelState==='zero').length+'대 · 수동확인 '+all.filter(r=>r.manualConfirmation).length+'대'+(warnings.length?' · '+warnings.join(' / '):'');
     }
