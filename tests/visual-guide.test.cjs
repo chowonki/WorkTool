@@ -36,3 +36,16 @@ test('the guide uses expandable screenshots and keeps actual tool navigation',()
  assert.match(guide,/href="\.\/transfer\.html"/);
  assert.match(guide,/target="_blank" rel="noopener"/);
 });
+test('dispatch screenshot guide names the real internal sources and preserves safe order',()=>{
+ const detail=read('dispatch-guide.html');
+ const required=['탁송출발 주유비 미입력','탁송기한','한빛탁송','오픈마일','렌톡','요청시각','출발시각','차량번호를 추출','업체 파일 첨부'];
+ for(const term of required){
+  assert.ok(guide.includes(term),'quick guide missing '+term);
+  assert.ok(detail.includes(term),'detailed guide missing '+term);
+ }
+ const script=guide.indexOf('원본 준비 1'),vendor=guide.indexOf('원본 준비 2'),lookup=guide.indexOf('차량 조회하기');
+ assert.ok(script>=0&&vendor>script&&lookup>vendor,'beginner workflow should follow actual preparation order');
+ assert.ok(dispatch.includes('탁송출발 주유비 미입력'));
+ assert.ok(dispatch.includes('탁송기한'));
+ assert.ok(home.includes('탁송출발 주유비 미입력'));
+});
