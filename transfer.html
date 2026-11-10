@@ -694,7 +694,7 @@ function groupedCommentLines(items){
     const amounts=group.map(r=>amountText(r.amount));
     if(targets.every(target=>target===targets[0]))
       return `${prefix}금액 ${amounts.join(', ')} 각각 ${targets[0]} 송금완료`;
-    return `${prefix}금액 ${group.map((r,i)=>``${amounts[i]} ${targets[i]}`).join(', ')} 각각 송금완료`;
+    return `${prefix}금액 ${group.map((r,i)=>`${amounts[i]} ${targets[i]}`).join(', ')} 각각 송금완료`;
   });
 }
 function renderComments(){
