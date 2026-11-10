@@ -662,13 +662,17 @@ function amountText(n){
   if(v>0&&v%10000===0) return `${(v/10000).toLocaleString('ko-KR')}만원`;
   return `${won(v)}원`;
 }
-function commentFor(r){
+// 이체별 송금 대상을 한 번만 생성해 단건과 묶음 코멘트에서 재사용합니다.
+function commentTargetFor(r){
   const src=r.ctx||r.source||'';
-  if(/차량\s*대금|차대금|환급/.test(src)) return `차대금 ${amountText(r.amount)} 딜러에게 송금완료`;
-  // 그 외에는 예금은행 + 계좌번호로 기재
-  const bank=r.bank||'', acc=r.account||'';
-  if(bank&&acc) return `금액 ${amountText(r.amount)} ${bank} ${acc} 계좌정보로 송금완료`;
-  return `금액 ${amountText(r.amount)} [${!bank?'은행':''}${!bank&&!acc?'·':''}${!acc?'계좌번호':''} 확인 필요] 송금완료`;
+  if(/차량\s*대금|차대금|환급/.test(src))return '딜러에게';
+  const bank=r.bank||'',acc=r.account||'';
+  if(bank&&acc)return `${bank} ${acc} 계좌로`;
+  return `[${!bank?'은행':''}${!bank&&!acc?'·':''}${!acc?'계좌번호':''} 확인 필요]`;
+}
+function commentFor(r){
+  const target=commentTargetFor(r);
+  return `${target==='딜러에게'?'차대금':'금액'} ${amountText(r.amount)} ${target} 송금완료`;
 }
 // 코멘트만 차량번호 기준으로 합쳐요. 실제 은행 업로드용 이체 행은 변경하지 않아요.
 // 차량번호가 비어 있는 행은 서로 다른 건으로 보아 합치지 않아요.
@@ -681,12 +685,16 @@ function groupedCommentLines(items){
     groups.get(key).push(r);
   });
   return [...groups.values()].map(group=>{
-    // 동일 차량번호라도 각 이체 건의 금액을 합산하지 않고 개별 표시합니다.
-    // 예: 123가4567 (2건) · 차대금 30만원 딜러에게 송금완료 / 차대금 20만원 딜러에게 송금완료
+    // 동일 차량번호라도 금액을 합산하지 않아요.
+    // 예: 123가4567 · 금액 30만원, 20만원 각각 딜러에게 송금완료
     if(group.length===1)return commentFor(group[0]);
     const plate=String(group[0].plate||'').replace(/\s/g,'');
-    const prefix=plate?`${plate} (${group.length}건) · `:`${group.length}건 · `;
-    return prefix+group.map(commentFor).join(' / ');
+    const prefix=plate?`${plate} · `:'';
+    const targets=group.map(commentTargetFor);
+    const amounts=group.map(r=>amountText(r.amount));
+    if(targets.every(target=>target===targets[0]))
+      return `${prefix}금액 ${amounts.join(', ')} 각각 ${targets[0]} 송금완료`;
+    return `${prefix}금액 ${group.map((r,i)=>``${amounts[i]} ${targets[i]}`).join(', ')} 각각 송금완료`;
   });
 }
 function renderComments(){
