@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사용 설명서 · WorkTool 업무도구</title>
+<style>
+:root{
+  --bg:#f4f7f5; --surface:#ffffff; --ink:#1f3a31; --muted:#62766c; --line:#d8e5dc;
+  --brand:#203e37; --accent:#267358; --accent-ink:#ffffff; --warn-bg:#fff7e6; --warn-ink:#7a5518;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.7 var(--font)}
+.toolnav{display:flex;gap:10px;align-items:center;padding:10px 24px;background:var(--brand);color:#e4f0e8;flex-wrap:wrap;font-size:13px}
+.toolnav a{color:inherit;text-decoration:none;padding:7px 11px;border-radius:6px}
+.toolnav a:hover,.toolnav a[aria-current="page"]{background:#ffffff20;color:#fff}
+.toolnav .homelink{margin-right:auto;font-weight:700}
+main{max-width:860px;margin:0 auto;padding:32px 16px 56px;display:grid;gap:22px}
+h1{margin:0;font-size:28px;letter-spacing:-.8px}
+h2{margin:0 0 10px;font-size:19px}
+.lead{margin:6px 0 0;color:var(--muted)}
+section{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px}
+section p{margin:0 0 8px}
+ol,ul{margin:0;padding-left:20px;display:grid;gap:6px}
+.muted{color:var(--muted)}
+.tip{background:#e8f3ec;color:var(--accent);border-radius:10px;padding:12px 14px;font-size:14px;margin-top:12px}
+.warn{background:var(--warn-bg);color:var(--warn-ink);border:1px solid #efd9ad;border-radius:10px;padding:12px 14px;font-size:14px;margin-top:12px}
+.color{display:inline-block;font-weight:700;padding:1px 8px;border-radius:5px;font-size:13px}
+.red{background:#fde2e0;color:#8a2a22}
+.yellow{background:#fff3c4;color:#7a5a00}
+.green{background:#dff3e6;color:#1f6b3d}
+.go{display:inline-block;margin-top:12px;padding:10px 16px;border-radius:9px;background:var(--accent);color:var(--accent-ink);text-decoration:none;font-weight:700}
+.go:hover{background:#1e6149}
+footer{color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<nav class="toolnav" aria-label="업무 도구 메뉴"><a class="homelink" href="./index.html">업무 도구 홈</a><a aria-current="page" href="./guide.html">사용 설명서</a><a href="./dispatch.html">탁송체크</a><a href="./transfer.html">하나은행 이체파일</a></nav>
+<main>
+  <div>
+    <h1>사용 설명서</h1>
+    <p class="lead">처음 쓰시는 분도 따라 하실 수 있도록 순서대로 정리했어요. 입력한 파일과 내용은 열어 둔 기기 안에서만 처리되고 서버로 보내지 않아요.</p>
+  </div>
+
+  <section>
+    <h2>먼저 알아 두세요</h2>
+    <ul>
+      <li>화면 위쪽 메뉴에서 <b>업무 도구 홈</b>, <b>탁송체크</b>, <b>하나은행 이체파일</b>로 바로 이동할 수 있어요.</li>
+      <li>PC와 휴대폰 모두 같은 링크로 열 수 있어요. 큰 화면에서 작업하시면 더 편해요.</li>
+      <li>작업 도중 페이지를 닫아도 입력한 내용은 이 기기에 임시 저장되는 경우가 있어요. 중요한 작업은 마지막에 파일을 꼭 받아 두세요.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>1. 탁송체크 사용법</h2>
+    <p class="muted">차량목록과 업체 엑셀을 대조해 완료 차량의 금액, 미조회 차량, 제주 출발 차량을 정리해요.</p>
+    <ol>
+      <li>차량목록을 복사해서 입력칸에 붙여넣어요.</li>
+      <li>한빛탁송·오픈마일·렌톡 중 해당 업체의 <b>.xlsx 파일</b>을 첨부해요. 암호가 걸린 파일도 열 수 있어요.</li>
+      <li><b>차량 조회하기</b>를 누르면 결과가 나와요.</li>
+      <li>결과는 <b>복사</b>하거나 <b>TXT·엑셀·PDF</b>로 받을 수 있어요.</li>
+      <li><b>렌톡 문의 (캐리어 제외)</b> 탭에서 복사하면 <b>[제주도출발차량]</b>과 <b>[일반차량]</b> 제목 줄 아래로 차량번호가 나뉘어 복사돼요. 출발지 주소가 제주인 차량이 제주도출발차량이에요.</li>
+    </ol>
+    <div class="tip">결과가 생각과 다르면 먼저 차량번호가 정확히 들어갔는지, 파일이 맞는 업체인지 확인해 주세요.</div>
+    <a class="go" href="./dispatch.html">탁송체크 열기</a>
+  </section>
+
+  <section>
+    <h2>2. 하나은행 이체파일 사용법</h2>
+    <p class="muted">Slack 스레드 내용을 붙여넣으면 은행, 계좌번호, 금액, 차량번호를 뽑아 하나은행 다계좌이체 엑셀을 만들어 줘요.</p>
+    <ol>
+      <li><b>① 입력</b>: Slack 스레드 내용을 그대로 붙여넣고 <b>이체정보 추출하기</b>를 눌러요.</li>
+      <li><b>② 확인·수정</b>: 은행·계좌·금액·차량번호가 원문과 맞는지 보세요. 칸을 누르면 바로 고칠 수 있고, 줄에 마우스를 올리면 원문이 보여요.</li>
+      <li><b>③ 다운로드</b>: 미리보기를 확인하고 검토 필요 건을 원문과 대조했다는 체크를 한 뒤 엑셀을 받아요. 송금 코멘트 칸에서 줄마다 <b>복사</b>를 누르거나 <b>코멘트 전체 복사</b>로 한 번에 복사할 수 있어요. 차량대금·차대금·환급 문구가 있으면 "차대금 n원 딜러에게 송금완료", 없으면 원문 ( ) 안의 이름으로 "금액 n원 은행 계좌번호 계좌정보로 송금완료" 형식이 돼요. 예: "금액 2,898만원 저축 06611152328703 계좌정보로 송금완료".</li>
+    </ol>
+    <p style="margin-top:14px"><b>칸 색깔의 뜻</b></p>
+    <ul>
+      <li><span class="color red">빨간 칸</span>: 오류예요. 은행이 목록에 없거나, 계좌번호 자릿수가 맞지 않거나, 금액이 잘못된 경우예요. 고치지 않으면 다운로드가 막혀요.</li>
+      <li><span class="color yellow">노란 칸</span>: 검토가 필요해요. 차량번호가 없거나, 같은 계좌가 중복되거나, 1억 원 이상(분할 송금 포함)인 경우예요. 확인 후 그대로 두셔도 돼요.</li>
+      <li><span class="color green">초록 칸</span>: 문제가 없어요.</li>
+    </ul>
+    <p style="margin-top:14px"><b>자주 쓰는 기능</b></p>
+    <ul>
+      <li><b>은행 고르기</b>: 드롭다운에서 은행을 고르면 이름과 코드가 함께 보여요. 엑셀에는 은행 이름이 들어가요.</li>
+      <li><b>1억 초과 금액</b>: 1억 원을 넘는 금액은 1억 원 단위로 나누고 남은 금액을 한 줄 더 만들어요. 나뉜 줄은 함께 묶여서 같은 차량번호가 적용돼요.</li>
+      <li><b>예금주(참고)</b>: 스레드에 "예금주 : …"으로 적힌 이름을 자동으로 채워요. 참고용이라 비어 있어도 오류가 아니고, 은행 조회 결과와 대조할 때 쓰시면 돼요.</li>
+      <li><b>차량번호 입력</b>: 줄을 눌러 차량번호를 넣을 수 있어요. 나뉜 묶음 중 하나에 넣으면 같은 묶음 전체에 적용돼요.</li>
+    </ul>
+    <div class="warn">은행에 올리기 전에 금액과 계좌번호를 원문과 한 번 더 대조해 주세요. 최종 확인은 사용자 책임이에요.</div>
+    <a class="go" href="./transfer.html">이체파일 열기</a>
+  </section>
+
+  <section>
+    <h2>자주 묻는 질문</h2>
+    <ul>
+      <li><b>Q. 다운로드 버튼이 눌리지 않아요.</b><br>빨간 칸이 남아 있는지 확인해 주세요. 빨간 칸을 모두 고치면 버튼이 활성화돼요.</li>
+      <li><b>Q. 은행이 목록에 없어요.</b><br>하나은행 공식 코드표에 없는 기관이라 선택할 수 없어요. 이름을 확인하거나 담당자에게 문의해 주세요.</li>
+      <li><b>Q. 금액 칸이 빨갛게 바뀌었어요.</b><br>금액이 비어 있거나, 0원이거나, 숫자가 아닌 글자(소수점·음수 포함)가 들어 있을 때예요. 숫자만 남기거나 "300만"처럼 입력하면 자동으로 원 단위로 바뀌어요. 1억 원을 넘는 금액은 자동으로 나뉘어요.</li>
+      <li><b>Q. 엑셀 파일 이름에는 무엇이 들어가나요?</b><br>날짜·시간, 차량번호, 차량번호별 총 송금금액이 들어가요. 예: 하나은행_다계좌이체_20261109_1332_12가3456_2,898만원.xlsx. 차량이 2~3대면 차량마다 금액이 붙고, 4대 이상이면 "첫 번호 외 N대_총 금액"으로 적혀요.</li>
+      <li><b>Q. 입력한 내용이 사라졌어요.</b><br>같은 기기와 같은 브라우저에서 열면 임시 저장분이 남아 있을 수 있어요. 다른 기기에서는 보이지 않아요.</li>
+      <li><b>Q. 엑셀을 열었더니 은행 이름이 달라요.</b><br>엑셀에는 하나은행 코드표의 이름이 들어가요. 예: 국민, 농협, iM뱅크(대구). 업로드 양식과 맞는지 한 번 확인해 주세요.</li>
+    </ul>
+  </section>
+
+  <footer>WorkTool · 사용 설명서</footer>
+</main>
+</body>
+</html>
