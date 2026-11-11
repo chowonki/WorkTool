@@ -449,8 +449,11 @@ function ask(title,text,okLabel,fn){modal(title,text,[['취소','',null],[okLabe
 
 let __dl;function getDownloads(){if(!__dl)__dl=(window.claude&&claude.use)?claude.use('downloads').catch(()=>null):Promise.resolve(null);return __dl;}
 
-function save(){try{localStorage.setItem(LS,JSON.stringify({rows,threads,extractedAt,memo:{out:$('outMemo').value,in:$('inMemo').value,cms:$('cmsAll').value}}));}catch(e){}}
-function load(){try{const d=JSON.parse(localStorage.getItem(LS)||'null');if(d&&Array.isArray(d.rows)){rows=d.rows.slice(0,MAX);threads=Array.isArray(d.threads)&&d.threads.length?d.threads:[];extractedAt=d.extractedAt||'';if(d.memo){$('outMemo').value=d.memo.out||'';$('inMemo').value=d.memo.in||'';$('cmsAll').value=d.memo.cms||'';}}}catch(e){}}
+// 새로고침하면 입력값이 초기화되도록 저장하지 않아요. 예전에 저장된 값도 지워요.
+function save(){}
+function load(){try{localStorage.removeItem(LS);}catch(e){}}
+document.querySelectorAll('input,textarea,select').forEach(e=>e.setAttribute('autocomplete','off'));
+window.addEventListener('pageshow',e=>{if(e.persisted)location.reload();});
 
 // ---------- 검증 ----------
 function check(r){
