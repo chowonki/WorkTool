@@ -892,6 +892,40 @@ $('openGuide').onclick=()=>{
   modal('하나은행 이체파일 사용 안내',d,[['알겠어요','primary',null]]);
 };
 
+// Keyboard actions use the same buttons and validation as pointer actions.
+const shortcutHelp=document.createElement('button');
+shortcutHelp.type='button';shortcutHelp.className='btn sm';shortcutHelp.textContent='단축키 안내';
+$('openGuide').after(shortcutHelp);
+const shortcutList=[
+ ['Ctrl / ⌘ + Enter','1단계: 추출 · 2단계: 다음 단계 · 3단계: 다운로드'],
+ ['Ctrl / ⌘ + Shift + Enter','이전 단계로 이동'],
+ ['Alt + Shift + N','입력칸 추가 / 확인 단계에서 행 추가'],
+ ['Alt + Shift + C','다운로드 단계에서 코멘트 전체 복사'],
+ ['Alt + Shift + K','단축키 안내 열기'],
+ ['Esc','열린 안내·확인창 닫기']
+];
+shortcutHelp.onclick=()=>{
+ const list=document.createElement('dl');
+ shortcutList.forEach(([keys,label])=>{const dt=document.createElement('dt');dt.style.fontWeight='700';dt.textContent=keys;const dd=document.createElement('dd');dd.style.cssText='margin:4px 0 14px';dd.textContent=label;list.append(dt,dd);});
+ modal('단축키 안내',list,[['닫기','primary',null]]);
+};
+document.addEventListener('keydown',e=>{
+ if(e.defaultPrevented||e.isComposing||e.repeat||$('modal').classList.contains('show'))return;
+ const command=(e.ctrlKey||e.metaKey)&&!e.altKey;
+ const option=e.altKey&&e.shiftKey&&!e.ctrlKey&&!e.metaKey;
+ let action=null;
+ if(command&&e.key==='Enter'){
+  if(e.shiftKey){if(step>1)action=()=>goStep(step-1);}
+  else action=()=>{const button=$(['','extract','toStep3','download'][step]);if(!button.disabled)button.click();};
+ }else if(option){
+  const key=e.code;
+  if(key==='KeyN'&&step<3)action=()=>$(step===1?'addThread':'addRow').click();
+  if(key==='KeyC'&&step===3)action=()=>$('copyComments').click();
+  if(key==='KeyK')action=()=>shortcutHelp.click();
+ }
+ if(action){e.preventDefault();action();}
+});
+
 // ---------- 시작 ----------
 load();renderThreads();
 goStep(1);
