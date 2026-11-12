@@ -901,6 +901,7 @@ const shortcutList=[
  ['Ctrl / ⌘ + Shift + Enter','이전 단계로 이동'],
  ['Alt + Shift + N','입력칸 추가 / 확인 단계에서 행 추가'],
  ['Alt + Shift + C','다운로드 단계에서 코멘트 전체 복사'],
+ ['Alt + Shift + D','확인·수정 단계에서 선택한 행 삭제 (확인 후 삭제)'],
  ['Alt + Shift + K','단축키 안내 열기'],
  ['Esc','열린 안내·확인창 닫기']
 ];
@@ -921,6 +922,7 @@ document.addEventListener('keydown',e=>{
   const key=e.code;
   if(key==='KeyN'&&step<3)action=()=>$(step===1?'addThread':'addRow').click();
   if(key==='KeyC'&&step===3)action=()=>$('copyComments').click();
+  if(key==='KeyD'&&step===2)action=()=>$('delSel').click();
   if(key==='KeyK')action=()=>shortcutHelp.click();
  }
  if(action){e.preventDefault();action();}
