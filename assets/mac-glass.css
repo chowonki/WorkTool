@@ -78,4 +78,11 @@ html[data-theme=dark] body.mac-ui :is(.step,.steps a,.tile){background:#25354d!i
 html[data-theme=dark] body.mac-ui dialog,html[data-theme=dark] body.mac-ui .modalcard{background:#26344af5!important;color:#e1ebff;border-color:#7188ab66}html[data-theme=dark] body.mac-ui dialog p{color:#becde4}html[data-theme=dark] body.mac-ui dialog pre{background:#19263c;color:#c5d8f4}html[data-theme=dark] body.mac-ui .filterpop{background:#293c56;border-color:#6d87ad}html[data-theme=dark] body.mac-ui .filterpop button{background:#3a5276;color:white;border-color:#7191bf}html[data-theme=dark] body.mac-ui .theme-control{color:#bed0ea}
 html[data-theme=dark] body.mac-ui a:not(.button):not(.btn):not(.action):not(.go){color:#aacdff}html[data-theme=dark] body.mac-ui .carrier-tag{background:#254a3a;color:#b3e5c6}html[data-theme=dark] body.mac-ui .emptychips span{background:#293e5a;color:#c0d4f1;border-color:#5b759c}
 @media(max-width:650px){body.mac-ui .theme-control{margin-left:0;gap:5px;font-size:11px}body.mac-ui .theme-control select{width:96px;min-height:34px;font-size:12px!important}body.mac-ui select{min-height:40px}}
+body.mac-ui[data-page=transfer] .cols.step2cols{grid-template-columns:260px minmax(0,1fr)}
+body.mac-ui td select{height:auto;min-height:38px}
+html[data-theme=dark] body.mac-ui #fillRows td{background:#1d2b3f!important}
+html[data-theme=dark] body.mac-ui .step .no{background:#465e80!important;color:#fff!important}html[data-theme=dark] body.mac-ui .step .no span{color:#fff!important}
+html[data-theme=dark] body.mac-ui .tablewrap{border-color:#5b7192;background:#1d2b3f}html[data-theme=dark] body.mac-ui .tablewrap td{background-color:transparent}html[data-theme=dark] body.mac-ui tr.sel td{background:#304d70}html[data-theme=dark] body.mac-ui td input.attn{background:#44371e!important;border-color:#dbb363!important}
+@media(max-width:1000px){body.mac-ui[data-page=transfer] .cols.step2cols{grid-template-columns:1fr}body.mac-ui[data-page=transfer] .step2cols>.side{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:650px){body.mac-ui[data-page=transfer] .step2cols>.side{grid-template-columns:1fr}}
 @media print{html[data-theme=dark] body.mac-ui{background:#fff!important;color:#17283e!important}.theme-control{display:none!important}}
