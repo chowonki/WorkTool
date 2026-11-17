@@ -60763,8 +60763,8 @@ function initColResize(){
   table.dataset.resizable='1';table.classList.add('resizable');
   let cg=table.querySelector('colgroup');if(!cg){cg=document.createElement('colgroup');table.prepend(cg);}
   cg.innerHTML='';
-  const DEFAULT_W={'':44,'탁송일정':170,'차량번호':128,'금액(원)':130,'탁송비용(원)':130,'부가세10%':115,'업체명':130,'출발지/메모':220};
-  let saved=null;try{saved=JSON.parse(localStorage.getItem('dispatch-col-widths-v2')||'null');}catch(e){}
+  const DEFAULT_W={'':64,'탁송일정':215,'차량번호':128,'금액(원)':120,'탁송비용(원)':215,'부가세10%':125,'조회상태':190,'업체명':120,'출발지/메모':240};
+  let saved=null;try{saved=JSON.parse(localStorage.getItem('dispatch-col-widths-v3')||'null');}catch(e){}
   const cols=ths.map((th,i)=>{
     const key=th.textContent.replace(/↕/g,'').replace(/\s+/g,'');
     const c=document.createElement('col');
@@ -60772,7 +60772,7 @@ function initColResize(){
     cg.append(c);return c;
   });
   const sync=()=>{const sum=cols.reduce((s,c)=>s+(parseFloat(c.style.width)||0),0);table.style.width=sum+'px';
-    try{localStorage.setItem('dispatch-col-widths-v2',JSON.stringify(cols.map(c=>parseFloat(c.style.width)||0)));}catch(e){}};
+    try{localStorage.setItem('dispatch-col-widths-v3',JSON.stringify(cols.map(c=>parseFloat(c.style.width)||0)));}catch(e){}};
   sync();
   ths.forEach((th,i)=>{
     const g=document.createElement('div');g.className='colgrip';g.setAttribute('aria-hidden','true');th.append(g);
@@ -60835,7 +60835,7 @@ function setupColFilter(table,infoId,wholeCell){
 function clearColFilter(table,infoId){colFilters.clear();applyColFilter(table,infoId);}
 // 열 너비를 기본값으로 되돌리기
 function resetColWidths(){
-  try{localStorage.removeItem('dispatch-col-widths-v2');}catch(e){}
+  try{localStorage.removeItem('dispatch-col-widths-v3');}catch(e){}
   const t=document.getElementById('table');
   t.querySelectorAll('.colgrip').forEach(g=>g.remove());
   t.querySelector('colgroup')?.remove();

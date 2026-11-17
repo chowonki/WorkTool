@@ -60,5 +60,5 @@ test('all four annotated screenshots are valid and included in both help pages',
   assert.ok((name.startsWith('dispatch')?dispatchHelp:transferHelp).includes('./'+relative),relative+' missing in detailed guide');
  }
  assert.match(guide,/주석 없는 원본/);
- assert.match(guide,/번호·화살표·설명/);
+ assert.match(guide,/번호·파란 테두리·설명/);
 });
