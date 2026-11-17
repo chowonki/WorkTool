@@ -356,6 +356,8 @@ function parseKoreanAmount(input){
  if(token){const rest=parseKoreanInteger(token);if(rest===null)return '';total+=rest}
  return Number.isSafeInteger(total)&&total>0?String(total):'';
 }
+// 2026-11-17, 2026.11.17 14:30 같은 날짜·시간 줄은 계좌번호로 보지 않아요.
+function isDateLine(s){return /^[^\d]*(?:19|20)\d{2}\s*[-./년]\s*\d{1,2}\s*[-./월]\s*\d{1,2}\s*일?\s*(?:\(?[월화수목금토일]\)?)?\s*(?:(?:오전|오후)?\s*\d{1,2}:\d{2}(?::\d{2})?)?[^\d]*$/.test(String(s).trim());}
 function cleanLine(s){return s.replace(/^\s*>\s*/, '').replace(/^\s*[-•]\s*/, '').trim()}
 // 예금주·받는 분 줄에 은행 이름이 들어 있어도(예: "예금주 : 배효정웰컴저축은행") 은행 줄로 보지 않아요.
 // 예금주 칸용: 스레드의 "예금주 : ..." 값을 그대로 가져와요. 없어도 오류로 보지 않아요.
@@ -366,7 +368,7 @@ function parseOne(rawInput){const raw=rawInput.replace(/\r/g,'');
  const threadPlates=[...new Set(lines.filter(l=>!/https?:\/\/|www\./i.test(l)).flatMap(l=>{const decoded=l;return [...decoded.matchAll(/(?:^|[^0-9가-힣])((?:\d{2,3}\s*[가-힣]\s*\d{4})|(?:[가-힣]{2}\s*\d{2}\s*[가-힣]\s*\d{4}))(?![0-9가-힣])/g)].map(m=>m[1].replace(/\s/g,''))}))];
  const sharedPlate=threadPlates.length===1?threadPlates[0]:'';
  const isUrl=s=>/https?:\/\/|www\.|slack\.com\/archives\//i.test(s);
- const getAccount=s=>{if(isUrl(s)||findPlate(s)||/(?:원|만원|금액|송금액|이체금액|주유비|지급액|₩)/.test(s))return '';const m=s.match(/(?:계좌(?:번호)?\s*[:：]?\s*)?((?:\d[\d\s-]{6,}\d))/);return m?m[1].replace(/\D/g,''):''};
+ const getAccount=s=>{if(isUrl(s)||findPlate(s)||isDateLine(s)||/(?:원|만원|금액|송금액|이체금액|주유비|지급액|₩)/.test(s))return '';const m=s.match(/(?:계좌(?:번호)?\s*[:：]?\s*)?((?:\d[\d\s-]{6,}\d))/);return m?m[1].replace(/\D/g,''):''};
  const getAmount=s=>{if(isUrl(s)||getAccount(s)||findPlate(s))return '';return parseKoreanAmount(s)};
  const isBank=s=>!isUrl(s)&&!isDepositor(s)&&!!bankOf(s)&&s.length<35;
  let items=[],prevEnd=0;
@@ -389,16 +391,16 @@ function parseOne(rawInput){const raw=rawInput.replace(/\r/g,'');
  if(!items.length){items=raw.split(/\n\s*\n+/).map(x=>x.trim()).filter(Boolean).map(parseBlock)}
  items=items.filter(x=>x.bank||x.account||x.amount||x.plate);if(sharedPlate)items.forEach(x=>x.plate=sharedPlate);return {items,ambiguous:threadPlates.length>1};
 }
-function parseBlock(b){const lines=b.split('\n').map(cleanLine).filter(Boolean);let bank='',account='',amount='';const plate=findPlate(b);const bankIdx=lines.findIndex(l=>!isDepositor(l)&&bankOf(l));if(bankIdx>=0)bank=bankOf(lines[bankIdx]);const accountLine=lines.find(l=>/\d[\d\s-]{7,}\d/.test(l)&&!findPlate(l)&&!/^https?:\/\//i.test(l));if(accountLine)account=(accountLine.match(/\d[\d\s-]{7,}\d/)||[''])[0].replace(/[\s-]/g,'');
+function parseBlock(b){const lines=b.split('\n').map(cleanLine).filter(Boolean);let bank='',account='',amount='';const plate=findPlate(b);const bankIdx=lines.findIndex(l=>!isDepositor(l)&&bankOf(l));if(bankIdx>=0)bank=bankOf(lines[bankIdx]);const accountLine=lines.find(l=>/\d[\d\s-]{7,}\d/.test(l)&&!findPlate(l)&&!isDateLine(l)&&!/^https?:\/\//i.test(l));if(accountLine)account=(accountLine.match(/\d[\d\s-]{7,}\d/)||[''])[0].replace(/[\s-]/g,'');
 const amountCandidates=lines.filter(l=>!/^https?:\/\//i.test(l)&&!findPlate(l)&&!(l.match(/\d[\d\s-]{7,}\d/)&&!/(?:원|만원|억)/.test(l))).map(l=>parseKoreanAmount(l)).filter(Boolean);if(amountCandidates.length===1)amount=amountCandidates[0];
 return {bank,account,amount,plate,source:b}}
 // Minimal offline OOXML spreadsheet writer, with stored ZIP entries and CRC32.
-const enc=new TextEncoder();const xml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));const crcTable=(()=>{let t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;t.push(c>>>0)}return t})();function crc32(a){let c=0xffffffff;for(const b of a)c=crcTable[(c^b)&255]^(c>>>8);return(c^0xffffffff)>>>0}function zip(entries){let chunks=[],central=[],off=0;const u16=n=>[n&255,n>>>8&255],u32=n=>[n&255,n>>>8&255,n>>>16&255,n>>>24&255];for(const [name,content] of entries){const nb=enc.encode(name),bytes=enc.encode(content),crc=crc32(bytes);const local=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(crc),...u32(bytes.length),...u32(bytes.length),...u16(nb.length),...u16(0),...nb]);chunks.push(local,bytes);central.push(new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(crc),...u32(bytes.length),...u32(bytes.length),...u16(nb.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off),...nb]));off+=local.length+bytes.length}const size=central.reduce((n,a)=>n+a.length,0),end=new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(entries.length),...u16(entries.length),...u32(size),...u32(off),...u16(0)]);return new Blob([...chunks,...central,end],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}
+const enc=new TextEncoder();const xmlSafe=s=>String(s??'').replace(/[\t\r\n]+/g,' ').replace(/[\u0000-\u001F\u007F\uFFFE\uFFFF]/g,'').replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,'');const xml=s=>xmlSafe(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));const crcTable=(()=>{let t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;t.push(c>>>0)}return t})();function crc32(a){let c=0xffffffff;for(const b of a)c=crcTable[(c^b)&255]^(c>>>8);return(c^0xffffffff)>>>0}function zip(entries){let chunks=[],central=[],off=0;const u16=n=>[n&255,n>>>8&255],u32=n=>[n&255,n>>>8&255,n>>>16&255,n>>>24&255];for(const [name,content] of entries){const nb=enc.encode(name),bytes=enc.encode(content),crc=crc32(bytes);const local=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(crc),...u32(bytes.length),...u32(bytes.length),...u16(nb.length),...u16(0),...nb]);chunks.push(local,bytes);central.push(new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(crc),...u32(bytes.length),...u32(bytes.length),...u16(nb.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off),...nb]));off+=local.length+bytes.length}const size=central.reduce((n,a)=>n+a.length,0),end=new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(entries.length),...u16(entries.length),...u32(size),...u32(off),...u16(0)]);return new Blob([...chunks,...central,end],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}
 </script>
 <script>
 (()=>{
 'use strict';
-const MAX=100, LS='worktool-transfer-v2';
+const MAX=100, LS='worktool-transfer-v2', TEXT_MAX=50000;
 const $=id=>document.getElementById(id);
 const won=n=>Number(n||0).toLocaleString('ko-KR');
 // 입금은행 드롭다운 목록 — 하나은행 다계좌이체 공식 코드표 기준 (표시명 → 코드)
@@ -424,7 +426,9 @@ const hanaBank=b=>b;
 const LIMIT=100000000; // 1억 초과는 1억씩 + 나머지로 나눠서 보냄
 function splitRow(r){
   const a=Number(r.amount);if(!(Number.isSafeInteger(a)&&a>LIMIT))return [r];
-  const full=Math.floor(a/LIMIT),rest=a-full*LIMIT,parts=Array(full).fill(LIMIT);if(rest)parts.push(rest);
+  const full=Math.floor(a/LIMIT),rest=a-full*LIMIT;
+  if(full+(rest?1:0)>MAX)return [r]; // 나누면 100건을 넘는 금액은 나누지 않고 오류로 남겨요 (화면 멈춤 방지)
+  const parts=Array(full).fill(LIMIT);if(rest)parts.push(rest);
   const g='g'+uid();
   return parts.map((v,k)=>({...r,id:k?uid():r.id,amount:String(v),splitGroup:g}));
 }
@@ -468,10 +472,11 @@ function check(r){
   else if(!/^\d+$/.test(s))errors.push('금액 형식 · 숫자만 입력 (원 단위 소수점 불가)');
   else if(a===0)errors.push('금액 0원');
   else if(!Number.isSafeInteger(a))errors.push('금액 너무 큼');
-  else if(a>LIMIT)errors.push('1억 초과 · 분할 필요');
+  else if(a>LIMIT)errors.push(Math.ceil(a/LIMIT)>MAX?`금액 너무 큼 · 나누면 ${MAX}건 초과`:'1억 초과 · 분할 필요');
   if(!r.plate&&!r.inMemo)reviews.push(r.ambiguous?'차량번호 여러 개 · 직접 입력':'차량번호·메모 없음');
   else if(r.plate&&!PLATE_RE.test(r.plate))reviews.push('차량번호 형식');
-  if(r.account&&rows.filter(x=>x.bank===r.bank&&x.account===r.account&&!(r.splitGroup&&x.splitGroup===r.splitGroup)).length>1)reviews.push('같은 계좌 중복');
+  if(/^01[016789]\d{7,8}$/.test(r.account))reviews.push('휴대폰 번호 형태 계좌 · 원문 확인');
+  if(r.account&&rows.filter(x=>x.bank===r.bank&&x.account===r.account&&!(r.splitGroup&&x.splitGroup===r.splitGroup)).length>1)reviews.push(rows.some(x=>x!==r&&x.bank===r.bank&&x.account===r.account&&x.amount===r.amount&&!(r.splitGroup&&x.splitGroup===r.splitGroup))?'같은 계좌·같은 금액 중복 · 두 번 송금 주의':'같은 계좌 중복');
   if(r.splitGroup)reviews.push('1억 이상 · 분할 송금');else if(a===LIMIT)reviews.push('1억 이상');
   return {errors,reviews,state:errors.length?'bad':reviews.length?'warn':'ok'};
 }
@@ -488,8 +493,9 @@ function renderThreads(){
     const b=document.createElement('b');b.textContent='이체 요청 '+(i+1);head.append(b);
     if(t.imported&&t.imported===t.text.trim()){const c=document.createElement('span');c.className='chip';c.textContent='추출 완료';head.append(c);}
     if(threads.length>1){const del=document.createElement('button');del.type='button';del.className='btn sm';del.textContent='입력칸 삭제';del.onclick=()=>{threads.splice(i,1);renderThreads();save();};head.append(del);}
-    const ta=document.createElement('textarea');ta.value=t.text;ta.id='thread-'+t.id;ta.setAttribute('aria-label','이체 요청 '+(i+1)+' 내용');ta.placeholder='Slack 스레드 내용을 그대로 붙여넣으세요.';ta.maxLength=20000;
-    const cnt=document.createElement('div');cnt.className='counter';const upd=()=>cnt.textContent=`${ta.value.length.toLocaleString()} / 20,000자`;upd();
+    const ta=document.createElement('textarea');ta.value=t.text;ta.id='thread-'+t.id;ta.setAttribute('aria-label','이체 요청 '+(i+1)+' 내용');ta.placeholder='Slack 스레드 내용을 그대로 붙여넣으세요.';ta.maxLength=TEXT_MAX;
+    const cnt=document.createElement('div');cnt.className='counter';const upd=()=>{cnt.textContent=`${ta.value.length.toLocaleString()} / ${TEXT_MAX.toLocaleString()}자`;cnt.style.color=ta.value.length>=TEXT_MAX?'var(--bad)':'';};upd();
+    ta.addEventListener('paste',e=>{const add=(e.clipboardData&&e.clipboardData.getData('text')||'').length;const room=TEXT_MAX-ta.value.length+(ta.selectionEnd-ta.selectionStart);if(add>room)modal('글자 수 한도를 넘었어요',`한 입력칸에는 ${TEXT_MAX.toLocaleString()}자까지 넣을 수 있어요. 붙여넣은 내용 중 ${(add-room).toLocaleString()}자가 잘렸어요.\n뒤쪽 이체 건이 빠졌을 수 있으니, 잘린 부분은 '+ 입력칸 추가'로 새 칸에 나눠 넣어 주세요.`,[['확인','primary',null]]);});
     ta.oninput=()=>{t.text=ta.value;upd();div.classList.toggle('doneT',!!t.imported&&t.imported===t.text.trim());save();};
     div.append(head,ta,cnt);box.append(div);
   });
@@ -504,8 +510,13 @@ function extract(){
   const pending=threads.map((t,i)=>({t,i,raw:t.text.trim()})).filter(x=>x.raw&&x.t.imported!==x.raw);
   if(!threads.some(t=>t.text.trim())){toast('스레드 내용을 먼저 붙여넣어 주세요.');return;}
   if(!pending.length){toast('새로 넣거나 바뀐 스레드가 없어요. 입력칸을 추가해 새 내용을 넣어 주세요.');return;}
-  const added=[],warnings=[];
+  const added=[],warnings=[],notes=[];
+  const prevImported=pending.map(p=>p.t.imported);
+  // 이미 추출한 입력칸과 내용이 같으면 건너뛰어요 (같은 스레드를 두 칸에 붙여넣은 경우)
+  const seenRaw=new Map();threads.forEach((t,i)=>{const r=t.text.trim();if(t.imported&&t.imported===r&&!seenRaw.has(r))seenRaw.set(r,i+1);});
   for(const p of pending){
+    if(seenRaw.has(p.raw)){warnings.push(`이체 요청 ${p.i+1}: 이체 요청 ${seenRaw.get(p.raw)}와 내용이 같아 건너뛰었어요.`);p.t.imported=p.raw;continue;}
+    seenRaw.set(p.raw,p.i+1);
     const res=parseOne(p.raw);
     if(!res.items.length){warnings.push(`이체 요청 ${p.i+1}: 이체정보를 찾지 못했어요.`);continue;}
     // 코멘트용 문맥: 같은 스레드에서 이 건의 계좌줄부터 다음 건의 계좌줄 전까지 (금액 뒤 ( ) 문구 포함)
@@ -516,18 +527,26 @@ function extract(){
     // 은행 줄 바로 위(빈 줄 건너뜀)에 "(압류 계좌)"처럼 괄호만 있는 줄이 있으면 그 건의 구분 문구로 써요.
     const labelIdx=accIdx.map((ai,k)=>{if(ai<0)return -1;for(let j=cut[k]-1;j>=0&&j>=cut[k]-3;j--){const t=rawLines[j].trim();if(!t)continue;return /^[(（][^()（）]{1,30}[)）]$/.test(t)?j:-1;}return -1;});
     const startOf=k=>labelIdx[k]>=0?labelIdx[k]:cut[k];
+    // 이미 추출한 스레드를 고쳐서 다시 추출하면, 전에 넣은 건은 다시 넣지 않아요 (두 번 송금 방지)
+    const before=new Map();const seenG=new Set();
+    rows.forEach(r=>{if(r.threadId!==p.t.id||!r.srcKey)return;const g=r.splitGroup||r.id;if(seenG.has(g))return;seenG.add(g);before.set(r.srcKey,(before.get(r.srcKey)||0)+1);});
+    let skipped=0,fresh=0;
     res.items.forEach((x,k)=>{
+      const srcKey=[x.bank||'',String(x.account||''),String(x.amount||'')].join('|');
+      if(before.get(srcKey)){before.set(srcKey,before.get(srcKey)-1);skipped++;return;}
+      fresh++;
       const s=k===0?0:startOf(k);
       const e=k+1<res.items.length&&accIdx[k+1]>=0?startOf(k+1):rawLines.length;
       const label=labelIdx[k]>=0?rawLines[labelIdx[k]].trim().slice(1,-1).trim():'';
       const ctx=accIdx[k]>=0?rawLines.slice(s,e).join('\n'):(x.source||'');
-      added.push({id:uid(),bank:fullBank(x.bank),account:String(x.account||''),amount:String(x.amount||''),plate:x.plate||'',outMemo:x.plate||'',inMemo:x.plate||'',cms:$('cmsAll').value.trim(),source:x.source||'',ctx,label,holder:holderOf(ctx),thread:p.i+1,ambiguous:!!res.ambiguous&&!x.plate});
+      added.push({id:uid(),bank:fullBank(x.bank),account:String(x.account||''),amount:String(x.amount||''),plate:x.plate||'',outMemo:x.plate||'',inMemo:x.plate||'',cms:$('cmsAll').value.trim(),source:x.source||'',ctx,label,holder:holderOf(ctx),thread:p.i+1,threadId:p.t.id,srcKey,ambiguous:!!res.ambiguous&&!x.plate});
     });
+    if(skipped)notes.push(`이체 요청 ${p.i+1}: 이미 추출한 ${skipped}건은 다시 넣지 않았어요${fresh?` (새 ${fresh}건 추가)`:''}.`);
     p.t.imported=p.raw;
   }
   const before=added.length;const splitted=splitAll(added);const nSplit=splitted.length-before;added.length=0;added.push(...splitted);
-  if(!added.length){modal('추출 결과',warnings.join('\n')||'추출할 이체정보가 없어요.',[['확인','primary',null]]);renderThreads();return;}
-  if(rows.length+added.length>MAX){modal('최대 건수 초과',`기존 ${rows.length}건 + 새 ${added.length}건 = ${rows.length+added.length}건이에요.\n한 파일에 ${MAX}건까지 만들 수 있어요. 나눠서 처리해 주세요.`,[['확인','primary',null]]);pending.forEach(p=>p.t.imported='');return;}
+  if(!added.length){modal('추출 결과',[...notes,...warnings].join('\n')||'추출할 이체정보가 없어요.',[['확인','primary',null]]);renderThreads();return;}
+  if(rows.length+added.length>MAX){modal('최대 건수 초과',`기존 ${rows.length}건 + 새 ${added.length}건 = ${rows.length+added.length}건이에요.\n한 파일에 ${MAX}건까지 만들 수 있어요. 나눠서 처리해 주세요.`,[['확인','primary',null]]);pending.forEach((p,k)=>p.t.imported=prevImported[k]);return;}
   rows.push(...added);extractedAt=new Date().toLocaleString('ko-KR');
   renderThreads();save();
   $('extractInfo').textContent=`새 ${added.length}건 추가 · 총 ${rows.length}건`;
@@ -535,7 +554,8 @@ function extract(){
   const noPlate=added.filter(r=>!r.plate&&!(r.splitGroup&&added.find(x=>x.splitGroup===r.splitGroup)!==r));
   if(noPlate.length)askPlates(noPlate,warnings);
   else if(warnings.length)modal('확인해 주세요',warnings.join('\n'),[['확인','primary',null]]);
-  else toast(`${added.length}건을 추출했어요. 원문과 맞는지 확인해 주세요.`);
+  else toast(notes.length?notes.join(' '):`${added.length}건을 추출했어요. 원문과 맞는지 확인해 주세요.`);
+  if(notes.length&&(noPlate.length||warnings.length))setTimeout(()=>toast(notes.join(' ')),3000);
   if(nSplit>0)setTimeout(()=>toast(`1억 넘는 금액을 나눠 ${nSplit}줄을 더 만들었어요. '분할' 표시를 확인해 주세요.`),noPlate.length?0:3000);
 }
 $('extract').onclick=extract;
@@ -632,12 +652,12 @@ $('rows').addEventListener('input',e=>{
     else v=(parseKoreanAmount(v)||s); // 만·억 표기 등, 해석 안 되면 그대로 두고 오류로 표시
   }
   else if(k==='plate')v=v.replace(/\s/g,'');
-  else v=v.trim();
+  else v=xmlSafe(v).trim();
   r[k]=v;
   if(r.splitGroup&&k!=='amount')groupRows(r).forEach(y=>{if(y===r)return;y[k]=v;const inp=document.querySelector(`#rows tr[data-id="${y.id}"] [data-k="${k}"]`);if(inp)inp.value=k==='account'?v:el.value;});
   save();refresh();
 });
-$('rows').addEventListener('change',e=>{const el=e.target;if(el.dataset.k==='amount'){const r=rows.find(x=>x.id===el.closest('tr').dataset.id);if(r&&Number(r.amount)>LIMIT){const parts=splitRow(r);if(rows.length-1+parts.length>MAX){toast(`나누면 ${MAX}건을 넘어요. 다른 줄을 줄인 뒤 다시 입력해 주세요.`);return;}rows.splice(rows.indexOf(r),1,...parts);save();renderRows();toast(`${won(parts.reduce((s,x)=>s+Number(x.amount),0))}원을 ${parts.length}건으로 나눴어요.`);return;}}if(el.dataset.k==='amount'&&/^\d+$/.test(rows.find(x=>x.id===el.closest('tr').dataset.id)?.amount||''))el.value=won(rows.find(x=>x.id===el.closest('tr').dataset.id).amount);if(el.dataset.k==='account'&&$('autoFix').checked)el.value=el.value.replace(/[\s-]/g,'');});
+$('rows').addEventListener('change',e=>{const el=e.target;if(el.dataset.k==='amount'){const r=rows.find(x=>x.id===el.closest('tr').dataset.id);if(r&&Number(r.amount)>LIMIT){const parts=splitRow(r);if(parts.length<2){toast(`금액이 너무 커서 나눌 수 없어요. 금액을 다시 확인해 주세요.`);refresh();return;}if(rows.length-1+parts.length>MAX){toast(`나누면 ${MAX}건을 넘어요. 다른 줄을 줄인 뒤 다시 입력해 주세요.`);return;}rows.splice(rows.indexOf(r),1,...parts);save();renderRows();toast(`${won(parts.reduce((s,x)=>s+Number(x.amount),0))}원을 ${parts.length}건으로 나눴어요.`);return;}}if(el.dataset.k==='amount'&&/^\d+$/.test(rows.find(x=>x.id===el.closest('tr').dataset.id)?.amount||''))el.value=won(rows.find(x=>x.id===el.closest('tr').dataset.id).amount);if(el.dataset.k==='account'&&$('autoFix').checked)el.value=el.value.replace(/[\s-]/g,'');});
 $('chkAll').onchange=e=>{const hiddenIds=new Set([...document.querySelectorAll('#rows tr')].filter(t=>t.style.display==='none').map(t=>t.dataset.id));const vis=rows.filter(r=>(filter==='all'||check(r).state===filter)&&!hiddenIds.has(r.id));vis.forEach(r=>e.target.checked?selected.add(r.id):selected.delete(r.id));renderRows();};
 $('selAll').onclick=()=>{$('chkAll').checked=true;$('chkAll').onchange({target:$('chkAll')});};
 $('delSel').onclick=()=>{if(!selected.size){toast('삭제할 줄을 먼저 선택해 주세요.');return;}ask('선택 삭제',`선택한 ${selected.size}건을 삭제할까요?`,'삭제',()=>{rows=rows.filter(r=>!selected.has(r.id));selected.clear();$('chkAll').checked=false;save();renderRows();});};
@@ -721,11 +741,13 @@ function copyComments(){
   copyText(commentLines.join('\n'),'코멘트 전체를 복사했어요.');
 }
 $('copyComments').onclick=copyComments;
-function updateDownloadBtn(){const c=counts();$('download').disabled=!c.all||c.bad>0||c.all>MAX||(c.warn>0&&!$('ack').checked);}
-$('ack').onchange=updateDownloadBtn;
+const dataSig=()=>JSON.stringify(rows.map(r=>[r.bank,r.account,r.amount,r.outMemo,r.inMemo,r.cms,r.plate]));
+let ackSig='',downloadedSig='',downloading=false;
+function updateDownloadBtn(){if($('ack').checked&&ackSig!==dataSig()){$('ack').checked=false;ackSig='';}const c=counts();$('download').disabled=downloading||!c.all||c.bad>0||c.all>MAX||(c.warn>0&&!$('ack').checked);}
+$('ack').onchange=()=>{ackSig=$('ack').checked?dataSig():'';updateDownloadBtn();};
 function fileRows(){return [['입금은행','입금계좌번호','입금액(원)','출금통장표시','입금통장표시','CMS코드'],...rows.map(r=>[hanaBank(r.bank),r.account,Number(r.amount),r.outMemo??r.plate,r.inMemo??r.plate,r.cms||''])];}
 function xlsxBlob(values){
-  const sheetRows=values.map((row,i)=>`<row r="${i+1}">${row.map((v,j)=>{const ref=String.fromCharCode(65+j)+(i+1);return j===2&&i>0?`<c r="${ref}"><v>${v}</v></c>`:`<c r="${ref}" t="inlineStr"><is><t>${xml(v)}</t></is></c>`}).join('')}</row>`).join('');
+  const sheetRows=values.map((row,i)=>`<row r="${i+1}">${row.map((v,j)=>{const ref=String.fromCharCode(65+j)+(i+1);return j===2&&i>0&&Number.isSafeInteger(v)?`<c r="${ref}"><v>${v}</v></c>`:`<c r="${ref}" t="inlineStr"><is><t>${xml(v)}</t></is></c>`}).join('')}</row>`).join('');
   const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="18" customWidth="1"/><col min="2" max="2" width="24" customWidth="1"/><col min="3" max="3" width="16" customWidth="1"/><col min="4" max="6" width="20" customWidth="1"/></cols><sheetData>${sheetRows}</sheetData></worksheet>`;
   return zip([['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'],['_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],['xl/workbook.xml','<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="이체검토" sheetId="1" r:id="rId1"/></sheets></workbook>'],['xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'],['xl/worksheets/sheet1.xml',sheet]]);
 }
@@ -744,14 +766,24 @@ function fileName(stamp){
 }
 $('download').onclick=async()=>{
   updateDownloadBtn();if($('download').disabled)return;
+  // 파일에 들어갈 값을 한 번 더 점검: 오류가 있으면 받지 않아요
+  const bad=rows.filter(r=>check(r).state==='bad');
+  if(bad.length){toast(`오류 ${bad.length}건이 남아 있어요. 2단계에서 고쳐 주세요.`);renderStep3();return;}
+  downloading=true;updateDownloadBtn();
+  try{
   const d=new Date(),stamp=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('')+'_'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0');
   const name=fileName(stamp), blob=xlsxBlob(fileRows());
   const r=await saveFile(blob,name);
   if(r==='declined')return;
+  if(r==='ok'||r==='browser')downloadedSig=dataSig();
   if(r==='ok')toast('이체파일을 저장했어요. 은행 업로드 전에 한 번 더 확인해 주세요.');
   else if(r==='browser')toast('브라우저 다운로드로 받았어요. 저장 위치를 확인해 주세요.');
   else modal('파일을 저장하지 못했어요','잠시 뒤 다시 눌러 주세요. 계속 안 되면 다른 브라우저로 열어 주세요.',[['확인','primary',null]]);
+  }catch(e){modal('파일을 만들지 못했어요','입력 내용은 그대로 남아 있어요. 잠시 뒤 다시 눌러 주세요.',[['확인','primary',null]]);}
+  finally{setTimeout(()=>{downloading=false;updateDownloadBtn();},1500);}
 };
+// 받지 않은 내역이 있을 때 새로고침·창 닫기를 하면 한 번 물어봐요 (입력 내용은 저장되지 않아요)
+window.addEventListener('beforeunload',e=>{if(rows.length&&downloadedSig!==dataSig()){e.preventDefault();e.returnValue='';}});
 // Claude 링크에서는 claude.use('downloads'), 그 밖의 주소에서는 브라우저 기본 다운로드로 저장
 async function saveFile(blob,name){
   const dl=await getDownloads();
@@ -767,7 +799,7 @@ async function saveFile(blob,name){
     return 'browser';
   }catch(e){return 'fail';}
 }
-function resetAll(){ask('전체 초기화','붙여넣은 스레드와 이체 내역을 모두 지울까요? 되돌릴 수 없어요.','모두 지우기',()=>{rows=[];threads=[];selected.clear();extractedAt='';filter='all';$('extractInfo').textContent='';$('ack').checked=false;try{localStorage.removeItem(LS);}catch(e){}renderThreads();goStep(1);toast('모두 지웠어요.');});}
+function resetAll(){ask('전체 초기화','붙여넣은 스레드와 이체 내역을 모두 지울까요? 되돌릴 수 없어요.','모두 지우기',()=>{rows=[];threads=[];selected.clear();extractedAt='';filter='all';$('extractInfo').textContent='';$('ack').checked=false;ackSig='';downloadedSig='';try{localStorage.removeItem(LS);}catch(e){}renderThreads();goStep(1);toast('모두 지웠어요.');});}
 $('resetAll1').onclick=resetAll;$('resetAll3').onclick=resetAll;
 
 // ---------- 단계 이동 ----------
