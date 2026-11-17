@@ -86,3 +86,85 @@ html[data-theme=dark] body.mac-ui .tablewrap{border-color:#5b7192;background:#1d
 @media(max-width:1000px){body.mac-ui[data-page=transfer] .cols.step2cols{grid-template-columns:1fr}body.mac-ui[data-page=transfer] .step2cols>.side{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){body.mac-ui[data-page=transfer] .step2cols>.side{grid-template-columns:1fr}}
 @media print{html[data-theme=dark] body.mac-ui{background:#fff!important;color:#17283e!important}.theme-control{display:none!important}}
+
+/* ---------------------------------------------------------------
+   2026-11-17 Liquid Glass 다듬기
+   - 유리 효과(블러)는 바깥 판에만: 판 안의 상자·타일은 겹겹이 흐리지 않음
+   - 바깥 판 → 안쪽 상자 → 버튼 순으로 모서리 둥글기를 맞춤
+   - 흰 유리 위 흰 버튼이 묻히지 않게 얇은 테두리
+   - 남아 있던 녹색 아이콘, 표 아래 흰 빈칸, 검색칸 이중 테두리 정리
+   - 휴대폰: 메뉴 한 줄, 단계 버튼 글자 줄바꿈 정리
+---------------------------------------------------------------- */
+:root{--r-outer:24px;--r-inner:16px;--r-ctl:12px;--hair:#d6dfeb;--hair-strong:#b9c7da}
+html{background:#edf1f9}html[data-theme=dark]{background:#141923}
+body.mac-ui{background-color:#edf1f9}html[data-theme=dark] body.mac-ui{background-color:#141923}
+
+/* 1) 바깥 판만 유리. 안쪽 표면은 반투명 단색 + 머리카락 테두리 */
+body.mac-ui :is(.panel,.card,.stepper,.wizard-header) :is(.box,.thread,.tile,.stat,.card,.step,.crow,.fixitem){backdrop-filter:none;-webkit-backdrop-filter:none}
+body.mac-ui .panel,body.mac-ui[data-page=transfer] .panel{border-radius:var(--r-outer)}
+body.mac-ui .panel :is(.box,.thread,.tile):not(.help){background:#ffffffb8;border:1px solid var(--hair);box-shadow:inset 0 1px 0 #fff;border-radius:var(--r-inner)}
+body.mac-ui .panel .box.help{border-radius:var(--r-inner)}
+body.mac-ui[data-page=transfer] .tile[aria-pressed=true]{background:#e4eeff;border-color:#9cbcf0;box-shadow:inset 0 1px 0 #fff}
+body.mac-ui[data-page=transfer] .stepper{border-radius:var(--r-outer)}
+body.mac-ui[data-page=transfer] .step{border-radius:var(--r-inner)}
+body.mac-ui[data-page=transfer] .step:not([aria-current=step]){border-color:#ffffff99}
+
+/* 2) 버튼: 캡슐 모양 + 보이는 테두리. 위험 동작은 붉은 글씨만 */
+body.mac-ui :is(.button,.btn,.action){border:1px solid var(--hair);border-radius:999px}
+body.mac-ui :is(.button,.btn,.action):hover{border-color:var(--hair-strong)}
+body.mac-ui :is(.btn.big,.go){border-radius:999px}
+body.mac-ui :is(.danger){color:#b4413c}
+body.mac-ui :is(.primary,.go){border-color:#3f86f0!important}
+body.mac-ui .btn:disabled,body.mac-ui .btn:disabled:hover{background:#ffffff80;box-shadow:none;transform:none}
+body.mac-ui .btn.primary:disabled{background:linear-gradient(160deg,#9cbff5,#7fa7e8)!important;box-shadow:none!important}
+
+/* 3) 입력칸: 안쪽 상자보다 한 단계 작은 둥글기 */
+body.mac-ui :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea){border-radius:var(--r-ctl);border-color:var(--hair-strong)}
+body.mac-ui td :is(input:not([type=checkbox]),select){border-radius:9px!important}
+body.mac-ui :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea):focus{border-color:#4b8af0;box-shadow:0 0 0 3px #4b8af026}
+
+/* 4) 표: 유리 판 위에 단정한 흰 표면. 빈칸 채움줄은 투명 */
+body.mac-ui .tablewrap{border-radius:var(--r-inner);border:1px solid var(--hair);background:#ffffffc9}
+body.mac-ui #fillRows td{background:transparent}
+body.mac-ui .crow{border-radius:var(--r-ctl);border-color:var(--hair);background:#ffffffc2}
+
+/* 5) 남은 녹색 아이콘을 파란 강조색으로 */
+body.mac-ui .guide svg{color:var(--accent)}
+
+/* 6) 탁송체크 검색칸: 바깥 테두리 하나만 */
+body.mac-ui .search input{border:0!important;background:transparent!important;box-shadow:none!important;padding:2px 0!important;border-radius:0!important}
+body.mac-ui .search:focus-within{border-color:#4b8af0;box-shadow:0 0 0 3px #4b8af026}
+
+/* 다크 모드 대응 */
+html[data-theme=dark]{--hair:#93a9ca2e;--hair-strong:#93a9ca55}
+html[data-theme=dark] body.mac-ui .panel :is(.box,.thread,.tile):not(.help){background:#ffffff0a!important;border-color:var(--hair)!important;box-shadow:inset 0 1px 0 #ffffff0d}
+html[data-theme=dark] body.mac-ui[data-page=transfer] .tile[aria-pressed=true]{background:#2f4a72!important;border-color:#6f9ce6!important}
+html[data-theme=dark] body.mac-ui[data-page=transfer] .step:not([aria-current=step]){border-color:var(--hair)!important}
+html[data-theme=dark] body.mac-ui :is(.button,.btn,.action){border-color:var(--hair-strong)}
+html[data-theme=dark] body.mac-ui .danger{color:#ffb4ad}
+html[data-theme=dark] body.mac-ui .tablewrap{border-color:var(--hair-strong)}
+html[data-theme=dark] body.mac-ui .crow{background:#ffffff0a;border-color:var(--hair)}
+html[data-theme=dark] body.mac-ui .btn:disabled{background:#ffffff0d}
+html[data-theme=dark] body.mac-ui .btn.primary:disabled{background:linear-gradient(150deg,#3b5f92,#2f4f80)!important;color:#c7d6ee!important}
+html[data-theme=dark] body.mac-ui .search{background:#192334;border-color:var(--hair-strong);color:#9aaecb}
+
+/* 휴대폰 */
+@media(max-width:650px){
+ body.mac-ui .toolnav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+ body.mac-ui .toolnav::-webkit-scrollbar{display:none}
+ body.mac-ui .toolnav a{white-space:nowrap;flex:none}
+ body.mac-ui .theme-control{font-size:0;gap:0;margin-left:2px;flex:none}
+ body.mac-ui .theme-control select{width:76px;min-height:32px;padding:5px 26px 5px 10px!important;background-position:right 7px center!important}
+ body.mac-ui[data-page=transfer] .stepper>.btn{display:none}
+ body.mac-ui[data-page=transfer] .step{grid-row:2;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:10px 4px}
+ body.mac-ui[data-page=transfer] .step div span{display:none}
+ body.mac-ui[data-page=transfer] .step b{font-size:12.5px;word-break:keep-all;line-height:1.35}
+ body.mac-ui[data-page=transfer] .guide{padding:4px 6px}
+ body.mac-ui .panel :is(.box,.thread){border-radius:14px}
+}
+@media(prefers-reduced-transparency:reduce){body.mac-ui .panel :is(.box,.thread,.tile):not(.help){background:#fff}}
+@media(max-width:650px){body.mac-ui[data-page=transfer] .tiles>.tile.sum:last-child{grid-column:1/-1}}
+@media(max-width:430px){body.mac-ui[data-page=index] .toolnav a[href="./guide.html"]{display:none}}
+body.mac-ui .iconbutton{background:linear-gradient(160deg,#fffffff0,#ffffff99);border:1px solid var(--hair);box-shadow:inset 0 1px 0 #fff}
+html[data-theme=dark] body.mac-ui .iconbutton{background:#ffffff14;border-color:var(--hair-strong);color:#d6e3f8;box-shadow:inset 0 1px 0 #ffffff12}
+@media(max-width:430px){body.mac-ui .toolnav a.navguide{display:none}}

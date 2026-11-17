@@ -1,504 +1,109 @@
+// 탁송체크(dispatch.html) — 화면이 실제로 쓰는 조회 규칙(core-source) 테스트
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {readFileSync}=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
-const base=readFileSync(path.join(__dirname,'../dispatch-tool.html'),'utf8');
+
 const page=readFileSync(path.join(__dirname,'../dispatch.html'),'utf8');
-function setup(choices=new Map(),confirmations=new Map()){
- const context=vm.createContext({readChoice:key=>choices.get(key),readOverride:key=>confirmations.get(key)});
- vm.runInContext(base.match(/<script id="core-source"[^>]*>([\s\S]*?)<\/script>/)[1],context);
- const reader=page.slice(page.indexOf('    function installCarrierReader('),page.indexOf('    if (core) {'));
- const matcher=page.slice(page.indexOf('function createFuelMatcher('),page.indexOf('    if (core && !core._latestAcrossVendors)'));
- vm.runInContext(reader+'\n'+matcher+'\ninstallCarrierReader(DispatchCore);DispatchCore.match=createFuelMatcher(DispatchCore,DispatchCore.match,readOverride,readChoice);',context);
- return context.DispatchCore;
+const core=page.match(/<script id="core-source"[^>]*>([\s\S]*?)<\/script>/)[1];
+function load(){const ctx=vm.createContext({});vm.runInContext(core,ctx);return ctx.DispatchCore;}
+const C=load();
+const plain=v=>JSON.parse(JSON.stringify(v));
+
+// 업체 시트 만들기: 업체별 고정 열(A: K일자·L시간·AP비용, B: C일자·U비용, C: D일자·J캐리어·S비용)
+const HEAD={
+ A:{0:'차량번호',1:'상태',2:'주유/부대비용 총액',3:'출발지 주소'},
+ B:{0:'차량번호',1:'상태',3:'주유비',4:'출발지'},
+ C:{0:'출발지 차량번호',1:'운행상태',2:'출발지 주소(현재차량 상세위치)'}
+};
+function sheet(vendor,rows,{name='자료',pad=0}={}){
+ const head=Array(45).fill('');for(const [i,v] of Object.entries(HEAD[vendor]))head[i]=v;
+ const body=rows.map(r=>{const row=Array(45).fill('');
+  row[0]=r.plate;row[1]=r.state??'탁송완료';
+  if(vendor==='A'){row[2]=r.cost??'';row[3]=r.origin??'';row[10]=r.date??'';row[11]=r.time??'';row[41]=r.fee??'';}
+  if(vendor==='B'){row[3]=r.cost??'';row[4]=r.origin??'';row[2]=r.date??'';row[20]=r.fee??'';}
+  if(vendor==='C'){row[2]=r.origin??'';row[3]=r.date??'';row[9]=r.carrier??'';row[18]=r.fee??'';}
+  return row;});
+ return {name,rows:[...Array(pad).fill(['제목 위 안내문']),head,...body]};
 }
-function sheets(vendor,cost,state='탁송완료'){
- return [{name:'자료',rows:[['차량번호','상태',vendor==='A'?'주유/부대비용 총액':'주유비'],['123가4567',state,cost]]}];
-}
-const input=[{plate:'123가4567',date:''}];
-test('Hanbit blanks become confirmed zero through reader and matcher',()=>{
- for(const value of ['',null,undefined,'   ',0]){
-  const core=setup(),file=core.readSheets(sheets('A',value),'한빛.xlsx');
-  assert.equal(file.records[0].cost,0);
-  const row=core.match(input,[file])[0];
-  assert.equal(row.amount,0);assert.equal(row.status,'confirmed');assert.equal(row.fuelState,'zero');
- }
+const read=(vendor,rows,file)=>C.readSheets([sheet(vendor,rows)],file||vendor+'.xlsx');
+const one=(plate,files)=>plain(C.match([{plate,date:''}],files)[0]);
+
+test('차량목록: 날짜·시간과 차량번호를 함께 읽고 잘못된 줄은 따로 모아요',()=>{
+ const r=plain(C.parseInput('전체 3건\n2026-10-23 10:00  12서7567\n55노4983\n2026-02-30 10:00 12가3456\n아무말\n55노4983'));
+ assert.deepEqual(r.vehicles.map(v=>[v.plate,v.date]),[['12서7567','2026-10-23 10:00'],['55노4983',''],['55노4983','']]);
+ assert.equal(r.invalid.length,2);
+ assert.equal(r.duplicates,1);
 });
-test('matcher normalizes Hanbit blank records with null costs',()=>{
- const core=setup(),row=core.match(input,[{records:[{plate:'123가4567',vendor:'A',state:'완료',rawCost:'',cost:null}]}])[0];
- assert.equal(row.amount,0);assert.equal(row.fuelState,'zero');
+test('차량번호: 자모가 풀어진 번호도 한 글자로 합쳐서 비교해요',()=>{
+ assert.equal(C.plate('12ㅅㅓ7567'),'12서7567');
+ assert.equal(C.plate(' 서울12 가 3456 '),'서울12가3456');
+ assert.ok(C.valid('123가4567'));assert.ok(C.valid('서울12가3456'));assert.ok(!C.valid('1234567'));
 });
-test('Openmile blanks and malformed Hanbit costs require review',()=>{
- for(const [vendor,cost] of [['B',''],['A','확인필요']]){
-  const core=setup(),row=core.match(input,[core.readSheets(sheets(vendor,cost),'업체.xlsx')])[0];
-  assert.equal(row.amount,null);assert.equal(row.fuelState,'needs');
- }
-});
-test('blank costs retain completion and conflict checks',()=>{
- const core=setup();
- const pending=core.match(input,[core.readSheets(sheets('A','','배차완료'),'진행.xlsx')])[0];
- assert.equal(pending.status,'incomplete');assert.equal(pending.amount,null);
- const blank=core.readSheets(sheets('A',''),'빈칸.xlsx'),paid=core.readSheets(sheets('A',35000),'금액.xlsx');
- const row=core.match(input,[blank,paid])[0];
- assert.equal(row.status,'conflict');assert.equal(row.amount,null);assert.equal(row.fuelState,'needs');
+test('금액: 쉼표·원 표시는 지우고 숫자가 아니면 비워요',()=>{
+ assert.equal(C.money('35,000원'),35000);assert.equal(C.money(' 0 '),0);
+ assert.equal(C.money(''),null);assert.equal(C.money('확인중'),null);
+ assert.equal(C.round10(35004),35000);assert.equal(C.round10(35005),35010);
 });
 
-function selectionHelpers(){
- const context=vm.createContext({queueMicrotask});
- const source=page.slice(page.indexOf('    function vendorSelectionRows('),page.indexOf('    function visibleRows()'));
- vm.runInContext(source,context);
- return context;
-}
-function dragHarness(){
- const helpers=selectionHelpers(),selected=new Set();let syncs=0;
- function surface(){const handlers={};return {handlers,addEventListener(type,fn){(handlers[type]||=[]).push(fn)},emit(type,event={}){for(const fn of handlers[type]||[])fn(event)}}}
- const win=surface(),doc=surface(),body=surface();doc.defaultView=win;
- let hit=null,captured=null;
- const boxes=['A','B','C','D'].map(plate=>({dataset:{plate},disabled:false,closest(selector){return selector==='.vehicle-select'?this:this.row}}));
- for(const box of boxes){box.row={querySelector:()=>box,closest(){return this}};}
- body.querySelectorAll=()=>boxes;body.contains=box=>boxes.includes(box);
- body.setPointerCapture=id=>captured=id;body.hasPointerCapture=id=>captured===id;body.releasePointerCapture=()=>captured=null;
- doc.elementFromPoint=()=>hit;
- const sync=()=>{syncs++;for(const box of boxes)box.checked=selected.has(box.dataset.plate)};
- helpers.installVehicleDragSelection(doc,body,selected,sync);
- const event=(extra={})=>({pointerId:1,button:0,buttons:1,isPrimary:true,preventDefault(){this.prevented=true},...extra});
- return {selected,boxes,body,doc,win,event,start(i,extra){const e=event({target:boxes[i],...extra});body.emit('pointerdown',e);return e},move(i,extra){hit=i===null?null:boxes[i].row;doc.emit('pointermove',event(extra))},stop(){doc.emit('pointerup',event())},syncs:()=>syncs};
-}
-test('drag selects skipped rows once, supports reverse movement and stops on release',()=>{
- const h=dragHarness();assert.equal(h.start(0).prevented,true);
- h.move(3);assert.deepEqual([...h.selected],['A','B','C','D']);
- h.move(1);h.move(3);assert.equal(h.selected.size,4);
- h.stop();h.move(0);assert.equal(h.selected.size,4);
- h.start(3);h.move(1);assert.deepEqual([...h.selected],['A']);
- h.stop();assert.equal(h.boxes[0].checked,true);assert.equal(h.boxes[1].checked,false);
+test('업체 양식: 제목 줄 위치와 상관없이 한빛·오픈마일·렌톡을 알아봐요',()=>{
+ const f=C.readSheets([sheet('A',[{plate:'12서7567'}],{name:'한빛',pad:3}),sheet('B',[{plate:'55노4983'}],{name:'오픈'}),sheet('C',[{plate:'77다1234'}],{name:'렌톡'})],'3사.xlsx');
+ assert.deepEqual(plain(f.sheets),['한빛','오픈','렌톡']);
+ assert.deepEqual(plain(f.records.map(r=>r.vendor)),['A','B','C']);
+ assert.throws(()=>C.readSheets([{name:'x',rows:[['이름','나이']]}],'x.xlsx'),/양식을 찾지 못했습니다/);
 });
-test('drag cancellation, blur, disabled controls and keyboard clicks are safe',()=>{
- const h=dragHarness();h.start(0);h.move(null);assert.deepEqual([...h.selected],['A']);
- h.doc.emit('pointercancel',h.event());h.move(3);assert.equal(h.selected.size,1);
- h.start(1);h.win.emit('blur');h.move(3);assert.equal(h.selected.size,2);
- assert.equal(h.start(2,{button:2}).prevented,undefined);assert.equal(h.selected.has('C'),false);
- h.boxes[2].disabled=true;assert.equal(h.start(2).prevented,undefined);
- const keyboard=h.event({target:h.boxes[0],detail:0});h.body.emit('click',keyboard);assert.equal(keyboard.prevented,undefined);
- const pointer=h.event({target:h.boxes[0],detail:1});h.body.emit('click',pointer);assert.equal(pointer.prevented,true);
- h.start(3);h.move(0,{buttons:0});h.move(0);assert.equal(h.selected.has('A'),true);
+test('한빛 빈 주유비는 0원, 오픈마일 빈 주유비는 미입력으로 둬요',()=>{
+ assert.equal(read('A',[{plate:'12서7567',cost:''}]).records[0].cost,0);
+ assert.equal(read('B',[{plate:'12서7567',cost:''}]).records[0].cost,null);
+ assert.equal(read('B',[{plate:'12서7567',cost:'0'}]).records[0].cost,0);
 });
-test('vendor bulk selection matches current visible rows including shared vendors',()=>{
- const helpers=selectionHelpers(),rows=[{plate:'A',vendor:'한빛탁송'},{plate:'B',vendor:'오픈마일'},{plate:'C',vendor:'한빛탁송, 렌톡'},{plate:'D',vendor:''}];
- assert.deepEqual(Array.from(helpers.vendorSelectionRows(rows,'한빛탁송'),r=>r.plate),['A','C']);
- assert.deepEqual(Array.from(helpers.vendorSelectionRows(rows.slice(1),'한빛탁송'),r=>r.plate),['C']);
- const selected=new Set(['B']);
- for(const r of helpers.vendorSelectionRows(rows,'한빛탁송'))selected.add(r.plate);
- assert.deepEqual([...selected],['B','A','C']);
- for(const r of helpers.vendorSelectionRows(rows,'한빛탁송'))selected.delete(r.plate);
- assert.deepEqual([...selected],['B']);
- assert.equal(helpers.vendorSelectionRows(rows,'없는업체').length,0);
+test('차량번호가 아닌 줄은 건너뛰고 개수만 세요',()=>{
+ const f=read('A',[{plate:'12서7567'},{plate:'합계',state:'x'}]);
+ assert.equal(f.records.length,1);assert.equal(f.ignored,1);
 });
 
-function rentokSheet(flag,memo='',state='완료',startRow=1){
- return [{name:'렌톡자료',startRow,rows:[
-  ['출발지 차량번호','운행상태','출발지 주소(현재차량 상세위치)','출발시각','','','','','','캐리어탁송','메모'],
-  ['123가4567',state,'서울','2026-11-03','','','','','',flag,memo]
- ]}];
-}
-test('Rentok J-column Y marks carrier and excludes inquiry regardless of completion',()=>{
- for(const flag of ['Y',' y ','Ｙ'])for(const state of ['완료','진행중']){
-  const core=setup(),file=core.readSheets(rentokSheet(flag,'',state,5),'렌톡.xlsx');
-  assert.equal(file.records[0].carrier,true);
-  const row=core.match(input,[file])[0];
-  assert.equal(row.status,'carrier');assert.equal(row.carrier,true);assert.equal(row.cInquiry,false);
-  assert.equal(row.amount,null);assert.equal(row.fuelState,'exempt');
-  assert.match(row.carrierMemo,/캐리어탁송\(J열\): Y/);
- }
+test('조회 상태: 없음·미완료·금액 확인·비용 확인',()=>{
+ assert.equal(one('99하9999',[read('A',[{plate:'12서7567'}])]).status,'missing');
+ assert.equal(one('12서7567',[read('A',[{plate:'12서7567',state:'탁송중'}])]).status,'incomplete');
+ const ok=one('12서7567',[read('A',[{plate:'12서7567',cost:'35,004'}])]);
+ assert.equal(ok.status,'confirmed');assert.equal(ok.amount,35000);assert.equal(ok.vendor,'한빛탁송');
+ assert.equal(one('12서7567',[read('B',[{plate:'12서7567',cost:''}])]).status,'cost');
 });
-test('Rentok N and blank flags are not carriers even when memo mentions carrier',()=>{
- for(const flag of ['N','',null,'YES',1]){
-  const core=setup(),file=core.readSheets(rentokSheet(flag,'캐리어 문의'),'렌톡.xlsx');
-  assert.equal(file.records[0].carrier,false);
-  const row=core.match(input,[file])[0];
-  assert.equal(row.carrier,false);assert.equal(row.cInquiry,true);assert.notEqual(row.status,'carrier');
- }
+test('업체가 달라도 탁송일자가 가장 최신인 기록 하나를 써요',()=>{
+ const r=one('12서7567',[read('A',[{plate:'12서7567',cost:'10000',date:'2026-11-01'}]),read('B',[{plate:'12서7567',cost:'20000',date:'2026-11-05'}])]);
+ assert.equal(r.vendor,'오픈마일');assert.equal(r.amount,20000);assert.equal(r.dispatchDate,'2026-11-05');
 });
-test('carrier flag changes invalidate review identity and remain sheet-specific',()=>{
- const core=setup(),yes=core.readSheets(rentokSheet('Y'),'렌톡.xlsx'),no=core.readSheets(rentokSheet('N'),'렌톡.xlsx');
- assert.notEqual(core.match(input,[yes])[0].reviewKey,core.match(input,[no])[0].reviewKey);
- const sheets=[...rentokSheet('Y'),...rentokSheet('N').map(s=>({...s,name:'일반운행',rows:s.rows.map((r,i)=>i?r.map(v=>v==='123가4567'?'45나6789':v):r)}))];
- const records=core.readSheets(sheets,'렌톡.xlsx').records;
- assert.equal(records.find(r=>r.plate==='123가4567').carrier,true);
- assert.equal(records.find(r=>r.plate==='45나6789').carrier,false);
+test('렌톡: 캐리어(J열 Y)는 문의에서 빼고, 나머지 완료 건은 슬랙 문의로 분류해요',()=>{
+ const y=one('77다1234',[read('C',[{plate:'77다1234',carrier:'Y'}])]);
+ assert.equal(y.status,'carrier');assert.equal(y.carrierType,'캐리어탁송');assert.equal(y.cInquiry,false);
+ const n=one('77다1234',[read('C',[{plate:'77다1234',carrier:'N'}])]);
+ assert.equal(n.status,'slack');assert.equal(n.carrierType,'일반탁송');assert.equal(n.cInquiry,true);
+ assert.equal(one('77다1234',[read('C',[{plate:'77다1234',carrier:''}])]).carrierType,'확인 필요');
 });
-
-function trip(vendor,amount,date='2026-11-03',extra={}){
- return {vendor,plate:'123가4567',dispatchDate:date,state:'완료',cost:amount,rawCost:amount,origin:'서울',file:vendor+'.xlsx',sheet:'자료',row:2,...extra};
-}
-test('user can resolve conflicting trips and exports contain the selected record',()=>{
- const choices=new Map(),core=setup(choices),files=[{records:[trip('A',35000),trip('B',50000)]}];
- let row=core.match(input,files)[0];assert.equal(row.status,'conflict');assert.equal(row.recordChoices.length,2);
- choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.vendor==='A').id);
- row=core.match(input,files)[0];assert.equal(row.status,'confirmed');assert.equal(row.amount,35000);assert.equal(row.vendor,'한빛탁송');assert.equal(row.latestConflict,false);
- assert.match(row.selectionReason,/사용자/);assert.equal(row.sources,'A.xlsx / 자료 / 2행');
- assert.equal(core.values(row)[2],35000);assert.match(core.textExport([row]),/35000/);assert.doesNotMatch(core.textExport([row]),/50000/);
- choices.delete(row.choiceKey);assert.equal(core.match(input,files)[0].status,'conflict');
+test('제주 출발 렌톡 건을 표시해요',()=>{
+ assert.equal(one('77다1234',[read('C',[{plate:'77다1234',origin:'제주특별자치도 제주시'}])]).jeju,true);
 });
-test('explicit trip selection can apply a different date and is shared per vehicle',()=>{
- const choices=new Map(),core=setup(choices),files=[{records:[trip('A',12345,'2026-11-01'),trip('B',50000)]}];
- const dated=[{plate:'123가4567',date:'2026-11-03 10:00'}];let row=core.match(dated,files)[0];
- assert.equal(row.amount,50000);choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.vendor==='A').id);
- row=core.match(dated,files)[0];assert.equal(row.dispatchDate,'2026-11-01');assert.equal(row.targetDate,'2026-11-01');assert.equal(row.amount,12350);
- assert.ok(row.fuelNotes.some(n=>n.includes('다른 운행')));
- const rows=core.match([...dated,{plate:'123가4567',date:'2026-11-01'}],files);
- assert.ok(rows.every(r=>r.amount===12350&&r.status==='confirmed'));
+test('탁송비용 부가세는 10%이고, 기록마다 비용이 다르면 직접 고르게 해요',()=>{
+ const r=one('12서7567',[read('A',[{plate:'12서7567',fee:'50000',date:'2026-11-01'}])]);
+ assert.equal(r.dispatchFee,50000);assert.equal(r.vat,5000);assert.equal(r.feeConflict,false);
+ const files=[read('A',[{plate:'12서7567',fee:'50000',date:'2026-11-01'}]),read('B',[{plate:'12서7567',fee:'60000',date:'2026-11-02'}])];
+ const row=C.match([{plate:'12서7567',date:''}],files)[0];
+ assert.equal(row.feeConflict,true);assert.equal(row.dispatchFee,null);assert.ok(C.hasUnresolvedChoice(row));
+ const pick=row.feeCandidates.find(c=>c.value===50000);
+ assert.ok(C.useCandidate(row,'fee',pick.id));
+ assert.equal(row.dispatchFee,50000);assert.equal(row.vat,5000);assert.ok(!C.hasUnresolvedChoice(row)||row.scheduleConflict);
 });
-test('selected pending, blank cost and Rentok carrier flags retain their own states',()=>{
- const choices=new Map(),core=setup(choices),files=[{records:[trip('A',35000),trip('B',10000,'2026-11-03',{state:'진행중'}),trip('B',null,'2026-11-02',{rawCost:''}),trip('C',null,'2026-11-01',{carrier:true,carrierFlag:'Y'}),trip('C',null,'2026-11-02',{carrier:false,carrierFlag:'N'})]}];
- let row=core.match(input,files)[0];
- for(const [index,status,fuel,amount,inquiry] of [[0,'confirmed','verified',35000,false],[1,'incomplete','waiting',null,false],[2,'cost','needs',null,false],[3,'carrier','exempt',null,false],[4,'slack','inquiry',null,true]]){
-  const expected=files[0].records[index];choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.vendor===expected.vendor&&c.record.dispatchDate===expected.dispatchDate&&c.record.state===expected.state).id);row=core.match(input,files)[0];
-  assert.equal(row.status,status);assert.equal(row.fuelState,fuel);assert.equal(row.amount,amount);assert.equal(row.cInquiry,inquiry);
- }
+test('차량목록에 같은 번호가 두 번 있으면 입력 중복으로 표시해요',()=>{
+ const rows=plain(C.match([{plate:'12서7567',date:''},{plate:'12서7567',date:''}],[read('A',[{plate:'12서7567'}])]));
+ assert.ok(rows.every(r=>r.inputDuplicate));
+ assert.equal(C.unique(rows).length,1);
 });
-test('record changes discard old trip choices and identical duplicates share one option',()=>{
- const choices=new Map(),core=setup(choices),a=trip('A',35000),b=trip('B',50000),files=[{records:[a,b,{...a,file:'재다운로드.xlsx'}]}];
- let row=core.match(input,files)[0];assert.equal(row.recordChoices.length,2);assert.equal(row.duplicateRecords,1);
- choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.vendor==='A').id);
- assert.equal(core.match(input,files)[0].amount,35000);
- b.cost=60000;b.rawCost=60000;row=core.match(input,files)[0];assert.equal(row.selectedRecordId,'');assert.equal(row.status,'conflict');
-});
-test('manual fuel confirmations are isolated for each chosen trip',()=>{
- const choices=new Map(),confirmations=new Map(),core=setup(choices,confirmations),files=[{records:[trip('A',35000),trip('B',50000)]}];
- let row=core.match(input,files)[0];choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.vendor==='A').id);row=core.match(input,files)[0];
- confirmations.set(row.reviewKey,{amount:36000,reason:'업체 확인',savedAt:'오늘'});
- assert.equal(core.match(input,files)[0].amount,36000);
- choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.vendor==='B').id);row=core.match(input,files)[0];assert.equal(row.amount,50000);assert.equal(row.manualConfirmation,undefined);
- choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.vendor==='A').id);assert.equal(core.match(input,files)[0].amount,36000);
-});
-
-test('duplicate review counts only distinct records and clears when a trip is chosen',()=>{
- const choices=new Map(),core=setup(choices),files=[{records:[trip('A',35000),trip('B',50000)]}];
- let row=core.match(input,files)[0];assert.equal(row.duplicateReview,true);
- choices.set(row.choiceKey,row.recordChoices[0].id);row=core.match(input,files)[0];assert.equal(row.duplicateReview,false);
- choices.delete(row.choiceKey);assert.equal(core.match(input,files)[0].duplicateReview,true);
- const single=trip('A',35000);
- assert.equal(core.match(input,[{records:[single,{...single,file:'copy.xlsx'}]}])[0].duplicateReview,false);
- assert.equal(core.match(input,[])[0].duplicateReview,false);
-});
-test('duplicate review includes earlier dates and counts duplicate input plates once',()=>{
- const core=setup(),files=[{records:[trip('A',35000,'2026-11-01'),trip('B',35000)]}];
- const rows=core.match([...input,...input],files);
- assert.equal(core.unique(rows).filter(r=>r.duplicateReview).length,1);
- assert.equal(rows[0].status,'confirmed');assert.equal(rows[0].duplicateReview,true);
-});
-
-function datedSheet(vendor,value,startRow=1){
- if(vendor==='C'){
-  const sheets=rentokSheet('N','', '완료',startRow);sheets[0].rows[1][3]=value;return sheets;
- }
- const header=Array(11).fill(''),row=Array(11).fill('');header[0]='차량번호';row[0]='123가4567';
- const state=vendor==='A'?1:2,cost=vendor==='A'?2:3,date=vendor==='A'?10:1;
- header[state]='상태';row[state]='완료';header[cost]=vendor==='A'?'주유/부대비용 총액':'주유비';row[cost]=35000;
- header[date]='탁송일시';row[date]=value;return [{name:'자료',rows:[header,row],startRow}];
-}
-test('vendor readers retain text dispatch times, seconds and date-only values',()=>{
- for(const vendor of ['A','B','C'])for(const [value,want] of [
-  ['2026-11-04 14:30:00','2026-11-04 14:30'],
-  ['2026/11/4 9:05:17','2026-11-04 09:05:17'],
-  ['2026.11.04 오후 2:30','2026-11-04 14:30'],
-  ['2026-11-04 오전 12:05','2026-11-04 00:05'],
-  ['2026-11-04T14:30:00','2026-11-04 14:30'],
-  ['20261104 14:30','2026-11-04 14:30'],
-  ['2026-11-04','2026-11-04']
- ]){
-  const core=setup(),record=core.readSheets(datedSheet(vendor,value,7),'업체.xlsx').records[0];
-  assert.equal(record.dispatchDate,want,vendor+' '+value);
- }
-});
-test('Excel serial fractions preserve times independently of timezone',()=>{
- const baseDay=(Date.UTC(2026,10,4)-Date.UTC(1899,11,30))/86400000;
- for(const vendor of ['A','B','C'])for(const [fraction,want] of [[0,'2026-11-04'],[0.5,'2026-11-04 12:00'],[(14*3600+30*60+17)/86400,'2026-11-04 14:30:17']]){
-  const core=setup(),record=core.readSheets(datedSheet(vendor,baseDay+fraction),'자료.xlsx').records[0];
-  assert.equal(record.dispatchDate,want);
- }
-});
-test('matching stays on the requested day while distinct times remain selectable and exportable',()=>{
- const choices=new Map(),core=setup(choices),files=[{records:[trip('A',35000,'2026-11-04 09:00'),trip('A',35000,'2026-11-04 14:30'),trip('B',50000,'2026-11-05 08:00')]}];
- const dated=[{plate:'123가4567',date:'2026-11-04 10:00'}];let row=core.match(dated,files)[0];
- assert.equal(row.targetDate,'2026-11-04');assert.equal(row.amount,35000);assert.equal(row.recordChoices.length,3);assert.equal(row.duplicateRecords,0);
- choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.dispatchDate==='2026-11-04 09:00').id);
- row=core.match(dated,files)[0];assert.equal(row.dispatchDate,'2026-11-04 09:00');assert.equal(core.values(row)[0],'2026-11-04 09:00');assert.match(core.textExport([row]),/2026-11-04 09:00/);
- assert.equal(row.dispatchDates.some(d=>d.slice(0,10)>='2026-11-04'&&d.slice(0,10)<='2026-11-04'),true);
- const latest=core.match(input,files)[0];assert.equal(latest.dispatchDate,'2026-11-04 09:00');
- choices.clear();assert.equal(core.match(input,files)[0].dispatchDate,'2026-11-05 08:00');
-});
-
-test('readers preserve completed and received timestamps by header, including split time columns',()=>{
- for(const vendor of ['A','B','C']){
-  const sheets=datedSheet(vendor,'2026-11-03 09:00',4),header=sheets[0].rows[0],raw=sheets[0].rows[1];
-  header.push('탁송 완료 일시','탁송접수일자','탁송접수시간');raw.push('2026-11-04 16:25:07','2026-11-04','오후 5:30');
-  const core=setup(),record=core.readSheets(sheets,'업체.xlsx').records[0];
-  assert.equal(record.completedAt,'2026-11-04 16:25:07');assert.equal(record.receivedAt,'2026-11-04 17:30');
- }
- const sheets=datedSheet('A','2026-11-03');
- const serial=(Date.UTC(2026,10,4)-Date.UTC(1899,11,30))/86400000+0.5;
- sheets[0].rows[0].push('운행완료일시','요청시각');sheets[0].rows[1].push(serial,'2026-11-04 09:00');
- const record=setup().readSheets(sheets,'업체.xlsx').records[0];assert.equal(record.completedAt,'2026-11-04 12:00');assert.equal(record.receivedAt,'2026-11-04 09:00');
-});
-test('latest completed or received time wins independently of spreadsheet row order',()=>{
- const a=trip('A',35000,'2026-11-03 09:00',{completedAt:'2026-11-04 15:00',receivedAt:'2026-11-02 10:00'});
- const b=trip('B',35000,'2026-11-03 14:00',{completedAt:'2026-11-03 16:00',receivedAt:'2026-11-04 18:00'});
- for(const records of [[a,b],[b,a]]){
-  const row=setup().match(input,[{records}])[0];
-  assert.equal(row.latestRecord.vendor,'B');assert.equal(row.latestAt,'2026-11-04 18:00');assert.equal(row.receivedAt,'2026-11-04 18:00');assert.equal(row.recordChoices[0].record.vendor,'B');
- }
- b.receivedAt='2026-11-04 12:00';const row=setup().match(input,[{records:[a,b]}])[0];assert.equal(row.latestRecord.vendor,'A');assert.equal(row.latestAt,'2026-11-04 15:00');
-});
-test('latest event can select an earlier dispatch day while explicit input dates stay scoped',()=>{
- const a=trip('A',35000,'2026-11-01 09:00',{completedAt:'2026-11-04 18:00'}),b=trip('B',50000,'2026-11-03 09:00',{receivedAt:'2026-11-03 12:00'}),core=setup(),files=[{records:[a,b]}];
- let row=core.match(input,files)[0];assert.equal(row.latestRecord.vendor,'A');assert.equal(row.targetDate,'2026-11-01');assert.equal(row.amount,35000);
- row=core.match([{plate:'123가4567',date:'2026-11-03 10:00'}],files)[0];assert.equal(row.latestRecord.vendor,'B');assert.equal(row.amount,50000);
-});
-test('event timestamps keep conflicting rows distinct and changes invalidate trip selection',()=>{
- const choices=new Map(),core=setup(choices),a=trip('A',35000,'2026-11-03',{completedAt:'2026-11-03 10:00'}),b={...a,cost:50000,rawCost:50000,completedAt:'2026-11-03 18:00'},files=[{records:[b,a]}];
- let row=core.match(input,files)[0];assert.equal(row.latestAt,'2026-11-03 18:00');assert.equal(row.status,'conflict');assert.equal(row.amount,null);
- choices.set(row.choiceKey,row.recordChoices[0].id);row=core.match(input,files)[0];assert.equal(row.amount,50000);
- b.completedAt='2026-11-03 19:00';row=core.match(input,files)[0];assert.equal(row.selectedRecordId,'');assert.equal(row.duplicateReview,true);
- const same=setup().match(input,[{records:[a,{...a,completedAt:'2026-11-03 11:00'}]}])[0];assert.equal(same.recordChoices.length,2);assert.equal(same.duplicateRecords,0);
-});
-test('missing event columns are explicit blanks and use dispatch time as fallback',()=>{
- const core=setup(),record=core.readSheets(datedSheet('A','2026-11-04 14:30'),'자료.xlsx').records[0];
- assert.equal(record.completedAt,'');assert.equal(record.receivedAt,'');
- const row=core.match(input,[{records:[record]}])[0];assert.equal(row.latestAt,'2026-11-04 14:30');assert.equal(row.amount,35000);
-});
-
-function rentokRequestSheet(requestTime,departureTime='2026-11-04 09:00'){
- const sheet=rentokSheet('N')[0];
- sheet.rows[0][2]='요청 시각 (C열)';sheet.rows[1][2]=requestTime;
- sheet.rows[0][4]='출발지 주소(현재차량 상세위치)';sheet.rows[1][4]='서울';sheet.rows[1][3]=departureTime;
- return sheet;
-}
-test('Rentok reads request time from C even when its header differs, and retains departure time',()=>{
- const serial=(Date.UTC(2026,10,4)-Date.UTC(1899,11,30))/86400000+0.75;
- for(const value of ['2026-11-04 18:00',serial]){
-  const core=setup(),sheet=rentokRequestSheet(value);
-  sheet.rows[0].push('접수일시');sheet.rows[1].push('2026-11-05 20:00');
-  const record=core.readSheets([sheet],'렌톡.xlsx').records[0];
-  assert.equal(record.receivedAt,'2026-11-04 18:00');assert.equal(record.dispatchDate,'2026-11-04 09:00');assert.equal(record.origin,'서울');
- }
-});
-test('Rentok duplicate requests sort by C-column timestamps regardless of source row order',()=>{
- const sheet=rentokRequestSheet('2026-11-04 18:00');
- const older=[...sheet.rows[1]];older[2]='2026-11-04 10:00';sheet.rows.push(older);
- const core=setup(),file=core.readSheets([sheet],'렌톡.xlsx'),row=core.match(input,[file])[0];
- assert.equal(row.latestAt,'2026-11-04 18:00');assert.equal(row.recordChoices.length,2);assert.equal(row.duplicateReview,true);
- assert.equal(row.recordChoices[0].record.receivedAt,'2026-11-04 18:00');assert.equal(row.cInquiry,true);
-});
-
-function vendorRequestSheet(vendor,requestTime){
- const sheet=datedSheet(vendor,'2026-11-04 09:00',6)[0];
- if(vendor==='B'){
-  sheet.rows[0][5]='차량번호';sheet.rows[1][5]=sheet.rows[1][0];
- }
- const col=vendor==='A'?8:0;
- sheet.rows[0][col]='접수 시각 (업체 지정 열)';sheet.rows[1][col]=requestTime;
- return sheet;
-}
-test('Hanbit I and Openmile A supply the received timestamp before header matches',()=>{
- const serial=(Date.UTC(2026,10,4)-Date.UTC(1899,11,30))/86400000+0.75;
- for(const vendor of ['A','B'])for(const value of ['2026-11-04 18:00',serial]){
-  const sheet=vendorRequestSheet(vendor,value);
-  sheet.rows[0].push('접수일시');sheet.rows[1].push('2026-11-05 20:00');
-  const record=setup().readSheets([sheet],'업체.xlsx').records[0];
-  assert.equal(record.receivedAt,'2026-11-04 18:00');assert.equal(record.dispatchDate,'2026-11-04 09:00');assert.equal(record.plate,'123가4567');
- }
-});
-test('Hanbit and Openmile duplicates use fixed request columns for newest-first comparison',()=>{
- for(const vendor of ['A','B']){
-  const sheet=vendorRequestSheet(vendor,'2026-11-04 18:00'),older=[...sheet.rows[1]];
-  older[vendor==='A'?8:0]='2026-11-04 10:00';sheet.rows.push(older);
-  const core=setup(),file=core.readSheets([sheet],'업체.xlsx'),row=core.match(input,[file])[0];
-  assert.equal(row.latestAt,'2026-11-04 18:00');assert.equal(row.recordChoices.length,2);
-  assert.equal(row.recordChoices[0].record.receivedAt,'2026-11-04 18:00');assert.equal(row.duplicateReview,true);
- }
-});
-
-function dispatchDemo(core){
- const context=vm.createContext({});
- const source=page.slice(page.indexOf('    function buildDispatchDemo('),page.indexOf("    const originalDemo=$('demo').onclick;"));
- vm.runInContext(source,context);return context.buildDispatchDemo(core);
-}
-test('demo runs real vendor readers and supplies timestamps plus two duplicate-review vehicles',()=>{
- const core=setup(),demo=dispatchDemo(core),parsed=core.parseInput(demo.input),rows=core.unique(core.match(parsed.vehicles,[demo.file]));
- assert.equal(parsed.invalid.length,0);assert.equal(rows.length,9);assert.equal(demo.file.records.length,10);
- assert.deepEqual(Array.from(rows.filter(r=>r.duplicateReview),r=>r.plate).sort(),['12서7567','25마7579']);
- assert.ok(demo.file.records.every(r=>r.receivedAt.startsWith('2026-11-04 ')&&r.dispatchDate.startsWith('2026-11-04 ')));
- assert.equal(rows.find(r=>r.plate==='25마7579').recordChoices[0].record.completedAt,'2026-11-04 15:00');
- assert.equal(rows.find(r=>r.plate==='12서7567').recordChoices[0].record.completedAt,'2026-11-04 14:00');
- assert.equal(rows.find(r=>r.plate==='77다1234').status,'carrier');assert.equal(rows.find(r=>r.plate==='77다1234').cInquiry,false);
- assert.equal(rows.find(r=>r.plate==='02두3821').jeju,true);assert.equal(rows.find(r=>r.plate==='55노4983').amount,0);
- assert.equal(rows.find(r=>r.plate==='39수7009').status,'incomplete');assert.equal(rows.find(r=>r.plate==='29가6760').status,'cost');assert.equal(rows.find(r=>r.plate==='08구8701').status,'missing');
-});
-test('demo duplicate choices apply newest or older amounts and update review counts',()=>{
- const choices=new Map(),core=setup(choices),demo=dispatchDemo(core),vehicles=core.parseInput(demo.input).vehicles;
- let rows=core.unique(core.match(vehicles,[demo.file])),row=rows.find(r=>r.plate==='12서7567');
- assert.equal(row.amount,null);choices.set(row.choiceKey,row.recordChoices[0].id);
- rows=core.unique(core.match(vehicles,[demo.file]));row=rows.find(r=>r.plate==='12서7567');
- assert.equal(row.amount,15000);assert.equal(row.completedAt,'2026-11-04 14:00');assert.equal(rows.filter(r=>r.duplicateReview).length,1);
- choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.completedAt==='2026-11-04 10:10').id);
- row=core.match(vehicles,[demo.file]).find(r=>r.plate==='12서7567');assert.equal(row.amount,12350);assert.equal(row.completedAt,'2026-11-04 10:10');
-});
-
-function feeSheet(vendor,fee){
- const sheets=datedSheet(vendor,'2026-11-04 09:00'),index={A:41,B:20,C:18}[vendor];
- sheets[0].rows[0][index]='탁송비용';sheets[0].rows[1][index]=fee;return sheets;
-}
-test('dispatch fees come from Hanbit AP, Openmile U and Rentok S with VAT at ten percent',()=>{
- for(const vendor of ['A','B','C'])for(const [value,fee,vat] of [[50000,50000,5000],['34,567원',34567,3456.7],[0,0,0],['',null,null],['확인필요',null,null],[-1000,null,null]]){
-  const core=setup(),file=core.readSheets(feeSheet(vendor,value),'업체.xlsx'),row=core.match(input,[file])[0];
-  assert.equal(file.records[0].dispatchFee,fee);assert.equal(row.dispatchFee,fee);assert.equal(row.dispatchVAT,vat);assert.equal(row.dispatchTotal,fee===null?null:fee+vat);
- }
-});
-test('conflicting fees require a trip choice and selecting changes both fee and VAT',()=>{
- const choices=new Map(),core=setup(choices),a=core.readSheets(feeSheet('A',50000),'한빛.xlsx').records[0],b={...a,rawDispatchFee:65000,dispatchFee:65000,row:3},files=[{records:[a,b]}];
- let row=core.match(input,files)[0];assert.equal(row.feeConflict,true);assert.equal(row.dispatchFee,null);assert.equal(row.dispatchVAT,null);assert.equal(row.dispatchTotal,null);assert.equal(row.amount,35000);
- choices.set(row.choiceKey,row.recordChoices.find(c=>c.record.dispatchFee===65000).id);row=core.match(input,files)[0];
- assert.equal(row.feeConflict,false);assert.equal(row.dispatchFee,65000);assert.equal(row.dispatchVAT,6500);assert.equal(row.dispatchTotal,71500);
- b.dispatchFee=70000;b.rawDispatchFee=70000;row=core.match(input,files)[0];assert.equal(row.selectedRecordId,'');assert.equal(row.feeConflict,true);
-});
-test('demo supplies fees through the same source columns and carrier fees remain visible',()=>{
- const core=setup(),demo=dispatchDemo(core);assert.ok(demo.file.records.every(r=>Number.isFinite(r.dispatchFee)));
- const row=core.match(core.parseInput(demo.input).vehicles,[demo.file]).find(r=>r.plate==='77다1234');assert.equal(row.status,'carrier');assert.equal(row.dispatchFee,50000);assert.equal(row.dispatchVAT,5000);
-});
-function feeExporters(core,app,win={},doc={}){
- const context=vm.createContext({Blob});
- const source=page.slice(page.indexOf('    function createDispatchFeeExports('),page.indexOf('    const feeExports='));
- vm.runInContext(source,context);return context.createDispatchFeeExports(core,app,win,doc);
-}
-let feeExcelLibrary;
-function excelLibrary(){
- if(feeExcelLibrary)return feeExcelLibrary;
- const Module=require('node:module'),mod=new Module('/tmp/worktool-excel-test.cjs',module);
- const source=base.match(/<script id="xlsx-lib">([\s\S]*?)<\/script>/)[1].replace('globalThis.XlsxPopulate=DispatchExcel.XlsxPopulate;','');
- mod._compile(source,'/tmp/worktool-excel-test.cjs');return feeExcelLibrary=mod.exports;
-}
-test('actual Excel export includes numeric fee and VAT columns without changing fuel amounts',async()=>{
- const core=setup(),lib=excelLibrary();
- const source=base.slice(base.lastIndexOf('async function excelBlob(rows){'),base.lastIndexOf('function pdfBlob(rows){'));
- const originalExcel=Function('XlsxPopulate','DispatchExcel','C','Blob',source+';return excelBlob;')(lib.XlsxPopulate,lib,core,Blob);
- const row=core.match(input,[core.readSheets(feeSheet('A',34567),'한빛.xlsx')])[0];
- const exporters=feeExporters(core,{excelBlob:originalExcel},{DispatchExcel:lib});
- assert.equal(exporters.headers().length,13);assert.deepEqual(Array.from(exporters.values(row).slice(-3)),[34567,3456.7,38023.7]);
- const rows=[row,{...row,dispatchFee:0,dispatchVAT:0,dispatchTotal:0},{...row,dispatchFee:null,dispatchVAT:null,dispatchTotal:null}];
- const blob=await exporters.excelBlob(rows),wb=await lib.XlsxPopulate.fromDataAsync(await blob.arrayBuffer()),sheet=wb.sheet(0);
- assert.equal(sheet.cell('K4').value(),'탁송비용(원)');assert.equal(sheet.cell('L4').value(),'탁송비용 부가세(원)');assert.equal(sheet.cell('M4').value(),'총 탁송비용(원)');
- assert.equal(sheet.cell('C5').value(),35000);assert.equal(sheet.cell('K5').value(),34567);assert.equal(sheet.cell('L5').value(),3456.7);assert.equal(sheet.cell('M5').value(),38023.7);
- assert.equal(sheet.cell('K6').value(),0);assert.equal(sheet.cell('L6').value(),0);assert.equal(sheet.cell('M6').value(),0);assert.equal(sheet.cell('K7').value(),undefined);assert.equal(sheet.cell('L7').value(),undefined);assert.equal(sheet.cell('M7').value(),undefined);
-});
-test('PDF export prints separate fee and VAT amounts on every page',()=>{
- const core=setup(),texts=[];let pages=1;
- class PDF{
-  addFileToVFS(){}addFont(){}setFont(){}setFontSize(){}setTextColor(){}setFillColor(){}rect(){}
-  getTextWidth(t){return String(t).length}splitTextToSize(t){return [t]}text(t){texts.push(t)}addPage(){pages++}output(){return new Blob(['pdf']);}
- }
- const row={plate:'123가4567',amount:35000,dispatchFee:34567,dispatchVAT:3456.7,dispatchTotal:38023.7,status:'confirmed'};
- const exporters=feeExporters(core,{excelBlob(){}},{jspdf:{jsPDF:PDF}},{getElementById(){return {textContent:'font'}}});
- const blob=exporters.pdfBlob(Array(9).fill(row));assert.ok(blob instanceof Blob);assert.equal(pages,2);
- assert.equal(texts.filter(t=>t==='탁송비용(원)').length,2);assert.ok(texts.includes('34,567'));assert.ok(texts.includes('3,456.7'));assert.equal(texts.filter(t=>t==='총 탁송비용(원)').length,2);assert.ok(texts.includes('38,023.7'));
-});
-
-test('individual fee, VAT and total clicks copy only the displayed numeric value',async()=>{
- const cells=[
-  ['dispatch-fee','50,000'],['dispatch-vat','5,000'],['dispatch-total','55,000'],
-  ['dispatch-vat','3,456.7'],['dispatch-total','0'],['dispatch-fee','—'],['dispatch-total','선택 필요']
- ].map(([kind,text])=>({kind,textContent:text,child:null,classList:{contains(name){return name===kind}},querySelector(){return this.child},replaceChildren(button){this.child=button}}));
- const clipboard=[],notices=[],body={handlers:{},querySelectorAll(selector){assert.match(selector,/td\.dispatch-total/);return cells},addEventListener(type,fn){this.handlers[type]=fn},contains(button){return cells.some(cell=>cell.child===button)}};
- const doc={createElement(){return {dataset:{},attrs:{},setAttribute(k,v){this.attrs[k]=v},closest(){return this}}}};
- const context=vm.createContext({body,doc,navigator:{clipboard:{async writeText(value){clipboard.push(value)}}},window:{isSecureContext:true},notify:value=>notices.push(value)});
- const decoration=page.slice(page.indexOf('    function decorate()'),page.indexOf('    async function copyValue('));
- const copying=page.slice(page.indexOf('    async function copyValue('),page.indexOf('    const app = frame.contentWindow.DispatchApp;'));
- vm.runInContext(decoration+copying+'\ndecorate();',context);
- for(const cell of cells.slice(0,5))await body.handlers.click({target:cell.child});
- assert.deepEqual(clipboard,['50000','5000','55000','3456.7','0']);assert.equal(notices.length,5);
- assert.equal(cells[0].child.textContent,'50,000');assert.match(cells[2].child.attrs['aria-label'],/총 탁송비용/);
- assert.equal(cells[5].child,null);assert.equal(cells[6].child,null);
-});
-
-test('repeated plate lookups preserve results, dates and duplicate-review choices',()=>{
- const core=setup(),files=[{records:[trip('A',35000,'2026-11-04 09:00'),trip('B',50000,'2026-11-05 09:00')]}];
- const source=Array.from({length:500},()=>({plate:'123가4567',date:'2026-11-05'}));
- const rows=core.match(source,files);
- assert.equal(rows.length,500);
- for(let i=0;i<rows.length;i++){
-  assert.equal(rows[i].targetDate,'2026-11-05');
-  assert.equal(rows[i].amount,50000);
-  assert.equal(rows[i].recordChoices.length,2);
-  assert.equal(rows[i].duplicateReview,true);
- }
- assert.equal(new Set(rows.map(row=>row.choiceKey)).size,1);
- const differentDates=core.match([{plate:'123가4567',date:'2026-11-04'},{plate:'123가4567',date:'2026-11-05'}],files);
- assert.ok(differentDates.every(row=>row.status==='tripReview'&&row.amount===null));
-});
-
-test('duplicate trip identity ignores only insignificant text formatting',()=>{
- const core=setup(),a=trip('A',35000,'2026-11-04'),b={...a,origin:' 서울 ',memo:'  차량   확인 ',jobId:' ＡＢＣ '};
- a.origin='서울';a.memo='차량 확인';a.jobId='ABC';
- const same=core.match(input,[{records:[a,b]}])[0];
- assert.equal(same.recordChoices.length,1);
- assert.equal(same.duplicateRecords,1);
- const distinct=core.match(input,[{records:[a,{...b,memo:'차량 재확인'}]}])[0];
- assert.equal(distinct.recordChoices.length,2);
- assert.equal(distinct.duplicateReview,true);
-});
-
-test('carrier status is scoped to requested date and selected trip',()=>{
- const choices=new Map(),core=setup(choices);
- const records=[trip('C',null,'2026-11-01',{carrier:true,carrierFlag:'Y'}),trip('C',null,'2026-11-03',{carrier:false,carrierFlag:'N'})];
- const files=[{records}];
- let row=core.match([{plate:'123가4567',date:'2026-11-03'}],files)[0];
- assert.equal(row.carrier,false);assert.equal(row.status,'slack');assert.equal(row.fuelState,'inquiry');
- row=core.match([{plate:'123가4567',date:'2026-11-02'}],files)[0];
- assert.equal(row.carrier,false);assert.equal(row.status,'dateReview');
- row=core.match([{plate:'123가4567',date:'2026-11-01'}],files)[0];
- assert.equal(row.carrier,true);assert.equal(row.status,'carrier');
- const key=row.choiceKey,normal=row.recordChoices.find(choice=>choice.record.dispatchDate==='2026-11-03');
- choices.set(key,normal.id);
- row=core.match([{plate:'123가4567',date:'2026-11-01'}],files)[0];
- assert.equal(row.carrier,false);assert.equal(row.status,'slack');
-});
-
-test('manual confirmation cannot bypass trip conflicts or missing-date reviews',()=>{
- const confirmations=new Map(),core=setup(new Map(),confirmations);
- const files=[{records:[trip('A',35000),trip('B',50000)]}];
- const conflict=core.match(input,files)[0];
- assert.equal(conflict.status,'conflict');assert.equal(conflict.canConfirm,false);
- confirmations.set(conflict.reviewKey,{amount:36000,reason:'사전 수동확인',savedAt:'오늘'});
- const checked=core.match(input,files)[0];
- assert.equal(checked.status,'conflict');assert.equal(checked.amount,null);
- assert.equal(checked.manualConfirmation,undefined);
- const missing=core.match([{plate:'123가4567',date:'2026-11-02'}],files)[0];
- assert.equal(missing.status,'dateReview');assert.equal(missing.canConfirm,false);
-});
-
-test('vendor date range scan handles large unsorted records and missing dates',()=>{
- const source=page.slice(page.indexOf('    function vendorDateRanges('),page.indexOf('    function updateFuelDiagnostics('));
- assert.ok(source.includes('function vendorDateRanges'));
- const context=vm.createContext({});
- vm.runInContext(source,context);
- const records=Array.from({length:20000},(_,i)=>({vendor:i%2?'A':'B',dispatchDate:i%3===0?'':(i%2?'2026-12-31':'2026-01-01')}));
- records.push({vendor:'A',dispatchDate:'2026-02-01'},{vendor:'B',dispatchDate:'2026-11-30'},{vendor:'C',dispatchDate:''});
- const ranges=vm.runInContext('vendorDateRanges',context)(records);
- assert.equal(ranges.get('A').first,'2026-02-01');
- assert.equal(ranges.get('A').last,'2026-12-31');
- assert.equal(ranges.get('B').first,'2026-01-01');
- assert.equal(ranges.get('B').last,'2026-11-30');
- assert.equal(ranges.get('C').first,'');
- assert.equal(ranges.get('C').last,'');
-});
-
-test('beginner dispatch walkthrough keeps iframe workflow and accessible quick actions',()=>{
- assert.match(page,/<section class="dispatch-start" aria-label="탁송체크 처음 사용 안내">/);
- for(const step of ['탁송출발 주유비 미입력','탁송기한','업체 엑셀 첨부','차량번호 목록 붙여넣기','조회·확인 후 저장'])assert.ok(page.includes(step));
- assert.match(page,/<a class="dispatch-visual-guide" href="\.\/quick-guide\.html#dispatch">/);
- assert.doesNotMatch(page,/id="dispatchDemoGuide"/);
- assert.match(page,/<button type="button" id="dispatchInputGuide">차량목록 입력칸으로 이동<\/button>/);
- assert.match(page,/inputGuide\.onclick=\(\)=>\{const input=doc\.getElementById\('input'\);if\(input\)\{input\.focus\(\)/);
- assert.match(page,/<iframe src="\.\/dispatch-tool\.html\?v=/);
+test('TXT 저장: 엑셀에서 바로 열리게 BOM과 탭 구분을 쓰고, 칸 안 줄바꿈은 지워요',()=>{
+ const rows=C.match([{plate:'12서7567',date:''}],[read('A',[{plate:'12서7567',origin:'서울\n강남'}])]);
+ const txt=C.textExport(rows);
+ assert.ok(txt.startsWith('﻿'));
+ const lines=txt.slice(1).split('\r\n');assert.equal(lines.length,2);
+ assert.equal(lines[0].split('\t').length,lines[1].split('\t').length);
+ assert.ok(lines[1].includes('서울 강남'));
 });

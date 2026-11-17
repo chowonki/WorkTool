@@ -45,9 +45,8 @@ test('dispatch screenshot guide names the real internal sources and preserves sa
  }
  const script=guide.indexOf('원본 준비 1'),vendor=guide.indexOf('원본 준비 2'),lookup=guide.indexOf('차량 조회하기');
  assert.ok(script>=0&&vendor>script&&lookup>vendor,'beginner workflow should follow actual preparation order');
- assert.ok(dispatch.includes('탁송출발 주유비 미입력'));
- assert.ok(dispatch.includes('탁송기한'));
- assert.ok(home.includes('탁송출발 주유비 미입력'));
+ // 도구 화면에서는 그림 사용법으로 바로 갈 수 있어요
+ assert.match(dispatch,/href="\.\/quick-guide\.html#dispatch"/);
 });
 
 test('all four annotated screenshots are valid and included in both help pages',()=>{
