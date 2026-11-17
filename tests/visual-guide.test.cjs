@@ -16,7 +16,7 @@ test('visual quick guide is linked from both tools and the home screen',()=>{
  assert.match(guide,/id="dispatch"/);
  assert.match(guide,/id="transfer"/);
  assert.match(guide,/실제 WorkTool 화면/);
- assert.match(guide,/이체파일은 송금 예약이나 실행이 아닙니다/);
+ assert.match(guide,/이체파일은 송금 예약이나 실행이 아니에요/);
 });
 test('screen guides use real PNG assets with Korean-readable screenshots',()=>{
  for(const filename of ['dispatch-screen.png','transfer-screen.png','transfer-Review.png','transfer-Download.png']){
@@ -33,7 +33,7 @@ test('the guide uses expandable screenshots and keeps actual tool navigation',()
  assert.match(guide,/<img src="\.\/guide\/transfer-review-annotated\.png"/);
  assert.match(guide,/<img src="\.\/guide\/transfer-download-annotated\.png"/);
  assert.match(guide,/href="\.\/dispatch\.html"/);
- assert.match(guide,/href="\.\/transfer-input\.html"/);
+ assert.match(guide,/href="\.\/transfer\.html"/);
  assert.match(guide,/target="_blank" rel="noopener"/);
 });
 test('dispatch screenshot guide names the real internal sources and preserves safe order',()=>{

@@ -51,7 +51,7 @@ test('업체 양식: 제목 줄 위치와 상관없이 한빛·오픈마일·렌
  const f=C.readSheets([sheet('A',[{plate:'12서7567'}],{name:'한빛',pad:3}),sheet('B',[{plate:'55노4983'}],{name:'오픈'}),sheet('C',[{plate:'77다1234'}],{name:'렌톡'})],'3사.xlsx');
  assert.deepEqual(plain(f.sheets),['한빛','오픈','렌톡']);
  assert.deepEqual(plain(f.records.map(r=>r.vendor)),['A','B','C']);
- assert.throws(()=>C.readSheets([{name:'x',rows:[['이름','나이']]}],'x.xlsx'),/양식을 찾지 못했습니다/);
+ assert.throws(()=>C.readSheets([{name:'x',rows:[['이름','나이']]}],'x.xlsx'),/양식을 찾지 못했어요/);
 });
 test('한빛 빈 주유비는 0원, 오픈마일 빈 주유비는 미입력으로 둬요',()=>{
  assert.equal(read('A',[{plate:'12서7567',cost:''}]).records[0].cost,0);
