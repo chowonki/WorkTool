@@ -126,7 +126,8 @@ label.c input{margin-top:3px}
 .toast.show{opacity:1}
 [hidden]{display:none!important}
 @media (max-width:980px){.cols{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}.stepper{grid-template-columns:1fr 1fr}.guide{border-right:0}}
-.step2cols{grid-template-columns:280px minmax(0,1fr)}
+.step2cols{grid-template-columns:minmax(0,1fr) 280px}
+.step2cols>.side{order:2}
 .wrap:has(.step2cols){max-width:none;padding-left:20px;padding-right:20px}
 @media (max-width:900px){.step2cols{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:560px){.tiles,.tiles3{grid-template-columns:repeat(2,minmax(0,1fr))}.stepper{grid-template-columns:1fr}.btn.big{width:100%}}
@@ -163,9 +164,10 @@ th.filtered .filterbtn{color:#267358}
 @media (max-width:640px){
   .cols{grid-template-columns:minmax(0,1fr)!important}
   .wrap{padding:12px 10px 48px}
-  .tablewrap{overflow:visible;border:0;background:transparent}
-  .tablewrap table thead{display:none}
-  .tablewrap table,.tablewrap tbody{display:block;width:100%}
+  #view2 .tablewrap{overflow:visible;border:0;background:transparent;max-height:none}
+  #view2 .tablewrap table thead{display:none}
+  #view2 .tablewrap table,#view2 .tablewrap tbody{display:block;width:100%}
+  #view3 .tablewrap{overflow-x:auto;max-height:none}
   #rows tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;border:1px solid var(--line);border-radius:12px;padding:10px;margin:0 0 12px;background:var(--surface)}
   #rows td{border:0;padding:0;white-space:normal;min-width:0}
   #rows td[data-label]::before{content:attr(data-label);display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
@@ -177,8 +179,22 @@ th.filtered .filterbtn{color:#267358}
   .toolbar,.bar{flex-wrap:wrap}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* 배치 정리 (2026-11-18) */
+.actionbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.actionbar .btn.big{margin-left:auto}
+.tsep{width:1px;height:22px;background:var(--line);margin:0 2px}
+#view2 .row{flex-wrap:wrap;row-gap:8px}
+#view3 .dlrow{padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+#view3 #ackWrap{padding:10px 14px;border-radius:12px;background:var(--note);border:1px solid var(--note-line)}
+@media (max-width:640px){
+  .actionbar .grow,.tsep{display:none}
+  .actionbar .btn.big{order:-1;width:100%;margin-left:0}
+  #view2 .row h2{flex-basis:100%}
+  #view3 .dlrow .btn.big{width:100%}
+}
 </style>
-<link rel="stylesheet" href="./assets/mac-glass.css?v=20261117-2">
+<link rel="stylesheet" href="./assets/mac-glass.css?v=20261118-1">
 <script src="./assets/theme.js?v=20261116-1"></script>
 </head>
 <body class="mac-ui" data-page="transfer">
@@ -197,12 +213,13 @@ th.filtered .filterbtn{color:#267358}
     <div class="cols">
       <div style="display:grid;gap:12px">
         <div class="threads" id="threads"></div>
-        <div class="row">
-          <button class="btn" id="addThread" type="button">+ 입력칸 추가</button>
-          <span class="grow"></span>
-          <button class="btn danger" id="resetAll1" type="button">전체 초기화</button>
-        </div>
-        <div class="row"><button class="btn primary big" id="extract" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>이체정보 추출하기</button><span class="fileinfo" id="extractInfo"></span></div>
+        <div class="actionbar">
+      <button class="btn" id="addThread" type="button">+ 입력칸 추가</button>
+      <button class="btn danger" id="resetAll1" type="button">전체 초기화</button>
+      <span class="grow"></span>
+      <span class="fileinfo" id="extractInfo"></span>
+      <button class="btn primary big" id="extract" type="button">이체정보 추출하기</button>
+    </div>
       </div>
       <div class="side">
         <div class="box help"><h3>도움말</h3><ul>
@@ -225,7 +242,6 @@ https://example.com/vehicle/987654321
 3만5천원</pre><button class="btn sm" id="useExample" type="button">예시로 연습하기</button></div>
       </div>
     </div>
-    <p class="callout">처음 쓰시면 붙여넣은 뒤 바로 <b>이체정보 추출하기</b>를 누르세요.</p>
   </section>
 
   <!-- 2단계 -->
@@ -260,8 +276,8 @@ https://example.com/vehicle/987654321
           <button class="btn sm" id="selAll" type="button">전체 선택</button>
           <button class="btn sm danger" id="delSel" type="button">선택 삭제</button>
           <button class="btn sm" id="addRow" type="button">+ 행 추가</button>
-        </div>
-        <div class="colresetbar"><span id="colFilterInfo" style="font-size:11px;color:#81909f"></span><button class="btn sm" id="clearFilter" type="button">필터 지우기</button><button class="btn sm" id="resetCols" type="button">열 너비 초기화</button></div>
+      <span class="tsep" aria-hidden="true"></span><span id="colFilterInfo" class="fileinfo"></span><button class="btn sm" id="clearFilter" type="button">필터 지우기</button><button class="btn sm" id="resetCols" type="button">열 너비 초기화</button>
+    </div>
         <div class="tablewrap"><table>
           <thead><tr><th><input type="checkbox" id="chkAll" aria-label="전체 선택"></th><th>No.</th><th>상태</th><th>은행</th><th>계좌번호</th><th>예금주</th><th class="num">입금액(원)</th><th>차량번호</th><th>출금통장표시</th><th>입금통장표시</th><th>CMS코드</th></tr></thead>
           <tbody id="rows"></tbody>
@@ -269,11 +285,11 @@ https://example.com/vehicle/987654321
         <p class="fileinfo" id="emptyRows" hidden>아직 이체 내역이 없어요. 1단계에서 스레드를 붙여넣고 추출해 주세요.</p>
       </div>
     </div>
+    <p class="callout">이 단계에서 <b>계좌번호·금액</b>을 원문과 꼭 다시 확인하세요.</p>
     <div class="foot">
       <button class="btn" data-go="1" type="button">← 이전 단계 (이체 요청 입력)</button>
       <button class="btn primary big" id="toStep3" type="button">다음: 이체파일 만들기 →</button>
     </div>
-    <p class="callout">이 단계에서 <b>계좌번호·금액</b>을 원문과 꼭 다시 확인하세요.</p>
   </section>
 
   <!-- 3단계 -->
@@ -286,19 +302,18 @@ https://example.com/vehicle/987654321
     </table></div>
     <p class="fileinfo">은행명은 하나은행 입금은행코드표의 이름 그대로 들어가요. 위 표가 엑셀에 들어가는 그대로예요. 열 순서: A 입금은행 · B 입금계좌번호 · C 입금액(원) · D 출금통장표시 · E 입금통장표시 · F CMS코드</p>
     <label class="c" id="ackWrap" hidden><input type="checkbox" id="ack"> <span>검토 필요 <b id="ackN"></b>건을 원문과 대조해 확인했어요.</span></label>
+    <div class="dlrow">
+      <button class="btn primary big" id="download" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>하나은행 이체파일 다운로드</button>
+      <span class="fileinfo">파일 형식: Excel(.xlsx) · 하나은행 기업뱅킹 [다계좌이체] 업로드용</span>
+    </div>
+    <div class="warnbox"><b>이체파일 생성은 실제 송금이 아니에요.</b> 받는 분·계좌번호·금액을 다시 확인한 뒤 은행에 올려 주세요. 내려받은 뒤에도 입력 내용은 이 화면에 남아 있어요.</div>
     <div class="box" id="commentBox">
       <style>.clist{display:grid;gap:6px}.crow{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}.crow span{font-size:14px}</style>
       <div><b>송금 코멘트</b> <span class="fileinfo">같은 차량번호는 한 줄로 묶어요. 차량대금·차대금·환급 문구가 있으면 '딜러에게', 요청문에 (압류 계좌)·(저당 계좌) 같은 괄호 문구가 있으면 그 문구로, 없으면 은행·계좌번호로 적어요. 줄마다 복사할 수 있어요.</span></div>
       <div id="commentList" class="clist" aria-label="송금 코멘트 목록"></div>
       <div><button class="btn" id="copyComments" type="button">코멘트 전체 복사</button></div>
     </div>
-    <div class="dlrow">
-      <button class="btn primary big" id="download" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>하나은행 이체파일 다운로드</button>
-      <span class="fileinfo">파일 형식: Excel(.xlsx) · 하나은행 기업뱅킹 [다계좌이체] 업로드용</span>
-    </div>
-    <div class="warnbox"><b>이체파일 생성은 실제 송금이 아니에요.</b> 받는 분·계좌번호·금액을 다시 확인한 뒤 은행에 올려 주세요. 내려받은 뒤에도 입력 내용은 이 화면에 남아 있어요.</div>
     <div class="foot"><button class="btn" data-go="2" type="button">← 이전 단계 (확인·수정)</button></div>
-    <p class="callout">다운로드 전 <b>오류·검토 상태</b>가 남아 있지 않은지 확인하세요.</p>
   </section>
 </div>
 
