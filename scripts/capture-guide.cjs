@@ -37,7 +37,7 @@ async function shot(page,file,selectors,clipHeight){
   await page.goto(BASE+'/dispatch.html',{waitUntil:'load'});await page.waitForTimeout(800);
   await page.click('#demo');await page.waitForTimeout(900);
   await page.evaluate(()=>{document.getElementById('toast').hidden=true;});
-  result.dispatch=await shot(page,'dispatch-screen.png',{input:'#input',files:'#drop',run:'#run',stats:'.stats',tabs:'.filterbar .tabs',export:'.exportbar'},1830);
+  result.dispatch=await shot(page,'dispatch-screen.png',{input:'.inputcard',files:'.filescard',run:'#run',stats:'.stats',tabs:'.filterbar .tabs',export:'.exportbar'},1830);
 
   // 이체파일 1단계: 예시를 넣은 화면
   await page.goto(BASE+'/transfer.html',{waitUntil:'load'});await page.waitForTimeout(300);

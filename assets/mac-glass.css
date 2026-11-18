@@ -216,3 +216,14 @@ body.mac-ui[data-page=dispatch] .sidenote{text-align:left;justify-self:start}
  body.mac-ui[data-page=dispatch] .headbuttons .local{flex-basis:100%;margin:0}
  body.mac-ui[data-page=dispatch] .headbuttons{gap:8px}
 }
+/* 2026-11-18 공간 줄이기 — 탁송체크 */
+body.mac-ui[data-page=dispatch] .resulthead{gap:12px;flex-wrap:wrap}
+body.mac-ui[data-page=dispatch] .resultactions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto}
+body.mac-ui[data-page=dispatch] .resultactions .colresetbar{display:flex;padding:0;margin:0;gap:8px;background:none;border:0}
+body.mac-ui[data-page=dispatch] .resultactions .colresetbar[hidden]{display:none}
+body.mac-ui[data-page=dispatch] td.cbtd{white-space:nowrap;text-align:left}
+body.mac-ui[data-page=dispatch] td.cbtd .work-check{display:inline-flex;align-items:center;gap:4px;margin:0 0 0 10px;vertical-align:middle;font-size:12px}
+body.mac-ui[data-page=dispatch] td.cbtd>input{vertical-align:middle}
+body.mac-ui[data-page=dispatch] .inputs{row-gap:12px}
+body.mac-ui[data-page=dispatch] .run{min-height:50px}
+@media(max-width:820px){body.mac-ui[data-page=dispatch] .resultactions{margin-left:0;justify-content:flex-start}}

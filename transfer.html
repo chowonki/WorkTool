@@ -202,14 +202,14 @@ th.filtered .filterbtn{color:#267358}
 <div class="wrap">
   <div class="stepper" role="navigation" aria-label="작업 단계">
     <button class="guide" id="openGuide" type="button"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 5.5c3-1.5 6-1.5 9 .5 3-2 6-2 9-.5V19c-3-1.5-6-1.5-9 .5-3-2-6-2-9-.5z"/><path d="M12 6v13.5"/></svg><div><b>처음 오셨나요?</b><span>이체파일 3단계 사용 안내</span></div></button>
-    <button class="step" data-step="1" type="button"><span class="no"><span>1</span></span><div><b>이체 요청 입력</b><span>Slack 스레드 붙여넣기 → 이체정보 추출</span></div></button>
-    <button class="step" data-step="2" type="button"><span class="no"><span>2</span></span><div><b>추출 결과 확인·수정</b><span>은행·계좌·금액·차량번호 확인</span></div></button>
-    <button class="step" data-step="3" type="button"><span class="no"><span>3</span></span><div><b>이체파일 다운로드</b><span>하나은행 업로드용 엑셀 생성</span></div></button>
+    <button class="step" data-step="1" type="button"><span class="no"><span>1</span></span><div><b>이체 요청 입력</b></div></button>
+    <button class="step" data-step="2" type="button"><span class="no"><span>2</span></span><div><b>추출 결과 확인·수정</b></div></button>
+    <button class="step" data-step="3" type="button"><span class="no"><span>3</span></span><div><b>이체파일 다운로드</b></div></button>
   </div>
 
   <!-- 1단계 -->
   <section class="panel" id="view1">
-    <div class="panelhead"><div><h1>Slack 스레드 내용 붙여넣기</h1><p>이체 요청 스레드를 그대로 붙여넣고 <b>이체정보 추출하기</b>를 누르세요. 이미 추출한 결과는 그대로 두고 새 건만 아래에 더해요.</p></div></div>
+    <div class="panelhead"><div><h1>Slack 스레드 내용 붙여넣기</h1><p>스레드를 그대로 붙여넣고 <b>이체정보 추출하기</b>를 누르세요. 스레드가 여러 개면 입력칸을 추가해요.</p></div></div>
     <div class="cols">
       <div style="display:grid;gap:12px">
         <div class="threads" id="threads"></div>
@@ -222,14 +222,6 @@ th.filtered .filterbtn{color:#267358}
     </div>
       </div>
       <div class="side">
-        <div class="box help"><h3>도움말</h3><ul>
-          <li>Slack 스레드 내용을 그대로 붙여넣으세요. 링크·인사말은 알아서 건너뛰어요.</li>
-          <li>은행, 계좌번호, 금액, 차량번호를 찾아요. 3만5천원, 1천만원 같은 표기도 읽어요.</li>
-          <li>스레드가 여러 개면 입력칸을 추가해 따로 넣으세요. 같은 내용은 두 번 추가되지 않아요.</li>
-          <li>차량번호를 못 찾으면 추출 후 팝업에서 차량번호나 이체 메모를 넣을 수 있어요.</li>
-          <li>1억이 넘는 금액은 1억씩 나누고 남은 금액을 마지막 줄로 넣어요. 예: 2억5천만원 → 1억 + 1억 + 5천만. 나눈 줄에는 '분할' 표시가 붙어요.</li>
-          <li>한 번에 최대 100건까지 만들 수 있어요. 나눈 줄도 한 건으로 세요.</li>
-        </ul></div>
         <div class="box"><h3>입력 예시</h3><pre class="example">현대 쏘나타 123가4567
 https://example.com/vehicle/987654321
 국민은행
@@ -246,7 +238,7 @@ https://example.com/vehicle/987654321
 
   <!-- 2단계 -->
   <section class="panel" id="view2" hidden>
-    <div class="panelhead"><div><h1>추출 결과 확인·수정</h1><p>은행·계좌번호·금액이 원문과 맞는지 확인하고, 칸을 눌러 바로 고치세요. 줄에 마우스를 올리면 원문이 보여요.</p></div><span class="fileinfo" id="extractedAt"></span></div>
+    <div class="panelhead"><div><h1>추출 결과 확인·수정</h1><p>은행·계좌번호·금액을 원문과 대조하고 칸을 눌러 고치세요. 줄에 마우스를 올리면 원문이 보여요.</p></div><span class="fileinfo" id="extractedAt"></span></div>
     <div class="tiles" id="tiles2"></div>
     <div class="cols step2cols">
       <div class="side">
@@ -257,7 +249,7 @@ https://example.com/vehicle/987654321
           <label class="f" for="inMemo">입금통장표시 (받는 분 통장)<input id="inMemo" placeholder="미입력 시 본사 법인명으로 기재돼요."></label>
           <button class="btn sm" id="applyIn" type="button">입금통장표시에 적용</button>
           <label class="c"><input type="checkbox" id="onlyEmpty" checked> 비어 있는 칸에만 적용</label>
-          <p class="fileinfo">기본값은 각 줄의 차량번호예요.</p>
+          
         </div>
         <div class="box">
           <h3>CMS코드 (선택)</h3>
@@ -267,7 +259,7 @@ https://example.com/vehicle/987654321
         <div class="box">
           <h3>자동 보정</h3>
           <label class="c"><input type="checkbox" id="autoFix" checked> 계좌번호의 하이픈·공백 자동 제거</label>
-          <p class="fileinfo">1억이 넘는 금액은 1억씩 + 나머지 금액으로 자동으로 나눠요. 나눈 줄 중 하나의 은행·계좌·메모를 고치면 같이 나눈 줄도 함께 바뀌어요.</p>
+          
         </div>
       </div>
       <div style="display:grid;gap:10px;min-width:0">
@@ -285,7 +277,7 @@ https://example.com/vehicle/987654321
         <p class="fileinfo" id="emptyRows" hidden>아직 이체 내역이 없어요. 1단계에서 스레드를 붙여넣고 추출해 주세요.</p>
       </div>
     </div>
-    <p class="callout">이 단계에서 <b>계좌번호·금액</b>을 원문과 꼭 다시 확인하세요.</p>
+    
     <div class="foot">
       <button class="btn" data-go="1" type="button">← 이전 단계 (이체 요청 입력)</button>
       <button class="btn primary big" id="toStep3" type="button">다음: 이체파일 만들기 →</button>
@@ -300,16 +292,16 @@ https://example.com/vehicle/987654321
       <thead><tr><th>No.</th><th>입금은행</th><th>입금계좌번호</th><th class="num">입금액(원)</th><th>출금통장표시</th><th>입금통장표시</th><th>CMS코드</th></tr></thead>
       <tbody id="preview"></tbody>
     </table></div>
-    <p class="fileinfo">은행명은 하나은행 입금은행코드표의 이름 그대로 들어가요. 위 표가 엑셀에 들어가는 그대로예요. 열 순서: A 입금은행 · B 입금계좌번호 · C 입금액(원) · D 출금통장표시 · E 입금통장표시 · F CMS코드</p>
+    
     <label class="c" id="ackWrap" hidden><input type="checkbox" id="ack"> <span>검토 필요 <b id="ackN"></b>건을 원문과 대조해 확인했어요.</span></label>
     <div class="dlrow">
       <button class="btn primary big" id="download" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>하나은행 이체파일 다운로드</button>
-      <span class="fileinfo">파일 형식: Excel(.xlsx) · 하나은행 기업뱅킹 [다계좌이체] 업로드용</span>
+      <span class="fileinfo">하나은행 기업뱅킹 [다계좌이체] 업로드용 .xlsx</span>
     </div>
-    <div class="warnbox"><b>이체파일 생성은 실제 송금이 아니에요.</b> 받는 분·계좌번호·금액을 다시 확인한 뒤 은행에 올려 주세요. 내려받은 뒤에도 입력 내용은 이 화면에 남아 있어요.</div>
+    <div class="warnbox"><b>이체파일 생성은 실제 송금이 아니에요.</b> 은행에 올리기 전 받는 분·계좌번호·금액을 다시 확인해 주세요.</div>
     <div class="box" id="commentBox">
       <style>.clist{display:grid;gap:6px}.crow{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}.crow span{font-size:14px}</style>
-      <div><b>송금 코멘트</b> <span class="fileinfo">같은 차량번호는 한 줄로 묶어요. 차량대금·차대금·환급 문구가 있으면 '딜러에게', 요청문에 (압류 계좌)·(저당 계좌) 같은 괄호 문구가 있으면 그 문구로, 없으면 은행·계좌번호로 적어요. 줄마다 복사할 수 있어요.</span></div>
+      <div><b>송금 코멘트</b> <span class="fileinfo">은행에서 송금을 마친 뒤 Slack에 남길 문구예요. 같은 차량번호는 한 줄로 묶어요.</span></div>
       <div id="commentList" class="clist" aria-label="송금 코멘트 목록"></div>
       <div><button class="btn" id="copyComments" type="button">코멘트 전체 복사</button></div>
     </div>
