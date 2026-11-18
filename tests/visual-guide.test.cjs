@@ -27,13 +27,17 @@ test('screen guides link real PNG screenshots for reference',()=>{
   assert.ok(guide.includes('./'+name),name+' must appear in the quick guide');
  }
 });
-test('the quick guide draws mockups with numbered badges and keeps actual tool navigation',()=>{
- const mocks=guide.match(/<div class="mock" role="img" aria-label="[^"]+"/g)||[];
- assert.equal(mocks.length,4,'탁송체크 1개 + 이체파일 3단계 목업이 있어야 해요');
- assert.ok(!/<img\s/.test(guide),'그림 사용법은 스크린샷 대신 목업으로 그려요');
- const dispatchMock=guide.slice(guide.indexOf('id="dispatch"'),guide.indexOf('id="transfer"'));
- for(let n=1;n<=6;n++)assert.ok(dispatchMock.includes('<b class="n" aria-hidden="true">'+n+'</b>'),'탁송체크 목업 번호 '+n);
- for(const label of ['차량 조회하기','캡처 복사','캡처 저장','진행 중','이체정보 추출하기','다음: 이체파일 만들기','하나은행 이체파일 다운로드','송금 코멘트'])assert.ok(guide.includes(label),label);
+test('the quick guide has working demo screens with numbered badges and keeps actual tool navigation',()=>{
+ const demos=guide.match(/<div class="mock live" role="group" aria-label="[^"]+"/g)||[];
+ assert.equal(demos.length,2,'탁송체크·이체파일 체험 화면이 하나씩 있어야 해요');
+ assert.match(guide,/<script src="\.\/assets\/guide-demo\.js[^"]*" defer><\/script>/);
+ assert.ok(!/<img\s/.test(guide),'그림 사용법은 스크린샷 대신 체험 화면을 보여 줘요');
+ const dispatchMock=guide.slice(guide.indexOf('id="dmock"'),guide.indexOf('id="transfer"'));
+ for(let n=1;n<=6;n++)assert.ok(dispatchMock.includes('<b class="n" aria-hidden="true">'+n+'</b>')||n>=4,'탁송체크 체험 번호 '+n);
+ const demo=read('assets/guide-demo.js');
+ for(const label of ['차량 조회하기','캡처 복사','이체정보 추출하기','다음: 이체파일 만들기','하나은행 이체파일 다운로드','송금 코멘트'])assert.ok(guide.includes(label)||demo.includes(label),label);
+ assert.match(demo,/체험 화면이라 실제로 만들지는 않아요/);
+ assert.ok(!/localStorage|fetch\(/.test(demo),'체험 화면은 아무것도 저장하거나 보내지 않아요');
  assert.match(guide,/href="\.\/dispatch\.html"/);
  assert.match(guide,/href="\.\/transfer\.html"/);
  assert.match(guide,/target="_blank" rel="noopener"/);
@@ -62,5 +66,5 @@ test('all four annotated screenshots are valid and included in both help pages',
   assert.ok((name.startsWith('dispatch')?dispatchHelp:transferHelp).includes('./'+relative),relative+' missing in detailed guide');
  }
  assert.match(guide,/주석 없는 원본/);
- assert.match(guide,/단순하게 그린 그림/);
+ assert.match(guide,/직접 눌러 보는 체험 화면/);
 });

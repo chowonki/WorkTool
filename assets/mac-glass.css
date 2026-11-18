@@ -329,3 +329,32 @@ html[data-theme=dark] body.mac-ui[data-page=dispatch] .stat strong small{color:#
 html[data-theme=dark] body.mac-ui[data-page=dispatch] .tab.active{background:#2b4d80;color:#e6efff}
 html[data-theme=dark] body.mac-ui[data-page=transfer] .tile>span:first-child,html[data-theme=dark] body.mac-ui[data-page=transfer] .tile span{color:#c9d6ea}
 body.mac-ui[data-page=dispatch] .filelist{max-height:170px}
+
+/* ── 사용법 페이지 다크 모드 가독성 (2026-11-18) ── */
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) :is(section,section.guide,.toc,.choose a,.source-card,.source-block,.figure-card,.illustrated-steps figure,.steps>li,.mock-steps){background:#1b2537!important;border-color:#34445e!important;box-shadow:none!important;color:#dbe5f3!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) :is(figcaption,.guide-screenshot figcaption,.illustrated-steps figcaption,pre,th,.figure-card img){background:#222e43!important;border-color:#34445e!important;color:#dbe5f3!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) :is(td){border-color:#34445e!important;color:#dbe5f3!important;background:transparent!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) :is(section,.toc,.source-card,.source-block,.figure-card,.illustrated-steps,.choose,.steps,.dispatch-sources,table,footer,main>header,header) :is(h1,h2,h3,h4,strong,b,dt,caption){color:#f2f6ff!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) :is(section,.toc,.source-card,.source-block,.figure-card,.illustrated-steps,.choose,.steps,.dispatch-sources,footer) :is(p,li,dd,span:not(.n):not([class^="m-"]):not([class*=" m-"]),small,figcaption,ol,ul){color:#d2ddec!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) :is(.section-description,.intro,.lead,header p,main>header p,.eyebrow){color:#c3d0e3!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) :is(section,.toc,.choose,.dispatch-sources,footer,header,.steps,.illustrated-steps,.figure-card,.mock-cap) a:not(.go):not(.button){color:#9cc2ff!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) .choose a :is(span){color:#c3d0e3!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) .choose a{color:#9cc2ff!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) :is(.kicker,.source-step,.source-number){background:#1f4632!important;color:#b6f0cf!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) :is(.note,.review-note,.needs,.source-alert,.warn){background:#3d3220!important;border-color:#7a6230!important;color:#ffe7b3!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) :is(.note,.review-note,.needs,.source-alert) :is(strong,b,p,li,span){color:#ffe7b3!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) :is(.missing){background:#2a3342!important;color:#d2ddec!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) :is(.waiting){background:#1e3352!important;color:#cfe1ff!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) .source-block :is(p:last-child,.result),html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) .source-card :is(p:last-child,.result){color:#9fe3bd!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) .source-block p:last-child strong,html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) .source-card p:last-child strong{color:#9fe3bd!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) .steps>li>strong:before{color:#fff!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) code{background:#2a3650;color:#e6eefb}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) details{background:#1b2537!important;border-color:#34445e!important}
+html[data-theme=dark] body.mac-ui:is([data-page$="guide"]) :is(summary,details summary){color:#f2f6ff!important}
+body.mac-ui:is([data-page="dispatch-guide"],[data-page="transfer-guide"]) :is(header p,.eyebrow,footer,footer p){color:#3f5068}
+html[data-theme=dark] body.mac-ui:is([data-page="dispatch-guide"],[data-page="transfer-guide"]) :is(header p,.eyebrow,footer,footer p){color:#c3d0e3}
+body.mac-ui[data-page="quick-guide"] nav.top,body.mac-ui[data-page="quick-guide"] nav.top :is(a,strong){color:#1f3557}
+html[data-theme=dark] body.mac-ui[data-page="quick-guide"] nav.top,html[data-theme=dark] body.mac-ui[data-page="quick-guide"] nav.top :is(a,strong){color:#e6eefb}
+html[data-theme=dark] body.mac-ui[data-page="quick-guide"] .mock-coach-k{color:#fff!important}
+body.mac-ui[data-page="quick-guide"] :is(footer,.eyebrow){color:#3f5068}
+html[data-theme=dark] body.mac-ui[data-page="quick-guide"] :is(footer,.eyebrow){color:#c3d0e3}
