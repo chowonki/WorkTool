@@ -47,7 +47,7 @@ th.filtered .filterbtn{color:#267358}
 .work-status{display:block;margin-top:5px;font-size:10px;color:#315b78}
 .work-done .work-status{color:#24653b}
 .work-check{display:flex;align-items:center;gap:3px;margin-top:6px;font-size:10px;white-space:nowrap}
-</style><link rel="stylesheet" href="./assets/mac-glass.css?v=20261118-2">
+</style><link rel="stylesheet" href="./assets/mac-glass.css?v=20261118-3">
 <script src="./assets/theme.js?v=20261116-1"></script>
 </head><body class="mac-ui" data-page="dispatch"><style>.toolnav{font:12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;display:flex;gap:10px;align-items:center;padding:10px 24px;background:#203e37;color:#e4f0e8;flex-wrap:wrap}.toolnav a{color:inherit;text-decoration:none;padding:7px 11px;border-radius:6px}.toolnav a:hover,.toolnav a[aria-current="page"]{background:#ffffff20;color:#fff}.toolnav .homelink{margin-right:auto;font-weight:700}.copyable{cursor:pointer;border-radius:4px;text-decoration:underline;text-decoration-color:#a4cdb4;text-underline-offset:3px}.copyable:hover{color:#218257;background:#edf8f0}.copyable:focus-visible{outline:2px solid #2a865f;outline-offset:2px}
 #table{min-width:1490px}
@@ -60769,8 +60769,8 @@ function initColResize(){
   table.dataset.resizable='1';table.classList.add('resizable');
   let cg=table.querySelector('colgroup');if(!cg){cg=document.createElement('colgroup');table.prepend(cg);}
   cg.innerHTML='';
-  const DEFAULT_W={'':104,'탁송일정':215,'차량번호':128,'주유비용/충전비용(원)':190,'탁송비용(원)':215,'부가세10%':125,'조회상태':190,'업체명':120,'출발지/메모':240};
-  let saved=null;try{saved=JSON.parse(localStorage.getItem('dispatch-col-widths-v4')||'null');}catch(e){}
+  const DEFAULT_W={'':104,'탁송일정':215,'차량번호':128,'주유비용/충전비용(원)':225,'탁송비용(원)':215,'부가세10%':140,'조회상태':190,'업체명':120,'출발지/메모':240};
+  let saved=null;try{saved=JSON.parse(localStorage.getItem('dispatch-col-widths-v5')||'null');}catch(e){}
   const cols=ths.map((th,i)=>{
     const key=th.textContent.replace(/↕/g,'').replace(/\s+/g,'');
     const c=document.createElement('col');
@@ -60778,7 +60778,7 @@ function initColResize(){
     cg.append(c);return c;
   });
   const sync=()=>{const sum=cols.reduce((s,c)=>s+(parseFloat(c.style.width)||0),0);table.style.width=sum+'px';
-    try{localStorage.setItem('dispatch-col-widths-v4',JSON.stringify(cols.map(c=>parseFloat(c.style.width)||0)));}catch(e){}};
+    try{localStorage.setItem('dispatch-col-widths-v5',JSON.stringify(cols.map(c=>parseFloat(c.style.width)||0)));}catch(e){}};
   sync();
   ths.forEach((th,i)=>{
     const g=document.createElement('div');g.className='colgrip';g.setAttribute('aria-hidden','true');th.append(g);
@@ -60841,7 +60841,7 @@ function setupColFilter(table,infoId,wholeCell){
 function clearColFilter(table,infoId){colFilters.clear();applyColFilter(table,infoId);}
 // 열 너비를 기본값으로 되돌리기
 function resetColWidths(){
-  try{localStorage.removeItem('dispatch-col-widths-v4');}catch(e){}
+  try{localStorage.removeItem('dispatch-col-widths-v5');}catch(e){}
   const t=document.getElementById('table');
   t.querySelectorAll('.colgrip').forEach(g=>g.remove());
   t.querySelector('colgroup')?.remove();

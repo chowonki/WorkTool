@@ -261,3 +261,71 @@ html[data-theme=dark] body.mac-ui #table tbody tr:hover{background:#2e4260}
 /* 진행 중(탁송 중·배정완료) 배지 */
 body.mac-ui[data-page=dispatch] .badge.progress{color:#8a5a00;background:#fff4dc}
 html[data-theme=dark] body.mac-ui[data-page=dispatch] .badge.progress{color:#ffd88a;background:#4a3a1c}
+
+/* ---------------------------------------------------------------
+   2026-11-18 가독성 — 탁송체크
+   - 본문 보조 글자 최소 13px (배지·단위는 12px 이상)
+   - 흐린 회색은 대비 4.5:1 이상으로 진하게
+---------------------------------------------------------------- */
+body.mac-ui[data-page=dispatch]{--ink:#22324a;--ink2:#3d5170;--ink3:#4a5d77}
+body.mac-ui[data-page=dispatch] :is(.small,.muted,.inputfoot,.filehint){font-size:13px;color:var(--ink3)}
+body.mac-ui[data-page=dispatch] .textbutton{font-size:13px;color:#2f5f9e;font-weight:600}
+body.mac-ui[data-page=dispatch] .sectionhead h2{font-size:17px}
+body.mac-ui[data-page=dispatch] .step{font-size:12.5px;color:#1d5bbf}
+body.mac-ui[data-page=dispatch] textarea{font-size:15px;line-height:1.65;color:var(--ink)}
+body.mac-ui[data-page=dispatch] .drop strong{font-size:14.5px;color:var(--ink2)}
+body.mac-ui[data-page=dispatch] .drop span{font-size:12.5px;color:var(--ink3)}
+body.mac-ui[data-page=dispatch] .filename{font-size:13.5px;color:var(--ink)}
+body.mac-ui[data-page=dispatch] .filemeta{font-size:12.5px;color:var(--ink3)}
+body.mac-ui[data-page=dispatch] .filebadge{font-size:11px;color:#1f6b45}
+body.mac-ui[data-page=dispatch] .filelist .remove{color:#5a6b82;font-size:18px}
+body.mac-ui[data-page=dispatch] .stat>span{font-size:13.5px;color:var(--ink2)}
+body.mac-ui[data-page=dispatch] .stat strong small{font-size:13px;color:var(--ink3)}
+body.mac-ui[data-page=dispatch] .resulthead h2{font-size:19px;color:var(--ink)}
+body.mac-ui[data-page=dispatch] .countbadge{font-size:12.5px;color:#2f4f73}
+body.mac-ui[data-page=dispatch] .copyhint{font-size:13px;color:var(--ink3)}
+body.mac-ui[data-page=dispatch] .copyhint span{color:#1d5bbf}
+body.mac-ui[data-page=dispatch] .tab{font-size:13.5px;padding:9px 14px;color:var(--ink2)}
+body.mac-ui[data-page=dispatch] .tab.active{color:#174fa8}
+body.mac-ui[data-page=dispatch] :is(.vendorfilterlabel,.datefilter,.filterbar label.small){font-size:13px;color:var(--ink2)}
+body.mac-ui[data-page=dispatch] .filterbar select,body.mac-ui[data-page=dispatch] .filterbar input{font-size:13.5px!important}
+body.mac-ui[data-page=dispatch] .search span{color:#5a6b82}
+body.mac-ui[data-page=dispatch] #table th,body.mac-ui[data-page=dispatch] #table .sorthead{font-size:13px;color:var(--ink2)}
+body.mac-ui[data-page=dispatch] #table td{font-size:14.5px;line-height:1.45}
+body.mac-ui[data-page=dispatch] #table td.plate,body.mac-ui[data-page=dispatch] #table td.amount.fuel{font-size:15.5px}
+body.mac-ui[data-page=dispatch] #table td.amount{font-size:14.5px}
+body.mac-ui[data-page=dispatch] #table .badge{font-size:12.5px;padding:4px 9px}
+body.mac-ui[data-page=dispatch] td.cbtd .work-check{font-size:12.5px;color:var(--ink3)}
+body.mac-ui[data-page=dispatch] .tablefoot{font-size:13px;color:var(--ink3)}
+body.mac-ui[data-page=dispatch] .exportbar strong{font-size:14px;color:var(--ink)}
+body.mac-ui[data-page=dispatch] footer{font-size:12.5px;color:var(--ink3)}
+body.mac-ui[data-page=dispatch] .iconbutton{color:var(--ink2)}
+body.mac-ui .theme-control{font-size:12.5px}
+html[data-theme=dark] body.mac-ui[data-page=dispatch]{--ink:#e6eefb;--ink2:#c9d6ea;--ink3:#aebdd4}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] :is(.textbutton,.tab.active,.copyhint span){color:#8fbaff}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] .step{color:#9cc2ff}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] .countbadge{color:#cfe0ff}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] :is(.filelist .remove,.search span){color:#aebdd4}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] .filebadge{color:#9be3bd}
+/* 상태 배지 대비 4.5:1 이상 */
+body.mac-ui[data-page=dispatch] #table .badge.confirmed{background:#e3f3ea;color:#17663f}
+body.mac-ui[data-page=dispatch] #table .badge.carrier{background:#e3f3ea;color:#17663f}
+body.mac-ui[data-page=dispatch] #table .badge.cost,body.mac-ui[data-page=dispatch] #table .badge.incomplete{background:#fbe7e5;color:#9c2f26}
+body.mac-ui[data-page=dispatch] #table .badge.slack{background:#e4edfc;color:#1b4b9b}
+body.mac-ui[data-page=dispatch] #table .badge.missing{background:#fdeedd;color:#8a4b0c}
+body.mac-ui[data-page=dispatch] #table .badge.progress{background:#fff1d6;color:#7a4f00}
+body.mac-ui[data-page=dispatch] #table .rowmeta{font-size:12.5px;color:var(--ink3)}
+body.mac-ui[data-page=dispatch] #table .origin{font-size:13px;color:var(--ink3)}
+body.mac-ui[data-page=dispatch] .exportbuttons .button span{color:var(--ink3)}
+body.mac-ui[data-page=dispatch] footer #status{color:var(--ink3)}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] #table .badge.confirmed,html[data-theme=dark] body.mac-ui[data-page=dispatch] #table .badge.carrier{background:#1f4632;color:#b6f0cf}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] #table .badge.cost,html[data-theme=dark] body.mac-ui[data-page=dispatch] #table .badge.incomplete{background:#552c2c;color:#ffc9c2}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] #table .badge.slack{background:#24395e;color:#c4d9ff}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] #table .badge.missing{background:#4f3a1d;color:#ffd9a3}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] #table .badge.progress{background:#4a3a1c;color:#ffe2a0}
+body.mac-ui[data-page=index] .tag{font-size:12.5px;color:#1d4fa8}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] .filebadge{background:#1f4632;color:#b6f0cf}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] .stat strong small{color:#c9d6ea}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] .tab.active{background:#2b4d80;color:#e6efff}
+html[data-theme=dark] body.mac-ui[data-page=transfer] .tile>span:first-child,html[data-theme=dark] body.mac-ui[data-page=transfer] .tile span{color:#c9d6ea}
+body.mac-ui[data-page=dispatch] .filelist{max-height:170px}
