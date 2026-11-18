@@ -73,7 +73,6 @@ button,input,select,textarea{font:inherit;color:inherit}
 .chip{font-size:12px;font-weight:600;border-radius:99px;padding:2px 9px;background:var(--accent-soft);color:var(--accent)}
 textarea{width:100%;min-height:200px;resize:vertical;border:1px solid var(--line);border-radius:9px;padding:12px;font:14px/1.7 ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;background:var(--soft)}
 .counter{font-size:12px;color:var(--muted);text-align:right}
-.example{font:12.5px/1.7 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;background:var(--soft);border-radius:8px;padding:10px;margin:0;color:var(--muted)}
 
 /* 2단계 */
 .tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
@@ -181,6 +180,7 @@ th.filtered .filterbtn{color:#267358}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
 /* 배치 정리 (2026-11-18) */
+#view1 .cols{grid-template-columns:minmax(0,1fr)!important}
 .actionbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .actionbar .btn.big{margin-left:auto}
 .tsep{width:1px;height:22px;background:var(--line);margin:0 2px}
@@ -215,23 +215,12 @@ th.filtered .filterbtn{color:#267358}
         <div class="threads" id="threads"></div>
         <div class="actionbar">
       <button class="btn" id="addThread" type="button">+ 입력칸 추가</button>
+      <button class="btn" id="useExample" type="button">예시로 연습하기</button>
       <button class="btn danger" id="resetAll1" type="button">전체 초기화</button>
       <span class="grow"></span>
       <span class="fileinfo" id="extractInfo"></span>
       <button class="btn primary big" id="extract" type="button">이체정보 추출하기</button>
     </div>
-      </div>
-      <div class="side">
-        <div class="box"><h3>입력 예시</h3><pre class="example">현대 쏘나타 123가4567
-https://example.com/vehicle/987654321
-국민은행
-123-456-789012
-35,000원
-
-기아 K5 45나6789
-신한은행
-110-123-456789
-3만5천원</pre><button class="btn sm" id="useExample" type="button">예시로 연습하기</button></div>
       </div>
     </div>
   </section>
