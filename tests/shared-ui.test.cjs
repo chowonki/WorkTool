@@ -52,7 +52,7 @@ test('없는 파일을 가리키는 링크·스타일·스크립트가 없어요
 });
 test('사용법 문서가 지금 화면에 없는 기능을 설명하지 않아요',()=>{
  const docs=['README.md','guide.html','quick-guide.html','dispatch-guide.html','transfer-guide.html'];
- const removed=['수동확인','중복 검토 필요','표시할 탁송건 선택','선택 처리 완료','접수일시','4시간','마지막 다운로드 내역 복원','되돌리기','새 이체 작업 시작','검토 필요한 행만 보기'];
+ const removed=['수동확인','중복 검토 필요','표시할 탁송건 선택','선택 처리 완료','접수일시','4시간','마지막 다운로드 내역 복원','되돌리기','새 이체 작업 시작','검토 필요한 행만 보기','체험 데이터','예시로 연습하기'];
  for(const p of docs){const text=read(p);for(const w of removed)assert.ok(!text.includes(w),`${p}에 '${w}' 설명이 남아 있어요`);}
 });
 test('안내 문구는 해요체예요 (합니다·습니다 없음)',()=>{

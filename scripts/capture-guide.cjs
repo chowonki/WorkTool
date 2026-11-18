@@ -6,6 +6,8 @@ const fs=require('node:fs'),path=require('node:path');
 const BASE=process.env.BASE_URL||'http://127.0.0.1:8765';
 const ROOT=path.join(__dirname,'..'),OUT=path.join(ROOT,'guide');
 const W=1366;
+// 가상 이체 요청 (실제 계좌 아님)
+const THREAD='[이체 요청] 오늘 정산 부탁드려요.\n\n현대 쏘나타 123가4567\n국민은행\n123-456-789012\n35,000원\n\n기아 K5 45나6789\n신한은행\n110-123-456789\n3만5천원\n\n오픈마일 운송비\n우리은행\n1002-345-678901\n80,000원';
 
 async function boxes(page,selectors){
  const out={};
@@ -33,16 +35,20 @@ async function shot(page,file,selectors,clipHeight){
   const ctx=await browser.newContext({viewport:{width:W,height:900},deviceScaleFactor:1,colorScheme:'light'});
   const page=await ctx.newPage();
 
-  // 탁송체크: 체험 데이터로 조회한 화면
+  // 탁송체크: 가상 업체 엑셀(scripts/fixtures, make-guide-fixtures.py로 생성)로 조회한 화면
+  const FX=path.join(__dirname,'fixtures');
   await page.goto(BASE+'/dispatch.html',{waitUntil:'load'});await page.waitForTimeout(800);
-  await page.click('#demo');await page.waitForTimeout(900);
+  await page.fill('#input',fs.readFileSync(path.join(FX,'차량목록.txt'),'utf8'));
+  await page.setInputFiles('#fileInput',['한빛탁송_가상.xlsx','오픈마일_가상.xlsx','렌톡_가상.xlsx'].map(f=>path.join(FX,f)));
+  await page.waitForFunction(()=>document.querySelectorAll('#fileList li').length===3,null,{timeout:20000});
+  await page.click('#run');await page.waitForTimeout(900);
   await page.evaluate(()=>{document.getElementById('toast').hidden=true;});
   result.dispatch=await shot(page,'dispatch-screen.png',{input:'.inputcard',files:'.filescard',run:'#run',stats:'.stats',tabs:'.filterbar .tabs',export:'.exportbar'},1830);
 
-  // 이체파일 1단계: 예시를 넣은 화면
+  // 이체파일 1단계: 가상 스레드를 넣은 화면
   await page.goto(BASE+'/transfer.html',{waitUntil:'load'});await page.waitForTimeout(300);
-  await page.click('#useExample');await page.waitForTimeout(3200); // 안내 토스트가 사라질 때까지
-  result.input=await shot(page,'transfer-screen.png',{text:'#threads textarea',add:'#addThread',extract:'#extract',example:'#useExample'},1090);
+  await page.fill('#threads textarea',THREAD);await page.waitForTimeout(200);
+  result.input=await shot(page,'transfer-screen.png',{text:'#threads textarea',add:'#addThread',extract:'#extract'},1090);
 
   // 2단계: 추출 직후 (차량번호 팝업은 닫음)
   await page.click('#extract');await page.waitForTimeout(400);

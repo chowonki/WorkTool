@@ -2,11 +2,12 @@
 
 탁송 차량 조회와 하나은행 다계좌이체 파일 생성을 위한 브라우저 기반 업무 도구예요. 로그인 없이 사용하며, 입력 내용과 첨부 파일은 브라우저에서 처리해요.
 
-처음 사용하는 분은 [그림으로 보는 빠른 사용법](./quick-guide.html)에서 **실제 WorkTool 화면에 번호·파란 테두리·설명을 붙인 그림 4장**을 볼 수 있어요. 화면은 체험 데이터·예시 데이터로 찍었고, 사내 시스템 화면은 넣지 않았어요.
+처음 사용하는 분은 [그림으로 보는 빠른 사용법](./quick-guide.html)에서 **실제 WorkTool 화면에 번호·파란 테두리·설명을 붙인 그림 4장**을 볼 수 있어요. 화면은 가상 업체 파일·가상 이체 요청으로 찍었고, 사내 시스템 화면은 넣지 않았어요.
 
 그림을 새 화면으로 다시 만들 때는 아래 순서로 실행해요.
 
 ```bash
+python3 scripts/make-guide-fixtures.py                                 # 가상 업체 엑셀 만들기
 python3 -m http.server 8765 --bind 127.0.0.1 &
 CHROME_BIN=$(command -v google-chrome) node scripts/capture-guide.cjs   # 촬영 + 위치 저장
 python3 scripts/annotate-guide.py                                       # 번호·설명 그리기 (Noto Sans CJK 글꼴 필요)
@@ -43,13 +44,13 @@ Python 3가 설치된 환경에서 실행한 뒤 [http://localhost:8000](http://
 
 ## 탁송체크 사용 방법
 
-[탁송체크 상세 사용방법](./dispatch-guide.html)에서 입력 예시, 업체별로 읽는 항목, 조회 상태, 필터와 저장 범위를 자세히 볼 수 있어요. 처음이라면 화면의 **체험 데이터**로 연습해 볼 수 있어요.
+[탁송체크 상세 사용방법](./dispatch-guide.html)에서 입력 예시, 업체별로 읽는 항목, 조회 상태, 필터와 저장 범위를 자세히 볼 수 있어요.
 
 1. 사내 **‘탁송출발 주유비 미입력’ 스크립트**를 실행하고, 결과에서 **차량번호를 추출·복사**해요.
 2. **차량목록 입력**에 붙여넣어요. 날짜·시간이 함께 있는 목록도 그대로 쓸 수 있어요.
 3. **한빛탁송·오픈마일·렌톡**에서 **‘탁송기한’ 조회 → 기간 설정 → 조회 → 시트 다운로드**를 해요. **렌톡은 요청시각이 아닌 출발시각 기준**으로 조회해요.
 4. 받은 **3사 엑셀 시트**를 **업체 파일 첨부**에 넣고 파일명·인식한 업체·기록 건수를 확인해요.
-5. **차량 조회하기**를 누르고 **확인 필요** 탭부터 살펴본 뒤, 차량번호를 복사하거나 TXT·엑셀·PDF로 저장해요.
+5. **차량 조회하기**를 누르고 **확인 필요** 탭부터 살펴본 뒤, **캡처 복사**로 결과 이미지를 Slack에 붙여넣거나 차량번호 복사·TXT·엑셀·PDF로 저장해요.
 
 ### 조회 기준
 
@@ -60,6 +61,7 @@ Python 3가 설치된 환경에서 실행한 뒤 [http://localhost:8000](http://
 - 탁송일정: 렌톡 D열 · 오픈마일 C열 · 한빛 K+L열. 탁송비용: 렌톡 S열 · 오픈마일 U열 · 한빛 AP열, 부가세는 10%예요.
 - 같은 차량의 기록끼리 탁송일정·탁송비용이 다르면 드롭다운으로 직접 골라요. 고르지 않으면 저장하지 않아요.
 - 조회 상태: 금액 확인 · 미조회 · 완료 건 없음 · 비용 확인 · 슬랙봇 문의 · 캐리어탁송.
+- **결과 캡처**: 저장 범위(체크한 줄 우선)의 결과를 표 이미지로 만들어 클립보드에 복사하거나 PNG로 저장해요. 합계가 함께 들어가고, 한 장에 300대까지예요.
 - 체크박스로 고른 줄만 복사·저장할 수 있어요. 복사한 줄은 파란색, '완료'를 체크한 줄은 초록색으로 표시해요(새로고침하면 지워져요).
 
 ## 하나은행 이체파일 사용 방법
@@ -110,7 +112,9 @@ WorkTool/
 ├── assets/theme.js       # 화면 모드(자동·라이트·다크)
 ├── guide/                # 사용법 스크린샷 (scripts/capture-guide.cjs, annotate-guide.py로 생성)
 ├── tests/                # 자동 테스트
-└── scripts/e2e-transfer.cjs  # 이체파일 브라우저 테스트
+├── scripts/e2e-transfer.cjs  # 이체파일 브라우저 테스트
+├── scripts/e2e-dispatch.cjs  # 탁송체크 조회·캡처 브라우저 테스트
+└── scripts/fixtures/     # 가상 업체 엑셀 (make-guide-fixtures.py로 생성)
 ```
 
 HTML·CSS·JavaScript로만 된 정적 웹 프로젝트예요. 빌드 과정이 없어요.
@@ -133,6 +137,13 @@ node --test tests/*.test.cjs
 python3 -m http.server 8765 --bind 127.0.0.1 &
 npm install --no-save playwright-core
 CHROME_BIN=$(command -v google-chrome) node scripts/e2e-transfer.cjs
+```
+
+탁송체크 캡처는 가상 업체 엑셀로 확인해요. (GitHub Actions에는 넣지 않았어요)
+
+```bash
+python3 scripts/make-guide-fixtures.py
+CHROME_BIN=$(command -v google-chrome) node scripts/e2e-dispatch.cjs
 ```
 
 GitHub Actions에서 `main` 브랜치 변경과 Pull Request마다 두 테스트를 자동으로 돌려요.

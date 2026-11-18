@@ -227,3 +227,5 @@ body.mac-ui[data-page=dispatch] td.cbtd>input{vertical-align:middle}
 body.mac-ui[data-page=dispatch] .inputs{row-gap:12px}
 body.mac-ui[data-page=dispatch] .run{min-height:50px}
 @media(max-width:820px){body.mac-ui[data-page=dispatch] .resultactions{margin-left:0;justify-content:flex-start}}
+body.mac-ui[data-page=dispatch] .exportsep{width:1px;height:24px;background:var(--hair-strong);margin:0 4px;display:inline-block;vertical-align:middle}
+@media(max-width:820px){body.mac-ui[data-page=dispatch] .exportsep{display:none}}
