@@ -107,3 +107,14 @@ test('TXT 저장: 엑셀에서 바로 열리게 BOM과 탭 구분을 쓰고, 칸
  assert.equal(lines[0].split('\t').length,lines[1].split('\t').length);
  assert.ok(lines[1].includes('서울 강남'));
 });
+test('진행 중: 탁송 중·배정완료만 해당하고, 취소·미조회·완료는 아니에요',()=>{
+ const files=[read('A',[{plate:'12서7567',state:'탁송중'},{plate:'55노4983',state:'배차완료'},{plate:'77다1234',state:'취소'},{plate:'34나3975',state:'탁송완료',cost:'1000'}])];
+ const rows=C.match(['12서7567','55노4983','77다1234','34나3975','99하9999'].map(plate=>({plate,date:''})),files);
+ const by=Object.fromEntries(rows.map(r=>[r.plate,r]));
+ assert.deepEqual(rows.filter(C.inProgress).map(r=>r.plate),['12서7567','55노4983']);
+ assert.equal(C.statusLabel(by['12서7567']),'진행 중');
+ assert.equal(C.statusLabel(by['77다1234']),'완료 건 없음');
+ assert.equal(C.statusLabel(by['99하9999']),'미조회');
+ assert.ok(C.includes(by['55노4983'],'progress')&&!C.includes(by['77다1234'],'progress'));
+ assert.ok(C.textExport([by['12서7567']]).includes('진행 중'),'TXT 저장에도 진행 중');
+});

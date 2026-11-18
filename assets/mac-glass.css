@@ -258,3 +258,6 @@ html[data-theme=dark] body.mac-ui[data-page=dispatch] .copyhint{color:#9aaecb}
 html[data-theme=dark] body.mac-ui #table tbody tr:nth-child(even){background:#243247}
 html[data-theme=dark] body.mac-ui #table tbody tr:nth-child(odd){background:#1d2939}
 html[data-theme=dark] body.mac-ui #table tbody tr:hover{background:#2e4260}
+/* 진행 중(탁송 중·배정완료) 배지 */
+body.mac-ui[data-page=dispatch] .badge.progress{color:#8a5a00;background:#fff4dc}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] .badge.progress{color:#ffd88a;background:#4a3a1c}
