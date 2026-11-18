@@ -18,7 +18,7 @@ test('visual quick guide is linked from both tools and the home screen',()=>{
  assert.match(guide,/실제 WorkTool 화면/);
  assert.match(guide,/이체파일은 송금 예약이나 실행이 아니에요/);
 });
-test('screen guides use real PNG assets with Korean-readable screenshots',()=>{
+test('screen guides link real PNG screenshots for reference',()=>{
  for(const filename of ['dispatch-screen.png','transfer-screen.png','transfer-Review.png','transfer-Download.png']){
   const name='guide/'+filename;
   const contents=fs.readFileSync(path.join(root,name));
@@ -27,11 +27,13 @@ test('screen guides use real PNG assets with Korean-readable screenshots',()=>{
   assert.ok(guide.includes('./'+name),name+' must appear in the quick guide');
  }
 });
-test('the guide uses expandable screenshots and keeps actual tool navigation',()=>{
- assert.match(guide,/<img src="\.\/guide\/dispatch-annotated\.png"/);
- assert.match(guide,/<img src="\.\/guide\/transfer-input-annotated\.png"/);
- assert.match(guide,/<img src="\.\/guide\/transfer-review-annotated\.png"/);
- assert.match(guide,/<img src="\.\/guide\/transfer-download-annotated\.png"/);
+test('the quick guide draws mockups with numbered badges and keeps actual tool navigation',()=>{
+ const mocks=guide.match(/<div class="mock" role="img" aria-label="[^"]+"/g)||[];
+ assert.equal(mocks.length,4,'탁송체크 1개 + 이체파일 3단계 목업이 있어야 해요');
+ assert.ok(!/<img\s/.test(guide),'그림 사용법은 스크린샷 대신 목업으로 그려요');
+ const dispatchMock=guide.slice(guide.indexOf('id="dispatch"'),guide.indexOf('id="transfer"'));
+ for(let n=1;n<=6;n++)assert.ok(dispatchMock.includes('<b class="n" aria-hidden="true">'+n+'</b>'),'탁송체크 목업 번호 '+n);
+ for(const label of ['차량 조회하기','캡처 복사','캡처 저장','진행 중','이체정보 추출하기','다음: 이체파일 만들기','하나은행 이체파일 다운로드','송금 코멘트'])assert.ok(guide.includes(label),label);
  assert.match(guide,/href="\.\/dispatch\.html"/);
  assert.match(guide,/href="\.\/transfer\.html"/);
  assert.match(guide,/target="_blank" rel="noopener"/);
@@ -56,9 +58,9 @@ test('all four annotated screenshots are valid and included in both help pages',
   const bytes=fs.readFileSync(path.join(root,relative));
   assert.equal(bytes.subarray(0,8).toString('hex'),'89504e470d0a1a0a',relative);
   assert.ok(bytes.length>30000,relative+' must contain annotation artwork');
-  assert.ok(guide.includes('./'+relative),relative+' missing in quick guide');
+  assert.ok(guide.includes('href="./'+relative+'"'),relative+' link missing in quick guide');
   assert.ok((name.startsWith('dispatch')?dispatchHelp:transferHelp).includes('./'+relative),relative+' missing in detailed guide');
  }
  assert.match(guide,/주석 없는 원본/);
- assert.match(guide,/번호·파란 테두리·설명/);
+ assert.match(guide,/단순하게 그린 그림/);
 });

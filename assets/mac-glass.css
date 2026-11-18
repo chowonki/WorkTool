@@ -164,7 +164,7 @@ html[data-theme=dark] body.mac-ui .search{background:#192334;border-color:var(--
 }
 @media(prefers-reduced-transparency:reduce){body.mac-ui .panel :is(.box,.thread,.tile):not(.help){background:#fff}}
 @media(max-width:650px){body.mac-ui[data-page=transfer] .tiles>.tile.sum:last-child{grid-column:1/-1}}
-@media(max-width:430px){body.mac-ui[data-page=index] .toolnav a[href="./guide.html"]{display:none}}
+@media(max-width:430px){body.mac-ui[data-page=index] .toolnav a[href="./quick-guide.html"]{display:none}}
 body.mac-ui .iconbutton{background:linear-gradient(160deg,#fffffff0,#ffffff99);border:1px solid var(--hair);box-shadow:inset 0 1px 0 #fff}
 html[data-theme=dark] body.mac-ui .iconbutton{background:#ffffff14;border-color:var(--hair-strong);color:#d6e3f8;box-shadow:inset 0 1px 0 #ffffff12}
 @media(max-width:430px){body.mac-ui .toolnav a.navguide{display:none}}

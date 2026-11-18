@@ -32,8 +32,8 @@ section.guide{background:#fff;border:1px solid #dce7e1;border-radius:18px;paddin
 .figure-card a{font-weight:750}
 .steps{counter-reset:quick;list-style:none;margin:18px 0 4px;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .steps li{border:1px solid #e1eae6;border-radius:12px;padding:14px;background:#fbfdfc}
-.steps strong{display:flex;align-items:center;gap:8px;font-size:15px}
-.steps strong:before{counter-increment:quick;content:counter(quick);display:grid;place-items:center;background:#087c6c;color:white;width:24px;height:24px;flex:none;border-radius:50%;font-size:12px}
+.steps>li>strong{display:flex;align-items:center;gap:8px;font-size:15px}
+.steps>li>strong:before{counter-increment:quick;content:counter(quick);display:grid;place-items:center;background:#087c6c;color:white;width:24px;height:24px;flex:none;border-radius:50%;font-size:12px}
 .steps p{margin:8px 0 0;color:#58716b;font-size:13px}
 .screen-grid{display:grid;grid-template-columns:1fr;gap:18px;margin-top:18px}
 .screen-grid .figure-card{margin-top:0}
@@ -46,6 +46,87 @@ section.guide{background:#fff;border:1px solid #dce7e1;border-radius:18px;paddin
 footer{border-top:1px solid #dce7e1;margin-top:36px;padding-top:18px;font-size:13px;color:#658077}
 .dispatch-sources{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin:20px 0}.source-block{border:1px solid #dce9e1;border-radius:12px;background:#f9fcfa;padding:17px;min-width:0}.source-block h3{font-size:17px;line-height:1.5;margin:10px 0 12px}.source-block ol{padding-left:20px;font-size:13px;color:#466859}.source-block li{margin-bottom:7px}.source-step{font-size:12px;font-weight:800;color:#16765b;background:#e5f3ea;border-radius:6px;padding:4px 8px}.source-outcome{margin:14px 0 0;color:#267353;font-size:13px;font-weight:750}.source-alert{padding:12px 15px;background:#fff6e5;border:1px solid #eddba7;border-radius:10px;color:#694e21;font-size:13px;line-height:1.65}.source-block strong{color:#1a5b44}@media(max-width:760px){.dispatch-sources{grid-template-columns:1fr}main{padding:25px 14px 45px}.top{padding:13px 18px;gap:12px}.choose,.steps,.screen-grid{grid-template-columns:1fr}section.guide{padding:17px}.figure-card figcaption{display:block}.figure-card a{display:inline-block;margin-top:5px}}
 .figure-card figcaption ol{margin:6px 0 8px;padding-left:22px;color:#41556f}.figure-card figcaption li{margin:2px 0}
+
+/* ── 화면 목업 (2026-11-18) ── */
+.mock-wrap{margin-top:18px}
+.mock{border:1px solid #d3deec;border-radius:16px;overflow:hidden;background:linear-gradient(160deg,#eef4fd,#f3effa);box-shadow:0 10px 30px #2a3f6012;font-size:13px;color:#22324a;user-select:none}
+.mock-bar{display:flex;align-items:center;gap:6px;padding:9px 14px;background:#ffffffb0;border-bottom:1px solid #dfe7f2}
+.mock-bar i{width:10px;height:10px;border-radius:50%;background:#f06a5f}.mock-bar i:nth-child(2){background:#f4bf4f}.mock-bar i:nth-child(3){background:#60c454}
+.mock-bar span{margin-left:10px;font-size:12.5px;font-weight:700;color:#4a5d77}
+.mock-body{padding:16px;display:grid;gap:12px}
+.mock .n{position:absolute;top:-11px;left:-11px;z-index:2;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#236de8;color:#fff;font-size:13px;font-weight:800;box-shadow:0 0 0 3px #fff,0 3px 8px #236de855;font-style:normal}
+.m-card,.m-stats,.m-tabs,.m-export,.m-input,.m-btn,.m-tiles,.m-tablebox,.m-side,.m-ack,.m-comments{position:relative}
+.m-head{display:flex;align-items:center;justify-content:space-between}
+.m-h1{font-size:20px;font-weight:800}
+.m-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.m-card{background:#ffffffd9;border:1px solid #dbe4f0;border-radius:14px;padding:14px;display:grid;gap:10px;align-content:start}
+.m-title{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px}.m-title.big{font-size:17px}
+.m-step{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;background:#e7effd;color:#1d5bbf;font-size:11.5px}
+.m-sub{font-size:12.5px;font-weight:700;color:#3d5170}
+.m-input{border:1px solid #c9d5e6;border-radius:10px;background:#fff;padding:10px 12px;font-size:12.5px;line-height:1.7;color:#33465f;min-height:86px}.m-input.tall{min-height:130px}
+.m-drop{border:1.5px dashed #9fb6d6;border-radius:10px;padding:16px;text-align:center;color:#3d5170;font-weight:700;font-size:12.5px;background:#f8fbff}
+.m-file{display:flex;align-items:center;gap:8px;font-size:12.5px}.m-file span{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:5px;background:#e3f3ea;color:#17663f;font-size:10.5px;font-weight:800}.m-file em{margin-left:auto;font-style:normal;color:#4a5d77}
+.m-right{display:flex;justify-content:flex-end}
+.m-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid #d3deec;background:#fff;border-radius:999px;padding:7px 14px;font-weight:700;font-size:12.5px;color:#33465f;white-space:nowrap}
+.m-btn.primary{background:linear-gradient(160deg,#4b8bf5,#236de8);border-color:#236de8;color:#fff}.m-btn.big{padding:10px 20px;font-size:13.5px}.m-btn.sm{padding:5px 11px;font-size:12px}.m-btn.ghost,.m-btn.danger{color:#a53a33}.m-btn.block{width:100%}
+.m-stats,.m-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.m-tiles{grid-template-columns:repeat(4,1fr)}
+.m-stats>div,.m-tiles>div{background:#ffffffd9;border:1px solid #dbe4f0;border-radius:12px;padding:8px 11px}.m-stats>div:first-of-type,.m-tiles>div.on{background:#e4eeff;border-color:#9cbcf0}
+.m-stats small,.m-tiles small{display:block;font-size:11.5px;color:#3d5170}.m-stats b,.m-tiles b{font-size:18px}.m-tiles b.g{color:#17663f}.m-tiles b.y{color:#8a5a00}.m-tiles b.red{color:#a33a3a}
+.m-count{display:inline-grid;place-items:center;min-width:22px;height:20px;border-radius:6px;background:#e7effd;color:#2f4f73;font-size:11.5px;padding:0 5px}
+.m-sp{flex:1}
+.m-tabs{display:flex;gap:4px;flex-wrap:wrap}.m-tabs span{padding:5px 11px;border-radius:999px;font-size:12px;color:#3d5170}.m-tabs span.on{background:#dbe7fb;color:#174fa8;font-weight:800}
+.m-table{width:100%;border-collapse:collapse;font-size:12.5px}.m-table th{text-align:left;font-size:11.5px;color:#3d5170;background:#eef3fb;padding:7px 9px;font-weight:700}.m-table td{padding:8px 9px;border-top:1px solid #e6ecf4;color:#33465f;white-space:nowrap}.m-table .r{text-align:right}
+.m-table u{text-decoration:underline dotted #8fb0dd 1.5px;text-underline-offset:3px}.m-table u.b{font-weight:700;color:#22324a}
+.m-badge{display:inline-block;border-radius:7px;padding:3px 8px;font-size:11.5px;font-weight:700}.m-badge.ok{background:#e3f3ea;color:#17663f}.m-badge.wait{background:#fff1d6;color:#7a4f00}
+.m-pick{display:inline-block;border:1.5px solid #d69a31;border-radius:7px;padding:2px 7px;background:#fffaf0;color:#85520c;font-weight:700;font-size:11.5px}
+.m-export{display:flex;align-items:center;gap:6px;flex-wrap:wrap;border-top:1px solid #e6ecf4;padding-top:10px}.m-lbl{font-weight:800;font-size:12.5px}
+.m-sel{display:inline-block;border:1px solid #c9d5e6;border-radius:8px;padding:4px 9px;background:#fff;font-size:12px;font-weight:700}
+.m-field{display:block;border:1px solid #c9d5e6;border-radius:8px;padding:5px 9px;background:#fff;font-size:12px;color:#4a5d77}.m-field.r{text-align:right}
+.m-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.m-steps span{display:flex;align-items:center;gap:8px;background:#ffffffb0;border:1px solid #dbe4f0;border-radius:12px;padding:8px 11px;font-weight:700;font-size:12.5px;color:#4a5d77}
+.m-steps span.on{background:#fff;color:#22324a;box-shadow:0 3px 10px #2a3f6014}.m-steps i{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#b8c6da;color:#fff;font-style:normal;font-size:11px}.m-steps .on i,.m-steps .done i{background:#236de8}
+.m-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.m-cols{display:grid;grid-template-columns:minmax(0,1fr) 200px;gap:10px}
+.m-tablebox{border:1px solid #dbe4f0;border-radius:12px;overflow:visible;background:#fff}
+.m-side{background:#f7f9fd;border:1px solid #dbe4f0;border-radius:12px;padding:10px;display:grid;gap:7px;align-content:start}
+.m-ack{display:flex;align-items:center;gap:8px;background:#fff5db;border:1px solid #e2c374;border-radius:10px;padding:8px 12px;font-size:12.5px}
+.m-check{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:4px;background:#236de8;color:#fff;font-size:11px}
+.m-dl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid #dbe4f0;border-radius:12px;padding:10px;background:#fff}.m-note{font-size:12px;color:#4a5d77}
+.m-warn{background:#fff5db;border:1px solid #e2c374;border-radius:10px;padding:8px 12px;font-size:12.5px;color:#6a5216}
+.m-comments{border:1px solid #dbe4f0;border-radius:12px;padding:10px;background:#fff;display:grid;gap:6px}.m-cmt{display:flex;align-items:center;gap:8px;justify-content:space-between;border:1px solid #e6ecf4;border-radius:9px;padding:6px 6px 6px 10px;font-size:12px}
+.mock-cap{font-size:13px;color:#4a5d77;margin:10px 2px 0}
+.screen-grid .mock-wrap{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(220px,1fr);gap:18px;align-items:start;margin-top:0}
+.mock-steps{background:#fff;border:1px solid #dbe4f0;border-radius:14px;padding:14px 16px}.mock-steps strong{font-size:15px}.mock-steps ol{margin:10px 0 0;padding-left:22px;font-size:14px;line-height:1.7;color:#33465f}.mock-steps li{margin:4px 0}
+@media(max-width:820px){.screen-grid .mock-wrap{grid-template-columns:1fr}}
+@media(max-width:640px){.m-grid2,.m-cols{grid-template-columns:1fr}.m-stats{grid-template-columns:repeat(3,1fr)}.m-tiles{grid-template-columns:repeat(3,1fr)}.m-hide-s{display:none!important}.mock-body{padding:12px}.m-steps span{font-size:11.5px;padding:7px}.m-table td,.m-table th{padding:6px}}
+html[data-theme=dark] .mock{background:linear-gradient(160deg,#1a2436,#1f1d33);border-color:#33435c;color:#e6eefb}
+html[data-theme=dark] .mock-bar{background:#ffffff0d;border-color:#33435c}html[data-theme=dark] .mock-bar span{color:#c9d6ea}
+html[data-theme=dark] :is(.m-card,.m-stats>div,.m-tiles>div,.m-tablebox,.m-dl,.m-comments,.m-steps span,.m-input,.m-field,.m-sel,.m-btn:not(.primary),.m-drop,.m-side){background:#ffffff0d;border-color:#3a4a63;color:#d6e1f2}
+html[data-theme=dark] :is(.m-stats>div:first-of-type,.m-tiles>div.on,.m-steps span.on){background:#2b4d80;border-color:#5b86c9}
+html[data-theme=dark] :is(.m-stats small,.m-tiles small,.m-sub,.m-note,.m-file em,.m-tabs span,.mock-cap){color:#bccbe0}
+html[data-theme=dark] .m-table th{background:#ffffff12;color:#c9d6ea}html[data-theme=dark] .m-table td{border-color:#33435c;color:#d6e1f2}html[data-theme=dark] .m-table u.b{color:#fff}
+html[data-theme=dark] .m-tabs span.on{background:#2b4d80;color:#e6efff}
+html[data-theme=dark] :is(.m-ack,.m-warn){background:#4a3a1c;border-color:#7a6230;color:#ffe2a0}
+html[data-theme=dark] .m-badge.ok{background:#1f4632;color:#b6f0cf}html[data-theme=dark] .m-badge.wait,html[data-theme=dark] .m-pick{background:#4a3a1c;color:#ffe2a0}
+html[data-theme=dark] .mock-steps{background:#ffffff0d;border-color:#3a4a63}html[data-theme=dark] .mock-steps ol{color:#d6e1f2}
+html[data-theme=dark] .mock .n{box-shadow:0 0 0 3px #1a2436}
+html[data-theme=dark] :is(.m-btn.ghost,.m-btn.danger){color:#ffb4ad}
+
+.m-tabs,.m-export{padding-left:20px}
+.m-tablebox .m-table th:first-child,.m-tablebox .m-table td:first-child{padding-left:20px}
+.m-stats>.n,.m-tiles>.n{top:-12px;left:-12px}
+.screen-grid .mock-wrap{grid-template-columns:minmax(0,2.3fr) minmax(220px,1fr)}
+.m-cols{grid-template-columns:minmax(0,1fr) 168px}
+.m-tablebox{overflow:visible}.m-scroll{overflow-x:auto;border-radius:12px}
+.m-table .m-field,.m-table .m-sel{padding:4px 7px}
+@media(max-width:820px){.screen-grid .mock-wrap{grid-template-columns:1fr}}
+@media(max-width:640px){.m-cols{grid-template-columns:1fr}}
+html[data-theme=dark] .m-export{border-top-color:#33435c}
+html[data-theme=dark] .m-count{background:#2b4d80;color:#e6efff}
+html[data-theme=dark] .m-file span{background:#1f4632;color:#b6f0cf}
+html[data-theme=dark] .m-table tbody tr{background:transparent}
+.mock-wrap,.mock,.mock-body,.m-card,.m-grid2>*,.m-cols>*{min-width:0}
+@media(max-width:640px){.m-table td,.m-table th{font-size:11.5px}.m-dtable :is(th,td):first-child{display:none}.m-export .m-lbl{display:none}.m-h1{font-size:17px}.mock .n{left:-8px}}
+html[data-theme=dark] .m-tiles b.g{color:#8fe0b4}html[data-theme=dark] .m-tiles b.y{color:#ffd27a}html[data-theme=dark] .m-tiles b.red{color:#ffaaa4}
 </style>
 <link rel="stylesheet" href="./assets/mac-glass.css?v=20261118-3">
 <script src="./assets/theme.js?v=20261116-1"></script>
@@ -55,7 +136,7 @@ footer{border-top:1px solid #dce7e1;margin-top:36px;padding-top:18px;font-size:1
 <main>
 <p class="eyebrow">QUICK VISUAL GUIDE</p>
 <h1>설명서 대신 화면을 보면서 따라 하세요</h1>
-<p class="intro">실제 WorkTool 화면에 번호·파란 테두리·설명을 덧붙였어요. 그림의 번호와 아래 설명의 번호가 같아요. 이미지를 누르면 크게 볼 수 있고, 설명 없는 원본 화면도 볼 수 있어요.</p>
+<p class="intro">WorkTool 화면을 단순하게 그린 그림에 번호를 붙였어요. 그림의 번호와 설명의 번호가 같아요. 실제 WorkTool 화면이 궁금하면 그림 아래 링크를 눌러 보세요.</p>
 <div class="choose"><a href="#dispatch">🚗 탁송체크 사용법<span>업체 파일과 차량번호로 조회하기</span></a><a href="#transfer">📄 하나은행 이체파일 사용법<span>Slack 원문으로 Excel 파일 만들기</span></a></div>
 <section class="guide" id="dispatch" aria-labelledby="dispatchTitle">
 <span class="kicker">탁송체크 · 실제 업무 준비</span>
@@ -66,7 +147,26 @@ footer{border-top:1px solid #dce7e1;margin-top:36px;padding-top:18px;font-size:1
 <div class="source-block"><span class="source-step">원본 준비 2</span><h3>업체파일 = 탁송 3사 ‘탁송기한’ 조회 시트</h3><ol><li><strong>한빛탁송 · 오픈마일 · 렌톡</strong>에서 각각 탁송기한을 조회해요.</li><li>대상 기간을 선택하고 <strong>조회 후 시트 다운로드</strong>를 진행해요.</li><li>다운로드한 시트 3개를 WorkTool <strong>업체 파일 첨부</strong>에 넣어요.</li></ol><p class="source-outcome">결과: 차량번호와 비교할 업체별 원본 파일이 준비돼요.</p></div>
 </div>
 <p class="source-alert"><strong>렌톡은 반드시 확인:</strong> 시트 조회 기준을 <strong>‘요청시각’에서 ‘출발시각’</strong>으로 변경한 후 대상 기간을 설정해 다운로드하세요. 세 업체의 조회 기간이 맞는지도 확인해 주세요.</p>
-<div class="figure-card"><figure><a href="./guide/dispatch-annotated.png" target="_blank" rel="noopener" aria-label="탁송체크 전체 화면 크게 보기"><img src="./guide/dispatch-annotated.png" width="1366" height="2215" loading="lazy" alt="탁송체크 실제 화면: ① 차량목록 입력 ② 업체 파일 첨부 ③ 차량 조회하기 ④ 결과 카드 ⑤ 걸러 보기 탭 ⑥ 캡처·저장에 번호와 파란 테두리를 표시한 그림"></a><figcaption><span>가상 업체 파일로 조회한 실제 화면이에요. 사내 스크립트와 3사 조회 화면은 넣지 않았어요.</span><a href="./guide/dispatch-annotated.png" target="_blank" rel="noopener">화면 확대 보기 ↗</a> · <a href="./guide/dispatch-screen.png" target="_blank" rel="noopener">주석 없는 원본</a></figcaption></figure></div>
+<div class="mock-wrap"><div class="mock" role="img" aria-label="탁송체크 화면 목업: ① 차량목록 입력 ② 업체 파일 첨부 ③ 차량 조회하기 ④ 결과 카드 ⑤ 걸러 보기 탭 ⑥ 캡처·저장"><div class="mock-bar"><i></i><i></i><i></i><span>탁송체크</span></div><div class="mock-body">
+<div class="m-head"><span class="m-h1">차량 조회</span><span class="m-btn ghost">전체 초기화</span></div>
+<div class="m-grid2">
+ <div class="m-card"><b class="n" aria-hidden="true">1</b><div class="m-title">차량목록 입력</div><div class="m-input">2026-11-03 09:30&nbsp; 12서7567<br>55노4983<br>02두3821<br>39수7009</div></div>
+ <div class="m-card"><b class="n" aria-hidden="true">2</b><div class="m-title">업체 파일 첨부</div><div class="m-drop">⇪ 파일을 놓거나 클릭해서 첨부</div>
+  <div class="m-file"><span>X</span>한빛탁송.xlsx<em>3건</em></div><div class="m-file"><span>X</span>오픈마일.xlsx<em>4건</em></div><div class="m-file"><span>X</span>렌톡.xlsx<em>3건</em></div></div>
+</div>
+<div class="m-right"><span class="m-btn primary big"><b class="n" aria-hidden="true">3</b>차량 조회하기 →</span></div>
+<div class="m-stats"><b class="n" aria-hidden="true">4</b><div><small>전체 차량</small><b>10</b></div><div><small>금액 확인</small><b>4</b></div><div><small>진행 중</small><b>1</b></div><div class="m-hide-s"><small>제주 출발</small><b>2</b></div><div class="m-hide-s"><small>캐리어탁송</small><b>1</b></div></div>
+<div class="m-card">
+ <div class="m-title">조회 결과 <span class="m-count">10</span><span class="m-sp"></span><span class="m-btn sm">차량번호 복사</span></div>
+ <div class="m-tabs"><b class="n" aria-hidden="true">5</b><span class="on">전체</span><span>금액 확인</span><span>진행 중</span><span class="m-hide-s">제주 출발</span><span>확인 필요</span></div>
+ <table class="m-table m-dtable"><thead><tr><th>탁송일정</th><th>차량번호</th><th class="r">주유·충전</th><th class="r m-hide-s">탁송비용</th><th>조회 상태</th></tr></thead><tbody>
+ <tr><td><u>11-03 09:30</u></td><td><u class="b">12서7567</u></td><td class="r"><u class="b">12,350</u></td><td class="r m-hide-s"><u>28,000</u></td><td><span class="m-badge ok">금액 확인</span></td></tr>
+ <tr><td><u>11-03</u></td><td><u class="b">55노4983</u></td><td class="r"><u class="b">0</u></td><td class="r m-hide-s"><u>26,000</u></td><td><span class="m-badge ok">금액 확인</span></td></tr>
+ <tr><td><u>11-06</u></td><td><u class="b">39수7009</u></td><td class="r">—</td><td class="r m-hide-s"><u>28,000</u></td><td><span class="m-badge wait">진행 중</span></td></tr>
+ <tr><td><span class="m-pick">선택 필요 ▾</span></td><td><u class="b">25마7579</u></td><td class="r"><u class="b">20,000</u></td><td class="r m-hide-s"><span class="m-pick">선택 필요 ▾</span></td><td><span class="m-badge ok">금액 확인</span></td></tr>
+ </tbody></table>
+ <div class="m-export"><b class="n" aria-hidden="true">6</b><span class="m-lbl">결과 내보내기</span><span class="m-sel">금액 확인 차량 ▾</span><span class="m-sp"></span><span class="m-btn sm">캡처 복사</span><span class="m-btn sm">캡처 저장</span><span class="m-btn sm m-hide-s">TXT</span><span class="m-btn sm m-hide-s">엑셀</span><span class="m-btn sm m-hide-s">PDF</span></div>
+</div></div></div><p class="mock-cap">화면 구조를 단순하게 그린 그림이에요. 번호는 아래 순서와 같아요. 값은 모두 가상이에요. <a href="./guide/dispatch-annotated.png" target="_blank" rel="noopener">실제 WorkTool 화면 보기 ↗</a> · <a href="./guide/dispatch-screen.png" target="_blank" rel="noopener">주석 없는 원본</a></p></div>
 <ol class="steps">
 <li><strong>차량목록 붙여넣기</strong><p>스크립트에서 복사한 차량번호를 <strong>차량목록 입력</strong>에 붙여넣어요. 날짜·시간이 같이 있어도 돼요.</p></li>
 <li><strong>업체 파일 첨부</strong><p>3사 '탁송기한' 시트를 <strong>업체 파일 첨부</strong>에 끌어다 놓고, 인식한 업체와 건수를 확인해요.</p></li>
@@ -81,11 +181,37 @@ footer{border-top:1px solid #dce7e1;margin-top:36px;padding-top:18px;font-size:1
 <section class="guide" id="transfer" aria-labelledby="transferTitle">
 <span class="kicker">하나은행 이체파일</span>
 <h2 id="transferTitle">이체파일은 이 순서대로 만드세요</h2>
-<p class="section-description">Slack 이체 요청을 붙여넣고, 계좌·금액을 확인한 다음 Excel 파일을 저장해요. 가상 이체 요청으로 찍은 실제 화면이에요.</p><p class="section-description">한 화면에서 ① 원문 입력 → ② 내역 검토 → ③ Excel 다운로드 순서로 진행해요. 새로고침하면 입력 내용이 지워지니 받기 전에는 창을 닫지 마세요.</p>
+<p class="section-description">Slack 이체 요청을 붙여넣고, 계좌·금액을 확인한 다음 Excel 파일을 저장해요. </p><p class="section-description">한 화면에서 ① 원문 입력 → ② 내역 검토 → ③ Excel 다운로드 순서로 진행해요. 새로고침하면 입력 내용이 지워지니 받기 전에는 창을 닫지 마세요.</p>
 <div class="screen-grid">
-<div class="figure-card"><figure><a href="./guide/transfer-input-annotated.png" target="_blank" rel="noopener"><img src="./guide/transfer-input-annotated.png" width="1366" height="1162" loading="lazy" alt="이체파일 1단계 화면: ① 스레드 입력칸 ② 입력칸 추가 ③ 이체정보 추출하기"></a><figcaption><strong>1단계 · 이체 요청 입력</strong><ol><li>Slack 스레드를 그대로 붙여넣어요.</li><li>스레드가 여러 개면 입력칸을 추가해요.</li><li><b>이체정보 추출하기</b>를 누르면 2단계로 넘어가요.</li></ol><a href="./guide/transfer-input-annotated.png" target="_blank" rel="noopener">확대 보기 ↗</a> · <a href="./guide/transfer-screen.png" target="_blank" rel="noopener">주석 없는 원본</a></figcaption></figure></div>
-<div class="figure-card"><figure><a href="./guide/transfer-review-annotated.png" target="_blank" rel="noopener"><img src="./guide/transfer-review-annotated.png" width="1366" height="1507" loading="lazy" alt="이체파일 2단계 화면: ① 상태 카드 ② 이체 내역 표 ③ 통장 메모 일괄 입력 ④ 다음 단계 버튼"></a><figcaption><strong>2단계 · 추출 결과 확인·수정</strong><ol><li>정상·검토·오류 건수를 보고, 누르면 그 줄만 모아 봐요.</li><li>은행·계좌·금액을 원문과 대조하고 칸을 눌러 고쳐요.</li><li>통장 메모와 CMS코드를 한 번에 넣어요.</li><li>빨간 오류를 다 고친 뒤 다음 단계로 가요.</li></ol><a href="./guide/transfer-review-annotated.png" target="_blank" rel="noopener">확대 보기 ↗</a> · <a href="./guide/transfer-Review.png" target="_blank" rel="noopener">주석 없는 원본</a></figcaption></figure></div>
-<div class="figure-card"><figure><a href="./guide/transfer-download-annotated.png" target="_blank" rel="noopener"><img src="./guide/transfer-download-annotated.png" width="1366" height="1439" loading="lazy" alt="이체파일 3단계 화면: ① 미리보기 ② 검토 확인 체크 ③ 다운로드 버튼 ④ 송금 코멘트"></a><figcaption><strong>3단계 · 이체파일 다운로드</strong><ol><li>미리보기 표가 엑셀에 그대로 들어가요.</li><li>검토 필요 건이 있으면 원문과 대조한 뒤 체크해요.</li><li><b>하나은행 이체파일 다운로드</b>로 .xlsx를 받아요.</li><li>은행에서 송금을 마친 뒤 Slack에 남길 송금 코멘트를 복사해요.</li></ol><a href="./guide/transfer-download-annotated.png" target="_blank" rel="noopener">확대 보기 ↗</a> · <a href="./guide/transfer-Download.png" target="_blank" rel="noopener">주석 없는 원본</a></figcaption></figure></div>
+<div class="mock-wrap"><div class="mock" role="img" aria-label="이체파일 1단계 목업: ① 스레드 입력칸 ② 입력칸 추가 ③ 이체정보 추출하기"><div class="mock-bar"><i></i><i></i><i></i><span>하나은행 이체파일 · 1단계</span></div><div class="mock-body"><div class="m-steps"><span class="on"><i>1</i>이체 요청 입력</span><span class=""><i>2</i>확인·수정</span><span class=""><i>3</i>다운로드</span></div>
+<div class="m-card"><div class="m-title big">Slack 스레드 내용 붙여넣기</div>
+ <div class="m-sub">이체 요청 1</div>
+ <div class="m-input tall"><b class="n" aria-hidden="true">1</b>[이체 요청] 오늘 정산 부탁드려요.<br><br>현대 쏘나타 123가4567<br>국민은행<br>123-456-789012<br>35,000원</div>
+ <div class="m-actions"><span class="m-btn"><b class="n" aria-hidden="true">2</b>+ 입력칸 추가</span><span class="m-btn danger">전체 초기화</span><span class="m-sp"></span><span class="m-btn primary big"><b class="n" aria-hidden="true">3</b>이체정보 추출하기</span></div>
+</div></div></div><div class="mock-steps"><strong>1단계 · 이체 요청 입력</strong><ol><li>Slack 스레드를 그대로 붙여넣어요.</li><li>스레드가 여러 개면 입력칸을 추가해요.</li><li><b>이체정보 추출하기</b>를 누르면 2단계로 넘어가요.</li></ol><p class="mock-cap"><a href="./guide/transfer-input-annotated.png" target="_blank" rel="noopener">실제 WorkTool 화면 보기 ↗</a> · <a href="./guide/transfer-screen.png" target="_blank" rel="noopener">주석 없는 원본</a></p></div></div>
+<div class="mock-wrap"><div class="mock" role="img" aria-label="이체파일 2단계 목업: ① 상태 카드 ② 이체 내역 표 ③ 통장 메모 일괄 입력 ④ 다음 단계 버튼"><div class="mock-bar"><i></i><i></i><i></i><span>하나은행 이체파일 · 2단계</span></div><div class="mock-body"><div class="m-steps"><span class="done"><i>✓</i>이체 요청 입력</span><span class="on"><i>2</i>확인·수정</span><span class=""><i>3</i>다운로드</span></div>
+<div class="m-card"><div class="m-title big">추출 결과 확인·수정</div>
+ <div class="m-tiles"><b class="n" aria-hidden="true">1</b><div class="on"><small>전체 건수</small><b>3건</b></div><div><small>정상</small><b class="g">2건</b></div><div><small>검토 필요</small><b class="y">1건</b></div><div class="m-hide-s"><small>오류</small><b class="red">0건</b></div></div>
+ <div class="m-cols"><div class="m-tablebox"><b class="n" aria-hidden="true">2</b><div class="m-scroll"><table class="m-table"><thead><tr><th>상태</th><th>은행</th><th>계좌번호</th><th class="r">입금액</th></tr></thead><tbody>
+  <tr><td><span class="m-badge ok">✓ 정상</span></td><td><span class="m-sel">국민 (004) ▾</span></td><td><span class="m-field">123456789012</span></td><td class="r"><span class="m-field r">35,000</span></td></tr>
+  <tr><td><span class="m-badge ok">✓ 정상</span></td><td><span class="m-sel">신한 (088) ▾</span></td><td><span class="m-field">110123456789</span></td><td class="r"><span class="m-field r">35,000</span></td></tr>
+  <tr><td><span class="m-badge wait">⚠ 검토</span></td><td><span class="m-sel">우리 (020) ▾</span></td><td><span class="m-field">1002345678901</span></td><td class="r"><span class="m-field r">80,000</span></td></tr>
+  </tbody></table></div></div>
+  <div class="m-side"><b class="n" aria-hidden="true">3</b><div class="m-sub">통장 메모 일괄 입력</div><span class="m-field">출금통장표시</span><span class="m-btn sm block">출금통장표시에 적용</span><span class="m-field">입금통장표시</span><span class="m-btn sm block">입금통장표시에 적용</span></div>
+ </div>
+ <div class="m-actions"><span class="m-btn">← 이전 단계</span><span class="m-sp"></span><span class="m-btn primary big"><b class="n" aria-hidden="true">4</b>다음: 이체파일 만들기 →</span></div>
+</div></div></div><div class="mock-steps"><strong>2단계 · 추출 결과 확인·수정</strong><ol><li>정상·검토·오류 건수를 보고, 누르면 그 줄만 모아 봐요.</li><li>은행·계좌·금액을 원문과 대조하고 칸을 눌러 고쳐요.</li><li>통장 메모와 CMS코드를 한 번에 넣어요.</li><li>빨간 오류를 다 고친 뒤 다음 단계로 가요.</li></ol><p class="mock-cap"><a href="./guide/transfer-review-annotated.png" target="_blank" rel="noopener">실제 WorkTool 화면 보기 ↗</a> · <a href="./guide/transfer-Review.png" target="_blank" rel="noopener">주석 없는 원본</a></p></div></div>
+<div class="mock-wrap"><div class="mock" role="img" aria-label="이체파일 3단계 목업: ① 미리보기 ② 검토 확인 체크 ③ 다운로드 버튼 ④ 송금 코멘트"><div class="mock-bar"><i></i><i></i><i></i><span>하나은행 이체파일 · 3단계</span></div><div class="mock-body"><div class="m-steps"><span class="done"><i>✓</i>이체 요청 입력</span><span class="done"><i>✓</i>확인·수정</span><span class="on"><i>3</i>다운로드</span></div>
+<div class="m-card"><div class="m-title big">하나은행 이체파일 다운로드</div>
+ <div class="m-tablebox"><b class="n" aria-hidden="true">1</b><div class="m-scroll"><table class="m-table"><thead><tr><th>입금은행</th><th>입금계좌번호</th><th class="r">입금액(원)</th><th class="m-hide-s">출금통장표시</th></tr></thead><tbody>
+  <tr><td>국민</td><td>123456789012</td><td class="r">35,000</td><td class="m-hide-s">123가4567</td></tr>
+  <tr><td>신한</td><td>110123456789</td><td class="r">35,000</td><td class="m-hide-s">45나6789</td></tr>
+  <tr><td>우리</td><td>1002345678901</td><td class="r">80,000</td><td class="m-hide-s">—</td></tr></tbody></table></div></div>
+ <div class="m-ack"><b class="n" aria-hidden="true">2</b><span class="m-check">✓</span>검토 필요 1건을 원문과 대조해 확인했어요.</div>
+ <div class="m-dl"><span class="m-btn primary big"><b class="n" aria-hidden="true">3</b>⇩ 하나은행 이체파일 다운로드</span><span class="m-note">다계좌이체 업로드용 .xlsx</span></div>
+ <div class="m-warn"><b>이체파일 생성은 실제 송금이 아니에요.</b> 은행에 올리기 전 다시 확인해 주세요.</div>
+ <div class="m-comments"><b class="n" aria-hidden="true">4</b><div class="m-sub">송금 코멘트</div><div class="m-cmt">금액 35,000원 국민 123456789012 계좌정보로 송금완료<span class="m-btn sm">복사</span></div><div class="m-cmt">금액 8만원 우리 1002345678901 계좌정보로 송금완료<span class="m-btn sm">복사</span></div></div>
+</div></div></div><div class="mock-steps"><strong>3단계 · 이체파일 다운로드</strong><ol><li>미리보기 표가 엑셀에 그대로 들어가요.</li><li>검토 필요 건이 있으면 원문과 대조한 뒤 체크해요.</li><li><b>하나은행 이체파일 다운로드</b>로 .xlsx를 받아요.</li><li>은행에서 송금을 마친 뒤 Slack에 남길 송금 코멘트를 복사해요.</li></ol><p class="mock-cap"><a href="./guide/transfer-download-annotated.png" target="_blank" rel="noopener">실제 WorkTool 화면 보기 ↗</a> · <a href="./guide/transfer-Download.png" target="_blank" rel="noopener">주석 없는 원본</a></p></div></div>
 </div>
 <p class="note"><strong>꼭 확인하세요.</strong> 이체파일은 송금 예약이나 실행이 아니에요. 실제 은행 업로드 화면에서 수취인·계좌번호·금액을 다시 확인해야 해요. 차량번호가 없다면 팝업에서 차량번호 또는 입금통장에 표시할 이체 메모를 입력할 수 있어요.</p>
 <a class="go" href="./transfer.html">하나은행 이체파일 열기 →</a>

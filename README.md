@@ -2,7 +2,7 @@
 
 탁송 차량 조회와 하나은행 다계좌이체 파일 생성을 위한 브라우저 기반 업무 도구예요. 로그인 없이 사용하며, 입력 내용과 첨부 파일은 브라우저에서 처리해요.
 
-처음 사용하는 분은 [그림으로 보는 빠른 사용법](./quick-guide.html)에서 **실제 WorkTool 화면에 번호·파란 테두리·설명을 붙인 그림 4장**을 볼 수 있어요. 화면은 가상 업체 파일·가상 이체 요청으로 찍었고, 사내 시스템 화면은 넣지 않았어요.
+처음 사용하는 분은 [그림으로 보는 빠른 사용법](./quick-guide.html)에서 **화면을 단순하게 그린 그림(목업)에 번호를 붙인 설명**을 볼 수 있어요. 값은 모두 가상이고, 그림 아래 링크로 실제 화면 스크린샷도 볼 수 있어요.
 
 그림을 새 화면으로 다시 만들 때는 아래 순서로 실행해요.
 
@@ -103,7 +103,7 @@ WorkTool/
 ├── index.html            # 업무 도구 홈
 ├── dispatch.html         # 탁송체크
 ├── transfer.html         # 하나은행 이체파일 (추출·확인·Excel 생성)
-├── guide.html            # 처음 쓰는 분을 위한 사용 설명서
+├── guide.html            # 예전 주소 → quick-guide.html로 이동
 ├── quick-guide.html      # 그림으로 보는 빠른 사용법
 ├── dispatch-guide.html   # 탁송체크 상세 사용방법
 ├── transfer-guide.html   # 이체파일 상세 사용방법
@@ -111,7 +111,7 @@ WorkTool/
 ├── transfer-input/review/download.html  # 예전 주소 → transfer.html로 이동
 ├── assets/mac-glass.css  # 공통 Liquid Glass 스타일
 ├── assets/theme.js       # 화면 모드(자동·라이트·다크)
-├── guide/                # 사용법 스크린샷 (scripts/capture-guide.cjs, annotate-guide.py로 생성)
+├── guide/                # 상세 사용방법 스크린샷 (scripts/capture-guide.cjs, annotate-guide.py로 생성)
 ├── tests/                # 자동 테스트
 ├── scripts/e2e-transfer.cjs  # 이체파일 브라우저 테스트
 ├── scripts/e2e-dispatch.cjs  # 탁송체크 조회·캡처 브라우저 테스트

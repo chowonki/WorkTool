@@ -6,7 +6,7 @@ const path=require('node:path');
 const root=path.join(__dirname,'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const glass=read('assets/mac-glass.css');
-const pages=['index.html','dispatch.html','transfer.html','guide.html','quick-guide.html','dispatch-guide.html','transfer-guide.html','changelog.html'];
+const pages=['index.html','dispatch.html','transfer.html','quick-guide.html','dispatch-guide.html','transfer-guide.html','changelog.html'];
 
 test('모든 화면이 같은 스타일과 화면 모드 스크립트를 같은 버전으로 불러와요',()=>{
  const versions=new Set();
@@ -51,7 +51,7 @@ test('없는 파일을 가리키는 링크·스타일·스크립트가 없어요
  }
 });
 test('사용법 문서가 지금 화면에 없는 기능을 설명하지 않아요',()=>{
- const docs=['README.md','guide.html','quick-guide.html','dispatch-guide.html','transfer-guide.html'];
+ const docs=['README.md','quick-guide.html','dispatch-guide.html','transfer-guide.html'];
  const removed=['수동확인','중복 검토 필요','표시할 탁송건 선택','선택 처리 완료','접수일시','4시간','마지막 다운로드 내역 복원','되돌리기','새 이체 작업 시작','검토 필요한 행만 보기','체험 데이터','예시로 연습하기'];
  for(const p of docs){const text=read(p);for(const w of removed)assert.ok(!text.includes(w),`${p}에 '${w}' 설명이 남아 있어요`);}
 });
@@ -60,4 +60,8 @@ test('안내 문구는 해요체예요 (합니다·습니다 없음)',()=>{
   const text=read(p).replace(/<script[\s\S]*?<\/script>/g,s=>s.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g,''));
   const hit=text.match(/[가-힣]+(?:니다|십시오)/);assert.ok(!hit,`${p}: '${hit&&hit[0]}'`);
  }
+});
+test('예전 사용 설명서 주소는 그림 사용법으로 보내요',()=>{
+ assert.match(read('guide.html'),/http-equiv="refresh" content="0; url=\.\/quick-guide\.html"/);
+ for(const p of ['index.html','dispatch.html','transfer.html','quick-guide.html'])assert.ok(!/href="\.\/guide\.html"/.test(read(p)),p+'에 사용 설명서 링크가 남아 있어요');
 });
