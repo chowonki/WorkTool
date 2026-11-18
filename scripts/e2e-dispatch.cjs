@@ -19,6 +19,13 @@ let failed=0;const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)failed++;
  ok(/먼저 차량 조회/.test(await page.textContent('#toast')),'조회 전 캡처는 안내만');
  await page.click('#run');await page.waitForTimeout(1200);
  ok(await page.$$eval('#body tr',t=>t.length)===10,'10대 조회');
+ ok(/점선 밑줄/.test(await page.textContent('.copyhint')),'복사 안내 문구 표시');
+ for(const [sel,want] of [['td.plate','12서7567'],['td.amount.fuel','12350'],['td:nth-child(2)','2026-11-03 09:30'],['td:nth-child(5)','28000'],['td:nth-child(6)','2800']]){
+  await page.click('#body tr:first-child '+sel);await page.waitForTimeout(120);
+  ok(await page.evaluate(()=>navigator.clipboard.readText())===want,'눌러서 복사: '+want);
+ }
+ ok((await page.$eval('#body tr:first-child td.plate',e=>getComputedStyle(e).fontWeight))<=600,'차량번호 굵기 600 이하');
+ await page.waitForTimeout(1600);
  const [dl]=await Promise.all([page.waitForEvent('download'),page.click('[data-capture=png]')]);
  const file=path.join(os.tmpdir(),'dispatch-capture.png');await dl.saveAs(file);
  const png=fs.readFileSync(file);

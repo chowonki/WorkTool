@@ -229,3 +229,32 @@ body.mac-ui[data-page=dispatch] .run{min-height:50px}
 @media(max-width:820px){body.mac-ui[data-page=dispatch] .resultactions{margin-left:0;justify-content:flex-start}}
 body.mac-ui[data-page=dispatch] .exportsep{width:1px;height:24px;background:var(--hair-strong);margin:0 4px;display:inline-block;vertical-align:middle}
 @media(max-width:820px){body.mac-ui[data-page=dispatch] .exportsep{display:none}}
+
+/* ---------------------------------------------------------------
+   2026-11-18 표 글자 굵기 정리 · 눌러서 복사 표시 — 탁송체크
+   - 값은 보통 굵기, 차량번호와 주유금액만 살짝 강조
+   - 복사되는 칸: 점선 밑줄 + 마우스를 올리면 '복사' 표시
+---------------------------------------------------------------- */
+body.mac-ui[data-page=dispatch] #table td{font-size:14px;font-weight:400;color:#33465f}
+body.mac-ui[data-page=dispatch] #table td.plate{font-size:15px;font-weight:600;color:#22324a;letter-spacing:.2px}
+body.mac-ui[data-page=dispatch] #table td.amount{font-size:14px;font-weight:400;color:#33465f;letter-spacing:0}
+body.mac-ui[data-page=dispatch] #table td.amount.fuel{font-size:15px;font-weight:600;color:#1f4f86}
+body.mac-ui[data-page=dispatch] #table .badge{font-weight:600}
+body.mac-ui[data-page=dispatch] #table td.carrier-tag{font-weight:500}
+body.mac-ui[data-page=dispatch] .copyable{position:relative;cursor:copy;text-decoration:underline dotted;text-decoration-color:#8fb0dd;text-decoration-thickness:1.5px;text-underline-offset:4px;border-radius:6px}
+body.mac-ui[data-page=dispatch] .copyable:hover{background:#e8f0fd;color:#1d4fa8;text-decoration-color:#1d4fa8}
+body.mac-ui[data-page=dispatch] .copyable:hover::after{content:'복사';position:absolute;top:50%;transform:translateY(-50%);right:4px;font-size:10.5px;font-weight:600;line-height:1;padding:3px 5px;border-radius:5px;background:#236de8;color:#fff;text-decoration:none;pointer-events:none}
+body.mac-ui[data-page=dispatch] td.number.copyable:hover::after{right:auto;left:4px}
+body.mac-ui[data-page=dispatch] .copyable:focus-visible{outline:2px solid #236de8;outline-offset:1px}
+body.mac-ui[data-page=dispatch] .copyhint{flex-basis:100%;order:3;margin:2px 0 0;font-size:12.5px;color:#55708a}
+body.mac-ui[data-page=dispatch] .copyhint span{color:var(--accent);margin-right:2px}
+body.mac-ui[data-page=dispatch] .copyhint u{text-decoration:underline dotted;text-decoration-color:#8fb0dd;text-underline-offset:3px}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] #table td{color:#d6e1f2}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] #table td.plate{color:#eef4ff!important}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] #table td.amount{color:#d6e1f2!important}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] #table td.amount.fuel{color:#abd0ff!important}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] .copyable:hover{background:#2a3d5c;color:#cfe1ff}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] .copyhint{color:#9aaecb}
+html[data-theme=dark] body.mac-ui #table tbody tr:nth-child(even){background:#243247}
+html[data-theme=dark] body.mac-ui #table tbody tr:nth-child(odd){background:#1d2939}
+html[data-theme=dark] body.mac-ui #table tbody tr:hover{background:#2e4260}
