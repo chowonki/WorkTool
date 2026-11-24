@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>WorkTool</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2f8a68"/>
+      <stop offset="1" stop-color="#1b3630"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".22"/>
+      <stop offset=".5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- 바탕: 데스크톱 상단 막대와 같은 짙은 녹색 계열 -->
+  <rect width="512" height="512" rx="114" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="114" fill="url(#shine)"/>
+  <!-- 클립보드 -->
+  <rect x="136" y="118" width="240" height="296" rx="34" fill="#ffffff"/>
+  <!-- 집게 -->
+  <rect x="194" y="86" width="124" height="66" rx="22" fill="#d7efe4" stroke="#1b3630" stroke-width="14"/>
+  <!-- 확인 표시 -->
+  <path d="M190 276 L238 324 L326 226" fill="none" stroke="#267358" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
