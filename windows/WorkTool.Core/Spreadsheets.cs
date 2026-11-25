@@ -12,7 +12,7 @@ public static class Spreadsheets
 {
     public static JsonArray Read(string path, string? password = null)
     {
-        if (new FileInfo(path).Length > 30_000_000) throw new InvalidDataException("파일은 30MB까지 불러올 수 있어요.");
+        if (new FileInfo(path).Length > 40 * 1024 * 1024) throw new InvalidDataException("파일은 40MB까지 불러올 수 있어요.");
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         using var stream = File.OpenRead(path);
         using var reader = ExcelReaderFactory.CreateReader(stream, new ExcelReaderConfiguration { Password = password ?? "" });

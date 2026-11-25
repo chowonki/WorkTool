@@ -20,6 +20,13 @@ public sealed class Rules
     private static string Json(object? value) => JsonSerializer.Serialize(value);
     public string[] Banks => Eval(transfer, "BANK_OPTIONS").AsArray().Select(n => n!.GetValue<string>()).ToArray();
     public JsonObject ParseTransfer(string text) => Eval(transfer, $"parseOne({Json(text.Replace("\r\n", "\n").Replace('\r', '\n'))})").AsObject();
+    public JsonObject ParseTransferForReview(string text) => Eval(transfer, $"parseForReview({Json(text.Replace("\r\n", "\n").Replace('\r', '\n'))})").AsObject();
+    public string ParseTransferAmount(string text) => Eval(transfer, $"parseKoreanAmount({Json(text)})").GetValue<string>();
+    public string TransferFileName(JsonArray rows, string stamp)
+    {
+        transfer.Execute($"rows={rows.ToJsonString()};");
+        return Eval(transfer, $"fileName({Json(stamp)})").GetValue<string>();
+    }
     public JsonArray Split(JsonArray rows) => Eval(transfer, $"splitAll({rows.ToJsonString()})").AsArray();
     public JsonArray Check(JsonArray rows)
     {

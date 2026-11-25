@@ -25,26 +25,38 @@ public sealed partial class MainWindow
             transfers[0]!["inMemo"] = "수정"; ValidateTransfers(); Assert(acknowledge.IsChecked == false && !download.IsEnabled, "Editing invalidates review");
             transfers[0]!["amount"] = "35000"; RenderTransfers(); Step(3); await SaveTransfer();
             Assert(Directory.GetFiles(smokeDirectory, "하나은행*.xlsx").Length == 1, "Native transfer export writes Excel");
+            var secondThread = AddThreadInput();
+            secondThread.Text = "45나6789\r(정산 계좌)\r신한은행\r987654321012\r예금주: 테스트\r2만원";
+            ExtractTransfer();
+            Assert(transfers.Count == 2 && transfers[1].Text("holder") == "테스트"
+                && transfers[1].Text("label") == "정산 계좌", "Second Slack input preserves holder and remittance context");
+            Assert(NormalizeTransferValue("amount", "3만 5천원") == "35000"
+                && NormalizeTransferValue("account", "001-234 567890") == "001234567890", "Manual amount and account edits follow web formatting");
+            await SetTextAndWait(transferSearch, "987654321012");
+            Assert(transferCards.Count(card => card.Visibility == Microsoft.UI.Xaml.Visibility.Visible) == 1, "Transfer search filters review rows");
+            await SetTextAndWait(transferSearch, "");
             Go("dispatch");
-            if (!vehicles.IsLoaded)
-            {
-                var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                void OnLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs args) => loaded.TrySetResult();
-                vehicles.Loaded += OnLoaded;
-                try { await loaded.Task.WaitAsync(TimeSpan.FromSeconds(3)); }
-                finally { vehicles.Loaded -= OnLoaded; }
-            }
             await SetVehicleText("123가4567\r\n123가4567\r\n45나6789\r\n확인 필요");
             Assert(vehicleCount.Text == "입력 차량 2대 · 중복 1줄 · 확인 필요 1줄", $"Vehicle input counts unique valid plates ({vehicleCount.Text})");
             await SetVehicleText("");
             Assert(vehicleCount.Text == "입력 차량 0대", "Clearing vehicle input resets the count");
-            vehicles.Text = await File.ReadAllTextAsync(Path.Combine(fixtures, "차량목록.txt"));
+            await SetVehicleText(await File.ReadAllTextAsync(Path.Combine(fixtures, "차량목록.txt")));
             foreach (var path in Directory.GetFiles(fixtures, "*.xlsx")) files.Add(rules.ReadSheets(Spreadsheets.Read(path), Path.GetFileName(path)));
             QueryDispatch(); Assert(results.Count > 0, "Native dispatch renders synthetic vendor files");
             for (var i = 0; i < results.Count; i++)
                 foreach (var field in new[] { "schedule", "fee" })
                     if (results[i]!.Flag(field + "Conflict")) results[i] = rules.Choose(results[i]!, field, results[i]![field + "Candidates"]![0].Text("id"));
             RenderDispatch();
+            var allMatches = VisibleResults().Count;
+            dispatchVendor = "한빛탁송";
+            Assert(VisibleResults().Count < allMatches && VisibleResults().All(row => row.Text("vendor") == "한빛탁송"), "Dispatch filters by vendor");
+            dispatchVendor = "";
+            dispatchSort = "amount";
+            dispatchDescending = true;
+            var sorted = VisibleResults();
+            Assert(sorted[0].Text("amount") == "20000" && sorted[^1].Text("amount") == "", "Dispatch sorts numeric values with empty values last");
+            dispatchSort = "";
+            dispatchDescending = false;
             await ExportDispatch(".xlsx"); await ExportDispatch(".txt");
             await CaptureDispatch(false); await CaptureDispatch(false, true);
             Assert(Directory.GetFiles(smokeDirectory, "*.png").Any(p => new FileInfo(p).Length > 1000), "Native PNG capture writes image");
@@ -63,16 +75,26 @@ public sealed partial class MainWindow
         finally { smokeDirectory = null; }
     }
 
-    private async Task SetVehicleText(string value)
+    private Task SetVehicleText(string value) => SetTextAndWait(vehicles, value);
+
+    private static async Task SetTextAndWait(Microsoft.UI.Xaml.Controls.TextBox input, string value)
     {
+        if (!input.IsLoaded)
+        {
+            var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void OnLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs args) => loaded.TrySetResult();
+            input.Loaded += OnLoaded;
+            try { await loaded.Task.WaitAsync(TimeSpan.FromSeconds(3)); }
+            finally { input.Loaded -= OnLoaded; }
+        }
         var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnChanged(object sender, Microsoft.UI.Xaml.Controls.TextChangedEventArgs args) => changed.TrySetResult();
-        vehicles.TextChanged += OnChanged;
+        input.TextChanged += OnChanged;
         try
         {
-            vehicles.Text = value;
+            input.Text = value;
             await changed.Task.WaitAsync(TimeSpan.FromSeconds(3));
         }
-        finally { vehicles.TextChanged -= OnChanged; }
+        finally { input.TextChanged -= OnChanged; }
     }
 }

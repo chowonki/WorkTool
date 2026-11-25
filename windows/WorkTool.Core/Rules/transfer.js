@@ -103,6 +103,28 @@ const PLATE_RE=/^(?:[가-힣]{2})?\d{2,3}[가-힣]\d{4}$/;
 let rows=[], sequence=0;
 const uid=()=>String(++sequence);
 const won=n=>Number(n||0).toLocaleString('ko-KR');
+function parseForReview(text) {
+  const result = parseOne(text);
+  const rawLines = text.split('\n');
+  const accounts = result.items.map(item => item.account ? rawLines.findIndex(line => line.replace(/\D/g, '').includes(item.account)) : -1);
+  const cuts = accounts.map(index => Math.max(0, index - 1));
+  const labels = accounts.map((account, i) => {
+    if (account < 0) return -1;
+    for (let j = cuts[i] - 1; j >= 0 && j >= cuts[i] - 3; j--) {
+      const line = rawLines[j].trim();
+      if (line) return /^[(（][^()（）]{1,30}[)）]$/.test(line) ? j : -1;
+    }
+    return -1;
+  });
+  const start = i => labels[i] >= 0 ? labels[i] : cuts[i];
+  result.items.forEach((item, i) => {
+    const end = i + 1 < accounts.length && accounts[i + 1] >= 0 ? start(i + 1) : rawLines.length;
+    item.ctx = accounts[i] >= 0 ? rawLines.slice(i === 0 ? 0 : start(i), end).join('\n') : item.source;
+    item.label = labels[i] >= 0 ? rawLines[labels[i]].trim().slice(1, -1).trim() : '';
+    item.holder = holderOf(item.ctx);
+  });
+  return result;
+}
 function check(r){
   const errors=[],reviews=[];
   if(!BANK_OPTIONS.includes(r.bank))errors.push('은행 선택');
@@ -158,4 +180,16 @@ function buildComments(){
   });
   // 여러 건이 묶인 줄은 맨 끝에 총 금액을 적어요.
   return groups.map(g=>g.parts.map(p=>`${p.label} ${amountText(p.amount)} ${p.to}`).join(', ')+' 송금완료'+(g.parts.length>1?` (총 ${amountText(g.parts.reduce((t,p)=>t+p.amount,0))})`:''));
+}
+function fileName(stamp){
+  // 차량번호별 총 송금금액을 파일명에 표시. 4대 이상이면 "첫번호외N대_총금액"
+  const sums=new Map();let none=0,total=0;
+  rows.forEach(r=>{const a=Number(r.amount);if(!Number.isSafeInteger(a)||a<=0)return;total+=a;if(r.plate)sums.set(r.plate,(sums.get(r.plate)||0)+a);else none+=a;});
+  rows.forEach(r=>{if(r.plate&&!sums.has(r.plate))sums.set(r.plate,0);});
+  const plates=[...sums.keys()];
+  let tag='';
+  if(plates.length>=1&&plates.length<=3){tag=plates.map(p=>`_${p}_${amountText(sums.get(p))}`).join('');if(none)tag+=`_번호없음_${amountText(none)}`;}
+  else if(plates.length>3)tag=`_${plates[0]}외${plates.length-1}대_총${amountText(total)}`;
+  else if(total)tag=`_총${amountText(total)}`;
+  return `하나은행_다계좌이체_${stamp}${tag}.xlsx`.replace(/[\\/:*?"<>|\s]/g,'');
 }

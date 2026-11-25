@@ -22,6 +22,7 @@ public sealed partial class MainWindow : Window
     private readonly HashSet<string> imported = new();
     private readonly HashSet<string> selected = new();
     private readonly HashSet<string> completed = new();
+    private readonly HashSet<string> copiedDispatch = new();
     private TextBox vehicles = null!, thread = null!, search = null!;
     private TextBlock fileSummary = null!, dispatchSummary = null!, transferSummary = null!;
     private StackPanel dispatchList = null!, transferList = null!;
@@ -35,7 +36,10 @@ public sealed partial class MainWindow : Window
     private int step = 1;
     private int dispatchPage;
     private TextBlock vehicleCount = null!;
-    private static readonly double[] DispatchColumns = [120, 0, 102, 106, 96, 145, 90, 48, 64];
+    private static readonly double[] DefaultDispatchColumns = [134, 0, 102, 106, 96, 145, 90, 48, 64];
+    private static readonly string[] DispatchHeadings = ["차량번호", "탁송일정", "주유·충전비", "탁송비", "부가세", "조회 상태", "업체", "완료", "상세"];
+    private readonly double[] dispatchColumns = (double[])DefaultDispatchColumns.Clone();
+    private Grid dispatchTable = null!;
     private static readonly double[] TransferColumns = [120, 178, 120, 0, 0, 95];
     private Button previousResults = null!, nextResults = null!;
     private ScrollViewer dispatchScroll = null!;
@@ -49,6 +53,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         Title = "WorkTool";
+        LoadWorkToolTheme();
         SystemBackdrop = new MicaBackdrop();
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(Header); // System caption buttons retain Snap Layouts, accessibility and DPI handling.
@@ -135,7 +140,7 @@ public sealed partial class MainWindow : Window
         vehicles.AcceptsReturn = true; vehicles.Height = 100;
         vehicleCount = Text("입력 차량 0대", 13);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetLiveSetting(vehicleCount, Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Polite);
-        vehicles.TextChanged += (_, _) => UpdateVehicleCount();
+        vehicles.TextChanged += (_, _) => { UpdateVehicleCount(); InvalidateDispatch(); };
         fileSummary = Text("업체 엑셀 파일을 첨부해 주세요. .xlsx / .xls · 암호 파일 지원");
         dispatchSummary = Text("차량목록과 업체 파일을 넣고 조회하세요.");
         dispatchList = new StackPanel();
@@ -165,32 +170,60 @@ public sealed partial class MainWindow : Window
         ExportItem("PDF 저장", () => CaptureDispatch(false, true));
         previousResults = Button("이전", () => ChangeDispatchPage(-1));
         nextResults = Button("다음", () => ChangeDispatchPage(1));
-        var vehicleInput = Stack(vehicles, vehicleCount);
+        var vehicleInput = Stack(vehicles, Columns([0, 90], vehicleCount, Button("목록 정리", CleanVehicles)));
         vehicleInput.Spacing = 5;
-        var inputs = SplitLayout(vehicleInput, Stack(Text("업체 파일", 14), fileSummary,
+        dispatchFiles = new StackPanel();
+        var fileList = new ScrollViewer { Content = dispatchFiles, MaxHeight = 112, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        var filePanel = Stack(Text("업체 파일", 14), fileSummary, fileList,
             Horizontal(Bar(AsyncButton("Excel 첨부", ImportFiles), Button("첨부 초기화", () =>
             {
-                files.Clear(); results.Clear(); selected.Clear(); completed.Clear();
-                fileSummary.Text = "첨부 파일을 모두 지웠어요.";
-                RenderDispatch();
-            }), Button("조회하기", QueryDispatch, true)))), 820);
+                if (importingDispatch) return;
+                files.Clear(); RenderDispatchFiles(); InvalidateDispatch();
+            }), Button("조회하기", QueryDispatch, true))));
+        var dropArea = new Border { Child = filePanel, Background = ThemeBrush("LayerFillColorDefaultBrush"), Padding = new Thickness(8), AllowDrop = true };
+        dropArea.DragOver += (_, args) =>
+        {
+            if (!importingDispatch && args.DataView.Contains(StandardDataFormats.StorageItems)) args.AcceptedOperation = DataPackageOperation.Copy;
+        };
+        dropArea.Drop += async (_, args) =>
+        {
+            var deferral = args.GetDeferral();
+            try
+            {
+                if (args.DataView.Contains(StandardDataFormats.StorageItems))
+                    await AddDispatchFiles((await args.DataView.GetStorageItemsAsync()).OfType<StorageFile>());
+            }
+            catch (Exception error) { Notify(error.Message, true); }
+            finally { deferral.Complete(); }
+        };
+        RenderDispatchFiles();
+        var inputs = SplitLayout(vehicleInput, dropArea, 820);
         var inputPanel = new Expander { Header = "조회 자료", Content = inputs, IsExpanded = true, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
         var actions = Horizontal(Bar(
-            AsyncButton("번호 복사", () => { Copy(string.Join(Environment.NewLine, ExportScope().Select(x => x.Text("plate")).Distinct())); return Task.CompletedTask; }),
+            Button("번호 복사", CopyDispatchNumbers),
+            Button("표시 차량 선택", () =>
+            {
+                foreach (var row in VisibleResults()) selected.Add(row.Text("id"));
+                RenderDispatch();
+            }),
+            Button("선택 해제", () => { selected.Clear(); RenderDispatch(); }),
             AsyncButton("캡처 복사", () => CaptureDispatch(true)),
             new DropDownButton { Content = "파일 저장", Flyout = export }));
-        var top = Stack(TitleText("탁송체크"), inputPanel, Horizontal(Bar(filter, search, scope)), actions);
+        var top = Stack(Bar(TitleText("탁송체크"), AsyncButton("전체 초기화", ResetDispatch)), inputPanel,
+            Horizontal(Bar(filter, search, scope, AsyncButton("필터·정렬", EditDispatchFilters),
+                AsyncButton("열 너비", EditDispatchWidths))), actions);
         top.Spacing = 9;
         grid.Children.Add(top);
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var table = new Grid { MinWidth = 1010 };
-        table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        table.Children.Add(TableHeader(DispatchColumns, "차량번호", "탁송일정", "주유·충전비", "탁송비", "부가세", "조회 상태", "업체", "완료", "상세"));
+        dispatchTable = new Grid();
+        dispatchTable.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        dispatchTable.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        LoadDispatchWidths();
         dispatchScroll = new ScrollViewer { Content = dispatchList, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollMode = ScrollMode.Enabled };
         Grid.SetRow(dispatchScroll, 1);
-        table.Children.Add(dispatchScroll);
-        var list = Horizontal(table);
+        dispatchTable.Children.Add(dispatchScroll);
+        UpdateDispatchHeader();
+        var list = Horizontal(dispatchTable);
         Grid.SetRow(list, 1);
         grid.Children.Add(list);
         var footer = SplitLayout(dispatchSummary, Bar(previousResults, nextResults), 820);
@@ -204,26 +237,41 @@ public sealed partial class MainWindow : Window
         var picker = new FileOpenPicker(); InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
         picker.FileTypeFilter.Add(".xlsx"); picker.FileTypeFilter.Add(".xls");
         var picked = await picker.PickMultipleFilesAsync();
-        foreach (var file in picked)
+        await AddDispatchFiles(picked);
+    }
+
+    private async Task AddDispatchFiles(IEnumerable<StorageFile> picked)
+    {
+        if (importingDispatch) return;
+        importingDispatch = true;
+        try
         {
-            if (files.Any(f => f.Text("path") == file.Path)) { Notify($"{file.Name}: 이미 첨부한 파일이에요."); continue; }
-            try
+            foreach (var file in picked)
             {
-                JsonArray sheets;
-                try { sheets = await Task.Run(() => Spreadsheets.Read(file.Path)); }
-                catch (ExcelDataReader.Exceptions.InvalidPasswordException)
+                if (file.FileType.ToLowerInvariant() is not (".xlsx" or ".xls")) { Notify($"{file.Name}: Excel 파일을 첨부해 주세요.", true); continue; }
+                if (files.Any(f => f.Text("path") == file.Path)) { Notify($"{file.Name}: 이미 첨부한 파일이에요."); continue; }
+                try
                 {
-                    var password = new PasswordBox { Header = file.Name, PlaceholderText = "엑셀 암호" };
-                    var dialog = Dialog("암호가 설정된 파일", password, "불러오기");
-                    if (await dialog.ShowAsync() != ContentDialogResult.Primary) continue;
-                    sheets = await Task.Run(() => Spreadsheets.Read(file.Path, password.Password));
-                    password.Password = "";
+                    JsonArray sheets;
+                    try { sheets = await Task.Run(() => Spreadsheets.Read(file.Path)); }
+                    catch (ExcelDataReader.Exceptions.InvalidPasswordException)
+                    {
+                        var password = new PasswordBox { Header = file.Name, PlaceholderText = "엑셀 암호" };
+                        var dialog = Dialog("암호가 설정된 파일", password, "불러오기");
+                        if (await dialog.ShowAsync() != ContentDialogResult.Primary) continue;
+                        var value = password.Password;
+                        password.Password = "";
+                        sheets = await Task.Run(() => Spreadsheets.Read(file.Path, value));
+                    }
+                    var parsed = rules.ReadSheets(sheets, file.Name);
+                    parsed["path"] = file.Path;
+                    files.Add(parsed);
+                    InvalidateDispatch();
                 }
-                var parsed = rules.ReadSheets(sheets, file.Name); parsed["path"] = file.Path; files.Add(parsed);
+                catch (Exception e) { Notify($"{file.Name}: {e.Message}", true); }
             }
-            catch (Exception e) { Notify($"{file.Name}: {e.Message}", true); }
         }
-        fileSummary.Text = string.Join("   ·   ", files.Select(f => $"{f.Text("name")} ({f!["records"]!.AsArray().Count:N0}건)"));
+        finally { importingDispatch = false; RenderDispatchFiles(); }
     }
     private void UpdateVehicleCount()
     {
@@ -252,6 +300,7 @@ public sealed partial class MainWindow : Window
 
     private void QueryDispatch()
     {
+        if (importingDispatch) { Notify("업체 파일을 읽는 중이에요."); return; }
         try
         {
             var input = rules.ParseVehicles(vehicles.Text);
@@ -260,18 +309,20 @@ public sealed partial class MainWindow : Window
             if (input["vehicles"]!.AsArray().Count == 0) { Notify("차량목록을 입력해 주세요.", true); return; }
             if (files.Count == 0) { Notify("업체 파일을 첨부해 주세요.", true); return; }
             results = rules.Match(input["vehicles"]!.AsArray(), files);
-            selected.Clear(); completed.Clear(); dispatchPage = 0; RenderDispatch();
+            selected.Clear(); completed.Clear(); copiedDispatch.Clear(); dispatchPage = 0; RenderDispatch();
         }
         catch (Exception e) { Notify(e.Message, true); }
     }
     private JsonArray VisibleResults()
     {
         var visible = rules.Filter(results, (filter.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "all");
-        return new JsonArray(visible.Where(r => r.Text("plate").Contains(search.Text.Trim(), StringComparison.OrdinalIgnoreCase)).Select(r => r!.DeepClone()).ToArray());
+        var matching = visible.Where(row => row.Text("plate").Contains(search.Text.Trim(), StringComparison.OrdinalIgnoreCase)
+            && MatchesDispatchOptions(row!));
+        return new JsonArray(SortDispatch(matching).Select(row => row!.DeepClone()).ToArray());
     }
     private JsonArray ExportScope()
     {
-        var rows = selected.Count > 0 ? new JsonArray(results.Where(r => selected.Contains(r.Text("id"))).Select(r => r!.DeepClone()).ToArray())
+        var rows = selected.Count > 0 ? SelectedOrVisibleDispatch()
             : scope.SelectedIndex == 1 ? results : scope.SelectedIndex == 2 ? rules.Filter(results, "confirmed") : VisibleResults();
         if (rows.Count == 0) throw new InvalidOperationException("복사하거나 저장할 조회 결과가 없어요.");
         if (rows.Any(r => r!.Flag("scheduleConflict") || r!.Flag("feeConflict"))) throw new InvalidOperationException("겹친 탁송일정과 비용을 먼저 선택해 주세요.");
@@ -291,18 +342,29 @@ public sealed partial class MainWindow : Window
         foreach (var row in visible.Skip(dispatchPage * 100).Take(100))
         {
             var id = row.Text("id");
-            var check = new CheckBox { Content = row.Text("plate"), IsChecked = selected.Contains(id), MinWidth = 0 };
+            var plate = row.Text("plate");
+            var check = new CheckBox { IsChecked = selected.Contains(id), MinWidth = 0, Padding = new Thickness(0) };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(check, plate + " 행 선택");
             check.Checked += (_, _) => { selected.Add(id); UpdateDispatchSummary(); };
             check.Unchecked += (_, _) => { selected.Remove(id); UpdateDispatchSummary(); };
             var done = new CheckBox { IsChecked = completed.Contains(id), MinWidth = 0, Padding = new Thickness(0) };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(done, row.Text("plate") + " 완료");
-            done.Checked += (_, _) => completed.Add(id); done.Unchecked += (_, _) => completed.Remove(id);
+            var workStatus = Text("", 11);
+            workStatus.MinHeight = 14;
+            void UpdateWorkStatus()
+            {
+                workStatus.Text = completed.Contains(id) ? (copiedDispatch.Contains(plate) ? "완료 · 복사함" : "완료")
+                    : copiedDispatch.Contains(plate) ? "복사함" : "";
+                workStatus.Foreground = ThemeBrush(completed.Contains(id) ? "SystemFillColorSuccessBrush" : "AccentTextFillColorPrimaryBrush");
+            }
+            done.Checked += (_, _) => { completed.Add(id); UpdateWorkStatus(); };
+            done.Unchecked += (_, _) => { completed.Remove(id); UpdateWorkStatus(); };
             var content = Stack(Text(string.Join(" · ", new[] { row.Text("rawState"), row.Text("carrierType"), row.Text("origin") }.Where(value => value.Length > 0))));
             foreach (var (field, label) in new[] { ("schedule", "탁송일정"), ("fee", "탁송비용") })
             {
-                if (!row!.Flag(field + "Conflict")) continue;
                 var candidates = row![field + "Candidates"]!.AsArray();
-                var combo = new ComboBox { Header = label + "이 달라요. 사용할 기록을 선택하세요.", HorizontalAlignment = HorizontalAlignment.Stretch };
+                if (!row.Flag(field + "Conflict") && candidates.Select(candidate => candidate.Text("value")).Distinct().Take(2).Count() < 2) continue;
+                var combo = new ComboBox { Header = label + " 원본 기록 선택", HorizontalAlignment = HorizontalAlignment.Stretch };
                 foreach (var candidate in candidates) combo.Items.Add(new ComboBoxItem { Content = $"{candidate.Text("value")} · {candidate.Text("source")}", Tag = candidate.Text("id") });
                 combo.SelectionChanged += (_, _) =>
                 {
@@ -326,12 +388,42 @@ public sealed partial class MainWindow : Window
             }
             var details = new Button { Content = needsChoice ? "선택" : "보기", Flyout = new Flyout { Content = content } };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(details, row.Text("plate") + " 상세");
-            var entry = Columns(DispatchColumns, check, Text(row.Text("schedule")), Amount(row, "amount"),
-                Amount(row, "dispatchFee"), Amount(row, "vat"), status, Text(row.Text("vendor")), done, details);
+            void MarkCopied() { copiedDispatch.Add(plate); UpdateWorkStatus(); }
+            UpdateWorkStatus();
+            var plateCell = Stack(Bar(check, CopyCell("차량번호", plate, plate, onCopy: MarkCopied)), workStatus);
+            plateCell.Spacing = 0;
+            var schedule = row.Text("schedule");
+            var entry = Columns(dispatchColumns, plateCell, CopyCell("탁송일정", schedule, schedule, onCopy: MarkCopied),
+                CopyCell("주유·충전비", row.Text("amount"), Money(row, "amount"), right: true, onCopy: MarkCopied),
+                CopyCell("탁송비", row.Text("dispatchFee"), Money(row, "dispatchFee"), right: true, onCopy: MarkCopied),
+                CopyCell("부가세", row.Text("vat"), Money(row, "vat"), right: true, onCopy: MarkCopied),
+                status, Text(row.Text("vendor")), done, details);
             dispatchList.Children.Add(TableRow(entry));
         }
         if (visible.Count == 0) dispatchList.Children.Add(Text(results.Count == 0 ? "조회 결과가 여기에 표시돼요." : "현재 조건에 맞는 차량이 없어요."));
     }
+    private FrameworkElement CopyCell(string label, string value, string display, bool right = false, Action? onCopy = null)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value == "—")
+        {
+            var text = Text("—");
+            if (right) text.TextAlignment = TextAlignment.Right;
+            return text;
+        }
+
+        var button = new HyperlinkButton
+        {
+            Content = display,
+            Padding = new Thickness(0, 4, 0, 4),
+            HorizontalAlignment = right ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        ToolTipService.SetToolTip(button, label + " 복사");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, $"{label} 복사: {display}");
+        button.Click += (_, _) => Copy(value, onCopy);
+        return button;
+    }
+
     private void ChangeDispatchPage(int offset)
     {
         dispatchPage += offset;
@@ -360,8 +452,9 @@ public sealed partial class MainWindow : Window
 
     private FrameworkElement TransferPage()
     {
-        thread = Input("Slack 스레드", "차량번호, 은행, 계좌번호, 금액이 포함된 요청을 붙여넣으세요.");
-        thread.AcceptsReturn = true; thread.Height = 280; thread.MaxLength = 50_000;
+        LoadTransferWidths();
+        threadInputs = new StackPanel { Spacing = 12 };
+        thread = AddThreadInput(first: true);
         transferSummary = Text("이체 요청을 붙여넣고 추출해 주세요.");
         transferList = new StackPanel { Spacing = 12 };
         acknowledge = new CheckBox { Content = "검토 항목과 원문을 대조했고, 중복 송금 여부를 확인했어요." };
@@ -373,11 +466,17 @@ public sealed partial class MainWindow : Window
         previewTable.Spacing = 0;
         previewTable.MinWidth = 790;
         transferInput = new Grid();
-        transferInput.Children.Add(Scroll(Stack(Card(Stack(Text("① 이체 요청 입력", 20), thread, Button("이체정보 추출하기", ExtractTransfer, true))),
+        transferInput.Children.Add(Scroll(Stack(Card(Stack(Text("① 이체 요청 입력", 20), threadInputs,
+            Bar(Button("입력칸 추가", () => AddThreadInput().Focus(FocusState.Programmatic)),
+                Button("이체정보 추출하기", ExtractTransfer, true)))),
             Text("같은 요청을 다시 추출하면 이미 가져온 건은 건너뛰어요. 새 스레드를 붙여넣어 추가할 수 있어요."))));
         transferReview = new Grid();
+        autoFixAccounts = new CheckBox { Content = "계좌번호의 하이픈·공백 자동 제거", IsChecked = true };
         transferReview.Children.Add(Scroll(Stack(
-            Horizontal(Bar(Button("내역 추가", AddTransfer), Button("1억 초과 분할", SplitTransfers), Button("파일 미리보기", () => Step(3), true))),
+            Horizontal(Bar(Button("내역 추가", AddTransfer), Button("표시 내역 선택", SelectVisibleTransfers),
+                AsyncButton("선택 삭제", DeleteSelectedTransfers), Button("1억 초과 분할", SplitTransfers), AsyncButton("열 너비", EditTransferWidths),
+                Button("파일 미리보기", () => Step(3), true))),
+            TransferFilters(), autoFixAccounts,
             new Expander { Header = "통장 메모·CMS 일괄 적용", Content = MemoControls(), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch },
             transferList)));
         transferDownload = new Grid { RowSpacing = 12 };
@@ -391,7 +490,8 @@ public sealed partial class MainWindow : Window
         });
         acknowledge.Content = Text("검토 항목과 원문을 대조했고, 중복 송금 여부를 확인했어요.");
         var saveActions = Stack(acknowledge,
-            Horizontal(Bar(download, Button("송금 코멘트 복사", () => Copy(rules.Comments(transfers))))));
+            Horizontal(Bar(download, Button("송금 코멘트 전체 복사", () => Copy(rules.Comments(transfers))),
+                AsyncButton("코멘트 목록", ShowTransferComments))));
         saveActions.Spacing = 6;
         Grid.SetRow(saveActions, 1);
         transferDownload.Children.Add(saveActions);
@@ -400,9 +500,10 @@ public sealed partial class MainWindow : Window
         grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         transferSteps = [Button("1. 요청 입력", () => Step(1)), Button("2. 확인·수정", () => Step(2)), Button("3. 미리보기·저장", () => Step(3))];
         grid.Children.Add(Stack(TitleText("하나은행 이체파일"),
-            Horizontal(Bar([.. transferSteps, AsyncButton("전체 초기화", ResetTransfers)])), transferSummary));
+            Horizontal(Bar([.. transferSteps, AsyncButton("전체 초기화", ResetTransfers), AsyncButton("단축키", ShowTransferShortcuts)])), transferSummary));
         var host = new Grid(); host.Children.Add(transferInput); host.Children.Add(transferReview); host.Children.Add(transferDownload);
         Grid.SetRow(host, 1); grid.Children.Add(host); Step(1);
+        AddTransferShortcuts(grid);
         return grid;
     }
     private UIElement MemoControls()
@@ -423,48 +524,88 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            if (thread.Text.Trim().Length == 0) { Notify("이체 요청을 붙여넣어 주세요.", true); return; }
-            var parsed = rules.ParseTransfer(thread.Text); var added = 0;
-            foreach (var item in parsed["items"]!.AsArray())
+            var inputs = threadBoxes.Select(box => (Box: box, Value: box.Text.Trim())).Where(entry => entry.Value.Length > 0).ToArray();
+            if (inputs.Length == 0) { Notify("이체 요청을 붙여넣어 주세요.", true); return; }
+            var staged = new JsonArray();
+            var stagedKeys = new HashSet<string>();
+            foreach (var (box, value) in inputs)
             {
-                var key = item!.ToJsonString();
-                if (!imported.Add(key)) continue;
-                var row = item.DeepClone().AsObject();
-                row["id"] = Guid.NewGuid().ToString("N"); row["ambiguous"] = parsed["ambiguous"]!.DeepClone();
-                row["outMemo"] = row.Text("plate"); row["inMemo"] = row.Text("plate"); row["cms"] = "";
-                row["holder"] = ""; transfers.Add(row); added++;
+                var rawKey = "raw:" + value.Replace("\r\n", "\n").Replace('\r', '\n');
+                if (imported.Contains(rawKey) || stagedKeys.Contains(rawKey)) continue;
+                var parsed = rules.ParseTransferForReview(value);
+                var items = parsed["items"]!.AsArray();
+                if (items.Count == 0) continue;
+                stagedKeys.Add(rawKey);
+                var occurrences = new Dictionary<string, int>();
+                foreach (var item in items)
+                {
+                    var signature = string.Join("|", new[] { item.Text("bank"), item.Text("account"), item.Text("amount") });
+                    occurrences[signature] = occurrences.GetValueOrDefault(signature) + 1;
+                    var key = $"{box.Tag}:{signature}:{occurrences[signature]}";
+                    if (imported.Contains(key) || !stagedKeys.Add(key)) continue;
+                    var row = item!.DeepClone().AsObject();
+                    row["id"] = Guid.NewGuid().ToString("N");
+                    row["ambiguous"] = parsed["ambiguous"]!.DeepClone();
+                    row["outMemo"] = row.Text("plate");
+                    row["inMemo"] = row.Text("plate");
+                    row["cms"] = "";
+                    staged.Add(row);
+                }
             }
-            transfers = rules.Split(transfers); RenderTransfers(); Step(2);
-            Notify($"{added}건을 추가했어요. 이미 가져온 건은 건너뛰었어요.");
+            var split = rules.Split(staged);
+            if (transfers.Count + split.Count > 100) { Notify("한 파일에 100건까지 가능해요. 요청을 나눠서 처리해 주세요.", true); return; }
+            imported.UnionWith(stagedKeys);
+            foreach (var row in split) transfers.Add(row!.DeepClone());
+            if (split.Count == 0) { Notify("추가할 새 이체 내역이 없어요."); return; }
+            RenderTransfers();
+            Step(2);
+            Notify($"{split.Count}건을 추가했어요. 이미 가져온 건은 건너뛰었어요.");
         }
         catch (Exception e) { Notify(e.Message, true); }
     }
     private void AddTransfer()
     {
+        if (transfers.Count >= 100) { Notify("한 파일에 100건까지 가능해요.", true); return; }
         transfers.Add(new JsonObject { ["id"] = Guid.NewGuid().ToString("N"), ["bank"] = "", ["account"] = "", ["amount"] = "", ["plate"] = "", ["outMemo"] = "", ["inMemo"] = "", ["cms"] = "", ["source"] = "" });
         RenderTransfers();
     }
-    private void SplitTransfers() { transfers = rules.Split(transfers); RenderTransfers(); }
+    private void SplitTransfers()
+    {
+        var parts = rules.Split(transfers);
+        if (parts.Count > 100) { Notify("금액을 나누면 100건을 넘어요. 다른 줄을 줄여 주세요.", true); return; }
+        if (!JsonNode.DeepEquals(transfers, parts)) { transfers = parts; RenderTransfers(); }
+    }
     private string Signature => transfers.ToJsonString();
     private void RenderTransfers()
     {
-        refreshing = true; transferList.Children.Clear(); transferStatuses.Clear();
+        refreshing = true;
+        transferList.Children.Clear(); transferStatuses.Clear(); transferCards.Clear(); transferChecks.Clear(); groupedEditors.Clear();
         foreach (var row in transfers.ToArray())
         {
-            var bank = new ComboBox { Header = "입금은행", ItemsSource = rules.Banks, SelectedItem = row.Text("bank"), Width = 155 };
-            bank.SelectionChanged += (_, _) => { if (!refreshing) { row!["bank"] = bank.SelectedItem?.ToString() ?? ""; ValidateTransfers(); } };
-            var account = Edit(row!, "account", "입금계좌번호", 190);
-            var amount = Edit(row!, "amount", "입금액(원)", 146);
+            var bank = new ComboBox { Header = "입금은행", ItemsSource = rules.Banks, SelectedItem = row.Text("bank"), Width = TransferWidth("bank") };
+            bank.SelectionChanged += (_, _) => UpdateTransferField(row!, "bank", bank.SelectedItem?.ToString() ?? "");
+            groupedEditors[(row.Text("id"), "bank")] = value => bank.SelectedItem = value;
+            var account = Edit(row!, "account", "입금계좌번호", TransferWidth("account"));
+            var amount = Edit(row!, "amount", "입금액(원)", TransferWidth("amount"));
             amount.TextAlignment = TextAlignment.Right;
-            var plate = Edit(row!, "plate", "차량번호", 125);
-            var main = SplitLayout(Horizontal(Bar(bank, account)), Horizontal(Bar(amount, plate)), 670);
-            var remove = Button("삭제", () => { transfers.Remove(row); RenderTransfers(); });
-            var memo = Bar(Edit(row!, "outMemo", "출금통장 표시", 180), Edit(row!, "inMemo", "입금통장 표시", 180), Edit(row!, "cms", "CMS코드", 140));
+            var plate = Edit(row!, "plate", "차량번호", TransferWidth("plate"));
+            var main = SplitLayout(Horizontal(Bar(bank, account)), Horizontal(Bar(amount, plate)),
+                2 * Math.Max(bank.Width + account.Width, amount.Width + plate.Width) + 32);
+            var id = row.Text("id");
+            var pick = new CheckBox { Content = $"{transferStatuses.Count + 1}번 선택", IsChecked = selectedTransfers.Contains(id) };
+            pick.Checked += (_, _) => selectedTransfers.Add(id);
+            pick.Unchecked += (_, _) => selectedTransfers.Remove(id);
+            var remove = Button("삭제", () => { selectedTransfers.Remove(id); transfers.Remove(row); RenderTransfers(); });
+            var memo = Bar(Edit(row!, "outMemo", "출금통장 표시", TransferWidth("outMemo")),
+                Edit(row!, "inMemo", "입금통장 표시", TransferWidth("inMemo")), Edit(row!, "cms", "CMS코드", TransferWidth("cms")));
             var status = Text(""); status.Tag = row.Text("id");
             transferStatuses.Add(status);
-            var original = new TextBox { Header = "Slack 원문", Text = row.Text("source"), IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 220 };
-            var details = new Expander { Header = "메모·CMS 및 원문", Content = Stack(Horizontal(memo), original), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
-            var card = Card(Stack(main, SplitLayout(Stack(Text($"{transferStatuses.Count}번", 13), status), remove, 670), details));
+            var original = new TextBox { Header = "Slack 원문", Text = row.Text("ctx").Length > 0 ? row.Text("ctx") : row.Text("source"), IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 220 };
+            var details = new Expander { Header = "예금주·메모·CMS 및 원문", Content = Stack(Edit(row!, "holder", "예금주", TransferWidth("holder")),
+                Horizontal(memo), original), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
+            var card = Card(Stack(main, Bar(pick, remove), status, details));
+            transferChecks.Add(pick);
+            transferCards.Add(card);
             transferList.Children.Add(card);
         }
         refreshing = false; ValidateTransfers();
@@ -472,7 +613,12 @@ public sealed partial class MainWindow : Window
     private TextBox Edit(JsonNode row, string key, string label, double width)
     {
         var box = Input(label, "", width); box.Text = row.Text(key);
-        box.TextChanged += (_, _) => { if (!refreshing) { row[key] = box.Text; ValidateTransfers(); } };
+        groupedEditors[(row.Text("id"), key)] = value => box.Text = value;
+        box.TextChanged += (_, _) =>
+        {
+            if (!refreshing) UpdateTransferField(row, key, NormalizeTransferValue(key, box.Text));
+        };
+        box.LostFocus += (_, _) => CommitTransferEdit(row, key, box);
         return box;
     }
     private void ValidateTransfers()
@@ -484,6 +630,7 @@ public sealed partial class MainWindow : Window
         for (var i = 0; i < checks.Count && i < transferStatuses.Count; i++)
         {
             var status = transferStatuses[i];
+            transferCards[i].Visibility = ShowTransfer(transfers[i], checks[i].Text("state")) ? Visibility.Visible : Visibility.Collapsed;
             status.Text = string.Join(" · ", checks[i]!["errors"]!.AsArray().Concat(checks[i]!["reviews"]!.AsArray()).Select(x => x!.ToString()));
             if (status.Text.Length == 0) status.Text = "확인 완료";
             status.Foreground = ThemeBrush(checks[i].Text("state") switch
@@ -530,22 +677,26 @@ public sealed partial class MainWindow : Window
         try
         {
             var signature = Signature; var values = Spreadsheets.TransferRows(transfers);
-            var file = await SavePicker("하나은행_다계좌이체_" + DateTime.Now.ToString("yyyyMMdd_HHmm"), ".xlsx");
+            var fileName = rules.TransferFileName(transfers, DateTime.Now.ToString("yyyyMMdd_HHmm"));
+            var file = await SavePicker(Path.GetFileNameWithoutExtension(fileName), ".xlsx");
             if (file is null) return;
             await Task.Run(() => Spreadsheets.Write(file.Path, values, "다계좌이체"));
-            savedSignature = signature; savedThread = thread.Text; Notify("이체파일을 저장했어요. 은행 업로드 전에 계좌와 금액을 확인해 주세요.");
+            savedSignature = signature; savedThread = ThreadSignature; Notify("이체파일을 저장했어요. 은행 업로드 전에 계좌와 금액을 확인해 주세요.");
         }
         finally { saving = false; ValidateTransfers(); }
     }
     private async Task ResetTransfers()
     {
         if (await Dialog("전체 초기화", Text("붙여넣은 스레드와 이체 내역을 모두 지울까요?"), "모두 지우기").ShowAsync() != ContentDialogResult.Primary) return;
-        transfers.Clear(); imported.Clear(); thread.Text = ""; savedSignature = ""; RenderTransfers(); Step(1);
+        transfers.Clear(); imported.Clear(); selectedTransfers.Clear(); threadBoxes.Clear(); threadInputs.Children.Clear();
+        thread = AddThreadInput(first: true);
+        savedSignature = ""; RenderTransfers(); Step(1);
     }
     private ContentDialog Dialog(string title, UIElement content, string primary) => new() { XamlRoot = Root.XamlRoot, Title = title, Content = content, PrimaryButtonText = primary, CloseButtonText = "취소", DefaultButton = ContentDialogButton.Close, RequestedTheme = Root.ActualTheme };
     private async void Closing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        if (allowClose || (transfers.Count == 0 && string.IsNullOrWhiteSpace(thread?.Text)) || (transfers.Count > 0 && savedSignature == Signature && savedThread == thread.Text)) return;
+        if (allowClose || (transfers.Count == 0 && threadBoxes.All(box => string.IsNullOrWhiteSpace(box.Text)))
+            || (transfers.Count > 0 && savedSignature == Signature && savedThread == ThreadSignature)) return;
         args.Cancel = true;
         if (await Dialog("저장하지 않은 내용이 있어요", Text("창을 닫으면 입력 내용과 이체 내역이 지워져요. 닫을까요?"), "닫기").ShowAsync() == ContentDialogResult.Primary) { allowClose = true; Close(); }
     }
@@ -558,19 +709,61 @@ public sealed partial class MainWindow : Window
         picker.FileTypeChoices.Add(extension[1..].ToUpperInvariant() + " 파일", new[] { extension });
         return await picker.PickSaveFileAsync();
     }
-    private void Copy(string value)
+    private void Copy(string value, Action? onCopy = null)
     {
-        try { var data = new DataPackage(); data.SetText(value); Clipboard.SetContent(data); Notify("클립보드에 복사했어요."); }
-        catch (Exception e) { Notify(e.Message, true); }
+        try
+        {
+            var data = new DataPackage();
+            data.SetText(value);
+            Clipboard.SetContent(data);
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+            return;
+        }
+        onCopy?.Invoke();
+        Notify("클립보드에 복사했어요.");
     }
     private FrameworkElement HelpPage() => Scroll(Stack(TitleText("사용 방법"),
         Card(Stack(Text("탁송체크", 21), Text("1. 차량번호 목록을 붙여넣어요. 날짜·시간도 함께 넣을 수 있어요.\n2. 한빛탁송·오픈마일·렌톡에서 내려받은 업체 엑셀을 첨부해요. 암호 파일은 암호를 입력해요.\n3. 차량 조회하기를 누르고 ‘확인 필요’ 항목부터 검토해요.\n4. 일정·비용이 겹치면 원본 위치를 보고 사용할 값을 골라요.\n5. 필요한 줄을 선택하고 TXT·Excel·PNG로 저장하거나 캡처를 복사해요."))),
         Card(Stack(Text("하나은행 이체파일", 21), Text("1. Slack 스레드를 붙여넣고 이체정보를 추출해요.\n2. 은행·계좌·금액·차량번호를 원문과 대조해요. 메모와 CMS코드도 입력할 수 있어요.\n3. 오류를 모두 수정하고 검토 항목을 확인해요. 수정하면 확인 체크가 풀려요.\n4. 미리보기를 확인한 뒤 Excel 파일을 저장해요. 1억 원 초과 금액은 분할하며 파일당 100건까지예요.\n5. 은행 업로드 화면에서 받는 분과 금액을 다시 확인해 주세요."))),
+        Card(Stack(Text("기존 웹 안내", 20),
+            Horizontal(Bar(GuideLink("따라 해 보기", "quick-guide.html"), GuideLink("탁송체크 그림 안내", "dispatch-guide.html"),
+                GuideLink("이체파일 그림 안내", "transfer-guide.html"), GuideLink("변경 이력", "changelog.html"))))),
         Text("입력값과 첨부 파일은 서버로 전송하지 않아요. 앱을 닫으면 작업 내용은 지워지고, 저장한 파일은 기기에 남아요.")));
+
+    private static HyperlinkButton GuideLink(string title, string page) => new()
+    {
+        Content = title,
+        NavigateUri = new Uri("https://chowonki.github.io/WorkTool/" + page)
+    };
+
+    private static string ThemeFile => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WorkTool", "theme.txt");
+
+    private void LoadWorkToolTheme()
+    {
+        try
+        {
+            if (File.Exists(ThemeFile) && Enum.TryParse<ElementTheme>(File.ReadAllText(ThemeFile), out var theme)
+                && Enum.IsDefined(theme)) Root.RequestedTheme = theme;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+    }
     private FrameworkElement SettingsPage()
     {
         var theme = new ComboBox { Header = "화면 모드", ItemsSource = new[] { "시스템 설정", "라이트", "다크" }, SelectedIndex = (int)Root.RequestedTheme, Width = 220 };
-        theme.SelectionChanged += (_, _) => Root.RequestedTheme = (ElementTheme)theme.SelectedIndex;
+        theme.SelectionChanged += (_, _) =>
+        {
+            if (theme.SelectedIndex < 0) return;
+            Root.RequestedTheme = (ElementTheme)theme.SelectedIndex;
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(ThemeFile)!);
+                File.WriteAllText(ThemeFile, Root.RequestedTheme.ToString());
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { Notify("화면 모드 설정을 저장하지 못했어요.", true); }
+        };
         return Stack(TitleText("설정"), Card(Stack(theme, Text("Pretendard 글꼴을 앱에 포함해 별도 설치 없이 사용해요."), Text("WorkTool · Windows 네이티브\nWinUI 3 / 로컬 처리"))));
     }
 }
