@@ -41,7 +41,10 @@ public sealed partial class MainWindow
     {
         if (dispatchTable.Children.Count > 1) dispatchTable.Children.RemoveAt(0);
         dispatchTable.MinWidth = Math.Max(1020, dispatchColumns.Sum() + 120);
-        dispatchTable.Children.Insert(0, TableHeader(dispatchColumns, DispatchHeadings));
+        var header = TableHeader(dispatchColumns, DispatchHeadings);
+        header.Background = dispatchTone.Surface;
+        foreach (var text in header.Children.OfType<TextBlock>()) text.Foreground = dispatchTone.Ink;
+        dispatchTable.Children.Insert(0, header);
     }
 
     private async Task EditDispatchWidths()

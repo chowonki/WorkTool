@@ -56,12 +56,19 @@ public sealed partial class MainWindow
         return panel;
     }
 
-    private static Grid PageHeading(string title, Button action)
+    private static Border PageHeading(string title, string glyph, WorkTone tone, Button action)
     {
         action.HorizontalAlignment = HorizontalAlignment.Right;
-        var heading = Columns([0, 105], TitleText(title), action);
-        heading.Padding = new Thickness(0);
-        return heading;
+        var text = TitleText(title);
+        text.Foreground = tone.Ink;
+        text.TextWrapping = TextWrapping.Wrap;
+        var heading = Columns([33, 0, 102], ToneIcon(tone, glyph), text, action);
+        heading.Padding = new Thickness(14, 9, 14, 9);
+        return new Border
+        {
+            Child = heading, Background = tone.Surface, BorderBrush = tone.Accent,
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10)
+        };
     }
 
     private static ScrollViewer VerticalScroll(UIElement content) => new()
@@ -72,11 +79,11 @@ public sealed partial class MainWindow
         VerticalScrollBarVisibility = ScrollBarVisibility.Auto
     };
 
-    private static Border TableRow(UIElement content) => new()
+    private Border TableRow(UIElement content) => new()
     {
         Child = content,
         BorderThickness = new Thickness(0, 0, 0, 1),
-        BorderBrush = ThemeBrush("CardStrokeColorDefaultBrush")
+        BorderBrush = cardStroke
     };
 
     private static ScrollViewer Horizontal(UIElement content) => new()

@@ -45,7 +45,7 @@ public sealed partial class MainWindow : Window
     private ScrollViewer dispatchScroll = null!;
     private StackPanel previewRows = null!;
     private Button[] transferSteps = [];
-    private readonly List<TextBlock> transferStatuses = [];
+    private readonly List<(TextBlock Label, Border Tag)> transferStatuses = [];
     private int visibleCount;
     private decimal visibleAmount;
 
@@ -54,6 +54,9 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         Title = "WorkTool";
         LoadWorkToolTheme();
+        Header.Background = dispatchTone.Surface;
+        UpdateWorkColors();
+        ObserveSystemColors();
         SystemBackdrop = new MicaBackdrop();
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(Header); // System caption buttons retain Snap Layouts, accessibility and DPI handling.
@@ -61,7 +64,7 @@ public sealed partial class MainWindow : Window
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
         AppWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
         AppWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
-        Root.ActualThemeChanged += (_, _) => UpdateCaptionColors();
+        Root.ActualThemeChanged += (_, _) => { UpdateCaptionColors(); UpdateWorkColors(); };
         UpdateCaptionColors();
         AppWindow.Closing += Closing;
         Navigation.SelectedItem = Navigation.MenuItems[0];
@@ -100,7 +103,7 @@ public sealed partial class MainWindow : Window
         foreach (var child in children) stack.Children.Add(child);
         return stack;
     }
-    private static Border Card(UIElement child) => new() { Child = child, Padding = new Thickness(20), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"], Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] };
+    private Border Card(UIElement child) => new() { Child = child, Padding = new Thickness(20), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), BorderBrush = cardStroke, Background = cardFill };
     private static Button Button(string title, Action action, bool primary = false)
     {
         var b = new Button { Content = title };
@@ -128,9 +131,10 @@ public sealed partial class MainWindow : Window
     private static TextBlock TitleText(string title) => new() { Text = title, FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private FrameworkElement HomePage()
     {
-        return Scroll(Stack(TitleText("매일의 업무를, 한곳에서"), Text("파일과 입력 내용은 이 기기 안에서만 처리해요. 로그인 없이 바로 시작하세요.", 16),
-            Card(Stack(Text("차량 조회", 13), Text("탁송체크", 22), Text("한빛탁송 · 오픈마일 · 렌톡 엑셀을 대조하고 주유비용과 탁송 상태를 정리해요."), Button("탁송체크 열기", () => Go("dispatch"), true))),
-            Card(Stack(Text("은행 업로드 파일", 13), Text("하나은행 이체파일", 22), Text("Slack 요청을 붙여넣고, 계좌와 금액을 검토한 뒤 다계좌이체 Excel 파일을 만들어요."), Button("이체파일 만들기", () => Go("transfer"), true))),
+        return VerticalScroll(Stack(TitleText("매일의 업무를, 한곳에서"), Text("파일과 입력 내용은 이 기기 안에서만 처리해요. 로그인 없이 바로 시작하세요.", 16),
+            SplitLayout(
+                ToolCard(dispatchTone, "\uE804", "탁송체크", "한빛탁송 · 오픈마일 · 렌톡 엑셀을 대조하고 주유비용과 탁송 상태를 정리해요.", "탁송체크 열기", "dispatch"),
+                ToolCard(transferTone, "\uE8AB", "하나은행 이체파일", "Slack 요청을 붙여넣고, 계좌와 금액을 검토한 뒤 다계좌이체 Excel 파일을 만들어요.", "이체파일 만들기", "transfer"), 720),
             Card(Stack(Text("시작하기 전에", 18), Text("은행에 올리기 전에는 금액과 계좌를 원문과 대조해 주세요. 파일 생성은 실제 송금을 실행하지 않아요."), Button("사용 방법", () => Go("help"))))));
     }
 
@@ -183,7 +187,7 @@ public sealed partial class MainWindow : Window
                 files.Clear(); RenderDispatchFiles(); InvalidateDispatch();
             }), Button("조회하기", QueryDispatch, true)));
         filePanel.Spacing = 8;
-        var dropArea = new Border { Child = filePanel, Background = ThemeBrush("LayerFillColorDefaultBrush"),
+        var dropArea = new Border { Child = filePanel, Background = cardFill,
             Padding = new Thickness(12, 0, 12, 8), CornerRadius = new CornerRadius(6), AllowDrop = true };
         dropArea.DragOver += (_, args) =>
         {
@@ -213,7 +217,7 @@ public sealed partial class MainWindow : Window
             Button("선택 해제", () => { selected.Clear(); RenderDispatch(); }),
             AsyncButton("캡처 복사", () => CaptureDispatch(true)),
             new DropDownButton { Content = "파일 저장", Flyout = export });
-        var top = Stack(PageHeading("탁송체크", AsyncButton("전체 초기화", ResetDispatch)), inputPanel,
+        var top = Stack(PageHeading("탁송체크", "\uE804", dispatchTone, AsyncButton("전체 초기화", ResetDispatch)), inputPanel,
             WrapActions(filter, search, scope, AsyncButton("필터·정렬", EditDispatchFilters),
                 AsyncButton("열 너비", EditDispatchWidths)), actions);
         top.Spacing = 9;
@@ -384,14 +388,18 @@ public sealed partial class MainWindow : Window
             }
             var notes = rules.Notes(row!); if (notes.Length > 0) content.Children.Add(Text(notes));
             content.Children.Add(Text(row.Text("sources"), 12));
-            var status = Stack(Text(rules.Status(row!)));
-            status.Spacing = 0;
+            var statusText = Text(rules.Status(row!), 13);
+            statusText.TextWrapping = TextWrapping.WrapWholeWords;
+            var tag = StatusTag(statusText);
+            TintTag(tag, statusText, DispatchStatusTone(row.Text("status")));
+            var status = Stack(tag);
+            status.Spacing = 3;
             content.MaxWidth = 420;
             var needsChoice = row!.Flag("scheduleConflict") || row!.Flag("feeConflict");
             if (needsChoice)
             {
                 var flagged = Text("일정·비용 선택 필요", 12);
-                flagged.Foreground = ThemeBrush("SystemFillColorCautionBrush");
+                flagged.Foreground = attentionTone.Ink;
                 status.Children.Add(flagged);
             }
             var details = new Button { Content = needsChoice ? "선택" : "보기", Flyout = new Flyout { Content = content },
@@ -478,7 +486,10 @@ public sealed partial class MainWindow : Window
         acknowledge.Unchecked += (_, _) => { acknowledgedSignature = ""; ValidateTransfers(); };
         download = AsyncButton("하나은행 이체파일 저장", SaveTransfer, true);
         previewRows = new StackPanel();
-        var previewTable = Stack(TableHeader(TransferColumns, "입금은행", "입금계좌번호", "입금액", "출금통장 표시", "입금통장 표시", "CMS코드"), previewRows);
+        var previewHeader = TableHeader(TransferColumns, "입금은행", "입금계좌번호", "입금액", "출금통장 표시", "입금통장 표시", "CMS코드");
+        previewHeader.Background = transferTone.Surface;
+        foreach (var label in previewHeader.Children.OfType<TextBlock>()) label.Foreground = transferTone.Ink;
+        var previewTable = Stack(previewHeader, previewRows);
         previewTable.Spacing = 0;
         previewTable.MinWidth = 790;
         transferInput = new Grid();
@@ -515,7 +526,7 @@ public sealed partial class MainWindow : Window
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         transferSteps = [Button("1. 요청 입력", () => Step(1)), Button("2. 확인·수정", () => Step(2)), Button("3. 미리보기·저장", () => Step(3))];
-        grid.Children.Add(Stack(PageHeading("하나은행 이체파일", AsyncButton("전체 초기화", ResetTransfers)),
+        grid.Children.Add(Stack(PageHeading("하나은행 이체파일", "\uE8AB", transferTone, AsyncButton("전체 초기화", ResetTransfers)),
             WrapActions([.. transferSteps, AsyncButton("단축키", ShowTransferShortcuts)]), transferSummary));
         var host = new Grid(); host.Children.Add(transferInput); host.Children.Add(transferReview); host.Children.Add(transferDownload);
         Grid.SetRow(host, 1); grid.Children.Add(host); Step(1);
@@ -613,13 +624,14 @@ public sealed partial class MainWindow : Window
             var remove = Button("삭제", () => { selectedTransfers.Remove(id); transfers.Remove(row); RenderTransfers(); });
             var memo = WrapActions(Edit(row!, "outMemo", "출금통장 표시", TransferWidth("outMemo")),
                 Edit(row!, "inMemo", "입금통장 표시", TransferWidth("inMemo")), Edit(row!, "cms", "CMS코드", TransferWidth("cms")));
-            var status = Text(""); status.Tag = row.Text("id");
-            transferStatuses.Add(status);
+            var status = Text("");
+            var statusTag = StatusTag(status);
+            transferStatuses.Add((status, statusTag));
             var original = new TextBox { Header = "Slack 원문", Text = row.Text("ctx").Length > 0 ? row.Text("ctx") : row.Text("source"), IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 220 };
             var details = new Expander { Header = "예금주·메모·CMS 및 원문", Content = Stack(Edit(row!, "holder", "예금주", TransferWidth("holder")),
                 memo, original), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
             pick.VerticalAlignment = remove.VerticalAlignment = status.VerticalAlignment = VerticalAlignment.Center;
-            var cardContent = Stack(main, WrapControls(center: true, pick, status, remove), details);
+            var cardContent = Stack(main, WrapControls(center: true, pick, statusTag, remove), details);
             cardContent.Spacing = 10;
             var card = Card(cardContent);
             transferChecks.Add(pick);
@@ -647,15 +659,15 @@ public sealed partial class MainWindow : Window
         transferSummary.Text = $"{transfers.Count:N0}건 · 합계 {Sum(transfers, "amount"):N0}원 · 오류 {bad}건 · 검토 {warn}건" + (transfers.Count > 100 ? " · 한 파일에 100건까지 가능해요." : "");
         for (var i = 0; i < checks.Count && i < transferStatuses.Count; i++)
         {
-            var status = transferStatuses[i];
+            var (status, tag) = transferStatuses[i];
             transferCards[i].Visibility = ShowTransfer(transfers[i], checks[i].Text("state")) ? Visibility.Visible : Visibility.Collapsed;
             status.Text = string.Join(" · ", checks[i]!["errors"]!.AsArray().Concat(checks[i]!["reviews"]!.AsArray()).Select(x => x!.ToString()));
             if (status.Text.Length == 0) status.Text = "확인 완료";
-            status.Foreground = ThemeBrush(checks[i].Text("state") switch
+            TintTag(tag, status, checks[i].Text("state") switch
             {
-                "bad" => "SystemFillColorCriticalBrush",
-                "warn" => "SystemFillColorCautionBrush",
-                _ => "TextFillColorSecondaryBrush"
+                "bad" => errorTone,
+                "warn" => attentionTone,
+                _ => successTone
             });
         }
         download.IsEnabled = !saving && transfers.Count is > 0 and <= 100 && bad == 0 && (warn == 0 || acknowledge.IsChecked == true);
@@ -665,7 +677,21 @@ public sealed partial class MainWindow : Window
     {
         step = n;
         for (var i = 0; i < transferSteps.Length; i++)
-            transferSteps[i].Style = i + 1 == n ? (Style)Application.Current.Resources["AccentButtonStyle"] : null;
+        {
+            var button = transferSteps[i];
+            if (i + 1 == n)
+            {
+                button.Background = transferTone.Fill;
+                button.Foreground = transferTone.Ink;
+                button.BorderBrush = transferTone.Accent;
+            }
+            else
+            {
+                button.ClearValue(Control.BackgroundProperty);
+                button.ClearValue(Control.ForegroundProperty);
+                button.ClearValue(Control.BorderBrushProperty);
+            }
+        }
         transferInput.Visibility = n == 1 ? Visibility.Visible : Visibility.Collapsed;
         transferReview.Visibility = n == 2 ? Visibility.Visible : Visibility.Collapsed;
         transferDownload.Visibility = n == 3 ? Visibility.Visible : Visibility.Collapsed;
