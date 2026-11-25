@@ -32,6 +32,13 @@ test('슬랙봇 회신을 차량별로 반영하고 확인 중을 표와 저장�
  assert.deepEqual(rows.map(row=>row.amount),[0,12350,null,5000]);
 });
 
+test('슬랙봇 회신 금액은 10원 단위로 반올림해 0으로 끝나요',()=>{
+ const rows=[{plate:'08구8701',status:'slack',cInquiry:true},{plate:'77다1234',status:'slack',cInquiry:true},{plate:'25마7579',status:'slack',cInquiry:true}];
+ const actual=C.applySlackReplies('08구8701 - 12,345원\n77다1234 - 12344\n25마7579 - 7',rows);
+ assert.equal(actual.applied,3);
+ assert.deepEqual(rows.map(row=>row.amount),[12350,12340,10]);
+});
+
 // 업체 시트 만들기: 업체별 고정 열(A: K일자·L시간·AP비용, B: C일자·U비용, C: D일자·J캐리어·S비용)
 const HEAD={
  A:{0:'차량번호',1:'상태',2:'주유/부대비용 총액',3:'출발지 주소'},

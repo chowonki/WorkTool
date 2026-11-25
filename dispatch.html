@@ -60711,7 +60711,7 @@ function slackValue(value){
  const match=token.match(/^(?:₩\s*)?(?<number>[0-9]+|[0-9]{1,3}(?<separator>[,.])[0-9]{3}(?:\k<separator>[0-9]{3})*)\s*원?$/);
  if(!match)return null;
  const amount=Number(match.groups.number.replace(/[,.]/g,''));
- return Number.isSafeInteger(amount)?{amount}:null;
+ return Number.isSafeInteger(amount)?{amount:round10(amount)}:null;
 }
 function applySlackReplies(text,rows){
  const eligible=new Map(), replies=new Map(), conflicts=new Set(), issues=[];
