@@ -111,6 +111,7 @@ public sealed partial class MainWindow
         selected.Clear();
         completed.Clear();
         copiedDispatch.Clear();
+        ClearSlackReplies();
         RenderDispatch();
         ShowDispatchStage(DispatchStage.Input);
     }

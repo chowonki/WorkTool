@@ -30,7 +30,7 @@ public sealed partial class MainWindow
     private int dispatchPage;
     private int visibleCount;
     private decimal visibleAmount;
-    private enum DispatchStage { Input, Review, Save }
+    private enum DispatchStage { Input, Review, Slack, Save }
     private DispatchStage dispatchStage;
     private Button[] dispatchSteps = [];
     private FrameworkElement dispatchInputStage = null!, dispatchResultsStage = null!,
@@ -114,7 +114,7 @@ public sealed partial class MainWindow
                 RenderDispatch();
             }),
             Button("선택 해제", () => { selected.Clear(); RenderDispatch(); }));
-        dispatchReviewNext = Button("다음: 복사·저장", () => ShowDispatchStage(DispatchStage.Save), true);
+        dispatchReviewNext = Button("다음: 슬랙봇 확인", () => ShowDispatchStage(DispatchStage.Slack), true);
         selectionActions.Children.Add(dispatchReviewNext);
         dispatchSaveActions = WrapActions(scope, Button("번호 복사", CopyDispatchNumbers),
             AsyncButton("캡처 복사", () => CaptureDispatch(true)),
@@ -123,7 +123,8 @@ public sealed partial class MainWindow
         [
             Button("1. 자료 입력", () => ShowDispatchStage(DispatchStage.Input)),
             Button("2. 결과 확인", () => ShowDispatchStage(DispatchStage.Review)),
-            Button("3. 복사·저장", () => ShowDispatchStage(DispatchStage.Save))
+            Button("3. 슬랙봇 확인", () => ShowDispatchStage(DispatchStage.Slack)),
+            Button("4. 복사·저장", () => ShowDispatchStage(DispatchStage.Save))
         ];
         var top = Stack(PageHeading("탁송체크", "\uE804", dispatchTone, AsyncButton("전체 초기화", ResetDispatch)),
             WrapActions(dispatchSteps));
@@ -160,6 +161,9 @@ public sealed partial class MainWindow
         Grid.SetRow(dispatchResultsStage, 1);
         grid.Children.Add(dispatchInputStage);
         grid.Children.Add(dispatchResultsStage);
+        slackDispatchStage = CreateSlackDispatchStage();
+        Grid.SetRow(slackDispatchStage, 1);
+        grid.Children.Add(slackDispatchStage);
         RenderDispatch();
         ShowDispatchStage(DispatchStage.Input);
         return grid;
@@ -171,11 +175,14 @@ public sealed partial class MainWindow
         dispatchStage = stage;
         SetActiveStep(dispatchSteps, (int)stage, dispatchTone);
         dispatchSteps[(int)DispatchStage.Review].IsEnabled = results.Count > 0;
+        dispatchSteps[(int)DispatchStage.Slack].IsEnabled = results.Count > 0;
         dispatchSteps[(int)DispatchStage.Save].IsEnabled = results.Count > 0;
         dispatchInputStage.Visibility = stage == DispatchStage.Input ? Visibility.Visible : Visibility.Collapsed;
-        dispatchResultsStage.Visibility = stage != DispatchStage.Input ? Visibility.Visible : Visibility.Collapsed;
+        dispatchResultsStage.Visibility = stage is DispatchStage.Review or DispatchStage.Save ? Visibility.Visible : Visibility.Collapsed;
+        slackDispatchStage.Visibility = stage == DispatchStage.Slack ? Visibility.Visible : Visibility.Collapsed;
         dispatchReviewNext.Visibility = stage == DispatchStage.Review ? Visibility.Visible : Visibility.Collapsed;
         dispatchSaveActions.Visibility = stage == DispatchStage.Save ? Visibility.Visible : Visibility.Collapsed;
+        if (stage == DispatchStage.Slack) RefreshSlackDispatchList();
     }
     private async Task ImportFiles()
     {
@@ -254,6 +261,7 @@ public sealed partial class MainWindow
             if (input["vehicles"]!.AsArray().Count == 0) { Notify("차량목록을 입력해 주세요.", true); return; }
             if (files.Count == 0) { Notify("업체 파일을 첨부해 주세요.", true); return; }
             results = rules.Match(input["vehicles"]!.AsArray(), files);
+            ClearSlackReplies();
             selected.Clear(); completed.Clear(); copiedDispatch.Clear(); dispatchPage = 0; RenderDispatch();
             ShowDispatchStage(DispatchStage.Review);
         }
@@ -326,7 +334,7 @@ public sealed partial class MainWindow
             var statusText = Text(rules.Status(row!), 13);
             statusText.TextWrapping = TextWrapping.WrapWholeWords;
             var tag = StatusTag(statusText);
-            TintTag(tag, statusText, DispatchStatusTone(row.Text("status")));
+            TintTag(tag, statusText, row!.Flag("slackPending") ? attentionTone : DispatchStatusTone(row.Text("status")));
             var status = Stack(tag);
             status.Spacing = 3;
             content.MaxWidth = 420;
@@ -353,7 +361,7 @@ public sealed partial class MainWindow
             plateCell.Children.Add(workStatus);
             var schedule = row.Text("schedule");
             var entry = Columns(dispatchColumns, plateCell, CopyCell("탁송일정", schedule, schedule, onCopy: MarkCopied),
-                CopyCell("주유·충전비", row.Text("amount"), Money(row, "amount"), right: true, onCopy: MarkCopied),
+                CopyCell("주유·충전비", row!.Flag("slackPending") ? SlackDispatch.Pending : row.Text("amount"), Money(row, "amount"), right: true, onCopy: MarkCopied),
                 CopyCell("탁송비", row.Text("dispatchFee"), Money(row, "dispatchFee"), right: true, onCopy: MarkCopied),
                 CopyCell("부가세", row.Text("vat"), Money(row, "vat"), right: true, onCopy: MarkCopied),
                 status, Text(row.Text("vendor")), done, details);
@@ -391,7 +399,11 @@ public sealed partial class MainWindow
     }
     private void UpdateDispatchSummary() => dispatchSummary.Text =
         $"전체 {results.Count:N0}대 · 표시 {visibleCount:N0}대 · 선택 {selected.Count:N0}대 · 주유·충전비 {visibleAmount:N0}원 · {dispatchPage + 1}/{Math.Max(1, (visibleCount + 99) / 100)}페이지";
-    private static string Money(JsonNode? row, string field) => decimal.TryParse(row.Text(field), NumberStyles.Any, CultureInfo.InvariantCulture, out var n) ? $"{n:N0}원" : "—";
+    private static string Money(JsonNode? row, string field)
+    {
+        if (field == "amount" && row?.Flag("slackPending") == true) return SlackDispatch.Pending;
+        return decimal.TryParse(row.Text(field), NumberStyles.Any, CultureInfo.InvariantCulture, out var number) ? $"{number:N0}원" : "—";
+    }
     private static TextBlock Amount(JsonNode? row, string field)
     {
         var text = Text(Money(row, field));

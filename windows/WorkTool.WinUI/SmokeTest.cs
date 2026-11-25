@@ -86,6 +86,14 @@ public sealed partial class MainWindow
                 && !dispatchSteps[(int)DispatchStage.Review].IsEnabled, "Editing source invalidates prior dispatch results");
             await SetVehicleText(await File.ReadAllTextAsync(Path.Combine(fixtures, "차량목록.txt")));
             QueryDispatch();
+            ShowDispatchStage(DispatchStage.Slack);
+            await SetTextAndWait(slackReplies, "08구8701 - X\n77다1234 - 확인 중");
+            ApplySlackReplies();
+            Assert(slackDispatchStage.Visibility == Microsoft.UI.Xaml.Visibility.Visible
+                && slackReplyReport.Text.StartsWith("2대 반영")
+                && results.Any(row => row.Text("plate") == "08구8701" && row.Text("amount") == "0")
+                && results.Any(row => row.Text("plate") == "77다1234" && Money(row, "amount") == "확인 중"),
+                "Slack reply stage applies zero and retains pending in dispatch results");
             Root.RequestedTheme = Microsoft.UI.Xaml.ElementTheme.Dark;
             Assert(Root.RequestedTheme == Microsoft.UI.Xaml.ElementTheme.Dark, "Dark theme applies");
             Root.RequestedTheme = Microsoft.UI.Xaml.ElementTheme.Default;

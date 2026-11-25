@@ -41,8 +41,10 @@ public sealed class Rules
     public JsonObject ParseVehicles(string text) => Eval(dispatch, $"DispatchCore.parseInput({Json(text)})").AsObject();
     public JsonObject ReadSheets(JsonArray sheets, string name) => Eval(dispatch, $"DispatchCore.readSheets({sheets.ToJsonString()},{Json(name)})").AsObject();
     public JsonArray Match(JsonArray vehicles, JsonArray files) => Eval(dispatch, $"DispatchCore.match({vehicles.ToJsonString()},{files.ToJsonString()})").AsArray();
-    public JsonArray Filter(JsonArray results, string filter) => Eval(dispatch, $"{results.ToJsonString()}.filter(r=>DispatchCore.includes(r,{Json(filter)}))").AsArray();
-    public string Status(JsonNode row) => Eval(dispatch, $"DispatchCore.statusLabel({row.ToJsonString()})").GetValue<string>();
+    public JsonArray Filter(JsonArray results, string filter) => Eval(dispatch, $"{results.ToJsonString()}.filter(r=>DispatchCore.includes(r,{Json(filter)}) && ({Json(filter)}!=='slack' || !r.slackReviewed || r.slackPending))").AsArray();
+    public string Status(JsonNode row) => row.Flag("slackPending")
+        ? SlackDispatch.Pending
+        : Eval(dispatch, $"DispatchCore.statusLabel({row.ToJsonString()})").GetValue<string>();
     public string Notes(JsonNode row) => Eval(dispatch, $"DispatchCore.notes({row.ToJsonString()})").GetValue<string>();
     public JsonObject Choose(JsonNode row, string field, string id)
     {
@@ -50,9 +52,16 @@ public sealed class Rules
         return Eval(dispatch, "chosen").AsObject();
     }
     public JsonArray ExportRows(JsonArray results)
-        => Eval(dispatch, $"[DispatchCore.headers,...DispatchCore.unique({results.ToJsonString()}).map(DispatchCore.values)]").AsArray();
+        => Eval(dispatch, $$"""
+            [DispatchCore.headers,...DispatchCore.unique({{results.ToJsonString()}}).map(r=>{
+                const values=DispatchCore.values(r);
+                if(r.slackPending){values[2]=values[6]={{Json(SlackDispatch.Pending)}};}
+                return values;
+            })]
+            """).AsArray();
     public string ExportText(JsonArray results)
-        => Eval(dispatch, $"DispatchCore.textExport({results.ToJsonString()})").GetValue<string>();
+        => "\uFEFF" + string.Join("\r\n", ExportRows(results).Select(row => string.Join("\t",
+            row!.AsArray().Select(cell => (cell?.ToString() ?? "").Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ')))));
 }
 
 public static class NodeText
