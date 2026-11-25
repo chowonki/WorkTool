@@ -485,7 +485,7 @@ public sealed partial class MainWindow : Window
         acknowledge = new CheckBox { Content = "검토 항목과 원문을 대조했고, 중복 송금 여부를 확인했어요." };
         acknowledge.Checked += (_, _) => { acknowledgedSignature = Signature; ValidateTransfers(); };
         acknowledge.Unchecked += (_, _) => { acknowledgedSignature = ""; ValidateTransfers(); };
-        download = AsyncButton("하나은행 이체파일 저장", SaveTransfer, true);
+        download = TintTransferAction(AsyncButton("하나은행 이체파일 저장", SaveTransfer, true));
         previewRows = new StackPanel();
         var previewHeader = TableHeader(TransferColumns, "입금은행", "입금계좌번호", "입금액", "출금통장 표시", "입금통장 표시", "CMS코드");
         previewHeader.Background = transferTone.Surface;
@@ -496,14 +496,14 @@ public sealed partial class MainWindow : Window
         transferInput = new Grid();
         transferInput.Children.Add(VerticalScroll(Stack(Card(Stack(Text("① 이체 요청 입력", 20), threadInputs,
             WrapActions(Button("입력칸 추가", () => AddThreadInput().Focus(FocusState.Programmatic)),
-                Button("이체정보 추출하기", ExtractTransfer, true)))),
+                TintTransferAction(Button("이체정보 추출하기", ExtractTransfer, true))))),
             Text("같은 요청을 다시 추출하면 이미 가져온 건은 건너뛰어요. 새 스레드를 붙여넣어 추가할 수 있어요."))));
         transferReview = new Grid();
         autoFixAccounts = new CheckBox { Content = "계좌번호의 하이픈·공백 자동 제거", IsChecked = true };
         transferReview.Children.Add(VerticalScroll(Stack(
             WrapActions(Button("내역 추가", AddTransfer), Button("표시 내역 선택", SelectVisibleTransfers),
                 AsyncButton("선택 삭제", DeleteSelectedTransfers), Button("1억 초과 분할", SplitTransfers), AsyncButton("열 너비", EditTransferWidths),
-                Button("파일 미리보기", () => Step(3), true)),
+                TintTransferAction(Button("파일 미리보기", () => Step(3), true))),
             TransferFilters(), autoFixAccounts,
             new Expander { Header = "통장 메모·CMS 일괄 적용", Content = MemoControls(), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch },
             transferList)));
