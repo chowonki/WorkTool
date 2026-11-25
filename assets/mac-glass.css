@@ -224,6 +224,9 @@ body.mac-ui[data-page=dispatch] .resultactions .colresetbar[hidden]{display:none
 body.mac-ui[data-page=dispatch] td.cbtd{white-space:nowrap;text-align:left}
 body.mac-ui[data-page=dispatch] td.cbtd .work-check{display:inline-flex;align-items:center;gap:4px;margin:0 0 0 10px;vertical-align:middle;font-size:12px}
 body.mac-ui[data-page=dispatch] td.cbtd>input{vertical-align:middle}
+/* 복사·체크 완료 표시는 칸 아래쪽에 겹쳐 띄워서, 값을 복사해도 줄 높이와 표 크기가 그대로예요. */
+body.mac-ui[data-page=dispatch] td.cbtd{position:relative}
+body.mac-ui[data-page=dispatch] td.cbtd .work-status{position:absolute;left:10px;right:4px;bottom:4px;margin:0;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 body.mac-ui[data-page=dispatch] .inputs{row-gap:12px}
 body.mac-ui[data-page=dispatch] .run{min-height:50px}
 @media(max-width:820px){body.mac-ui[data-page=dispatch] .resultactions{margin-left:0;justify-content:flex-start}}
@@ -277,6 +280,8 @@ body.mac-ui[data-page=dispatch] .drop strong{font-size:14.5px;color:var(--ink2)}
 body.mac-ui[data-page=dispatch] .drop span{font-size:12.5px;color:var(--ink3)}
 body.mac-ui[data-page=dispatch] .filename{font-size:13.5px;color:var(--ink)}
 body.mac-ui[data-page=dispatch] .filemeta{font-size:12.5px;color:var(--ink3)}
+body.mac-ui[data-page=dispatch] .filewarn{margin-top:2px;font-size:12.5px;font-weight:600;color:#9a5b00;cursor:help}
+html[data-theme=dark] body.mac-ui[data-page=dispatch] .filewarn{color:#ffc46b}
 body.mac-ui[data-page=dispatch] .filebadge{font-size:11px;color:#1f6b45}
 body.mac-ui[data-page=dispatch] .filelist .remove{color:#5a6b82;font-size:18px}
 body.mac-ui[data-page=dispatch] .stat>span{font-size:13.5px;color:var(--ink2)}

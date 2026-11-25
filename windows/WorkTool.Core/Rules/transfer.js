@@ -200,3 +200,17 @@ function fileName(stamp){
   else if(total)tag=`_총${amountText(total)}`;
   return `하나은행_다계좌이체_${stamp}${tag}.xlsx`.replace(/[\\/:*?"<>|\s]/g,'');
 }
+// 오늘 이미 받은 이체파일과 같은 은행·계좌·금액이 있으면 한 번 더 물어봐요 (다른 창·새로고침 뒤 두 번 송금 방지).
+// 계좌번호를 그대로 남기지 않도록 은행·계좌·금액을 섞은 짧은 지문만 남겨요.
+function sentKey(r){
+  const s=`${r.bank}|${r.account}|${r.amount}`;let h1=0xdeadbeef,h2=0x41c6ce57;
+  for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677);}
+  h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);
+  h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);
+  return (h2>>>0).toString(16).padStart(8,'0')+(h1>>>0).toString(16).padStart(8,'0');
+}
+// sent: [{key,at}] 오늘 받은 지문 목록. 이번 내역 중 겹치는 줄을 [{row,at}]로 돌려줘요.
+function sentMatches(list,sent){
+  const at=new Map((sent||[]).map(x=>[x.key,x.at]));
+  return list.flatMap((r,i)=>at.has(sentKey(r))?[{row:i,at:at.get(sentKey(r))}]:[]);
+}

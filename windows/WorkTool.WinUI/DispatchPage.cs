@@ -40,6 +40,7 @@ public sealed partial class MainWindow
     {
         vehicles = Input("차량목록", "2026-11-25 10:00  123가4567\n45나6789");
         vehicles.AcceptsReturn = true; vehicles.Height = 100;
+        LoadWorkMarks();
         vehicleCount = Text("입력 차량 0대", 13);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetLiveSetting(vehicleCount, Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Polite);
         vehicles.TextChanged += (_, _) => { UpdateVehicleCount(); InvalidateDispatch(); };
@@ -219,6 +220,16 @@ public sealed partial class MainWindow
                     parsed["path"] = file.Path;
                     files.Add(parsed);
                     InvalidateDispatch();
+                    var warnings = LocalState.Strings(parsed["warnings"]).ToArray();
+                    if (warnings.Length > 0)
+                    {
+                        var body = Stack(Text("파일은 첨부했지만 일부 열의 값이 평소와 달라요. 업체 사이트에서 받은 원본 시트인지, 열이 추가·이동되지 않았는지 확인한 뒤 조회해 주세요."),
+                            Text(string.Join(Environment.NewLine, warnings), 13));
+                        var dialog = Dialog("업체 양식이 바뀌었을 수 있어요", body, "확인");
+                        dialog.CloseButtonText = "";
+                        dialog.DefaultButton = ContentDialogButton.Primary;
+                        await dialog.ShowAsync();
+                    }
                 }
                 catch (Exception e) { Notify($"{file.Name}: {e.Message}", true); }
             }
@@ -262,7 +273,7 @@ public sealed partial class MainWindow
             if (files.Count == 0) { Notify("업체 파일을 첨부해 주세요.", true); return; }
             results = rules.Match(input["vehicles"]!.AsArray(), files);
             ClearSlackReplies();
-            selected.Clear(); completed.Clear(); copiedDispatch.Clear(); dispatchPage = 0; RenderDispatch();
+            selected.Clear(); dispatchPage = 0; RenderDispatch();
             ShowDispatchStage(DispatchStage.Review);
         }
         catch (Exception e) { Notify(e.Message, true); }
@@ -301,19 +312,19 @@ public sealed partial class MainWindow
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(check, plate + " 행 선택");
             check.Checked += (_, _) => { selected.Add(id); UpdateDispatchSummary(); };
             check.Unchecked += (_, _) => { selected.Remove(id); UpdateDispatchSummary(); };
-            var done = new CheckBox { IsChecked = completed.Contains(id), MinWidth = 0, Padding = new Thickness(0),
+            var done = new CheckBox { IsChecked = completed.Contains(plate), MinWidth = 0, Padding = new Thickness(0),
                 HorizontalAlignment = HorizontalAlignment.Center };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(done, row.Text("plate") + " 완료");
             var workStatus = Text("", 11);
             workStatus.MinHeight = 14;
             void UpdateWorkStatus()
             {
-                workStatus.Text = completed.Contains(id) ? (copiedDispatch.Contains(plate) ? "완료 · 복사함" : "완료")
+                workStatus.Text = completed.Contains(plate) ? (copiedDispatch.Contains(plate) ? "완료 · 복사함" : "완료")
                     : copiedDispatch.Contains(plate) ? "복사함" : "";
-                workStatus.Foreground = ThemeBrush(completed.Contains(id) ? "SystemFillColorSuccessBrush" : "AccentTextFillColorPrimaryBrush");
+                workStatus.Foreground = ThemeBrush(completed.Contains(plate) ? "SystemFillColorSuccessBrush" : "AccentTextFillColorPrimaryBrush");
             }
-            done.Checked += (_, _) => { completed.Add(id); UpdateWorkStatus(); };
-            done.Unchecked += (_, _) => { completed.Remove(id); UpdateWorkStatus(); };
+            done.Checked += (_, _) => { completed.Add(plate); SaveWorkMarks(); UpdateWorkStatus(); };
+            done.Unchecked += (_, _) => { completed.Remove(plate); SaveWorkMarks(); UpdateWorkStatus(); };
             var content = Stack(Text(string.Join(" · ", new[] { row.Text("rawState"), row.Text("carrierType"), row.Text("origin") }.Where(value => value.Length > 0))));
             foreach (var (field, label) in new[] { ("schedule", "탁송일정"), ("fee", "탁송비용") })
             {
@@ -354,7 +365,7 @@ public sealed partial class MainWindow
             var details = new Button { Content = needsChoice ? "선택" : "보기", Flyout = new Flyout { Content = content },
                 HorizontalAlignment = HorizontalAlignment.Center };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(details, row.Text("plate") + " 상세");
-            void MarkCopied() { copiedDispatch.Add(plate); UpdateWorkStatus(); }
+            void MarkCopied() { copiedDispatch.Add(plate); SaveWorkMarks(); UpdateWorkStatus(); }
             UpdateWorkStatus();
             var plateLink = Bar(check, CopyCell("차량번호", plate, plate, onCopy: MarkCopied));
             plateLink.VerticalAlignment = VerticalAlignment.Center;

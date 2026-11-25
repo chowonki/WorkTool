@@ -461,6 +461,11 @@ let __dl;function getDownloads(){if(!__dl)__dl=(window.claude&&claude.use)?claud
 // 새로고침하면 입력값이 초기화되도록 저장하지 않아요. 예전에 저장된 값도 지워요.
 function save(){}
 function load(){try{localStorage.removeItem(LS);}catch(e){}}
+// 오늘 받은 이체 지문 (계좌번호 원문 없음). 날짜가 바뀌면 지워요.
+const SENT_KEY='transfer-sent-today-v1';
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+function loadSent(){try{const s=JSON.parse(localStorage.getItem(SENT_KEY)||'null');if(s&&s.date===today()&&Array.isArray(s.items))return s.items;localStorage.removeItem(SENT_KEY);}catch(e){}return [];}
+function rememberSent(list,at){try{const items=loadSent(),have=new Set(items.map(x=>x.key));list.forEach(r=>{const key=sentKey(r);if(!have.has(key)){have.add(key);items.push({key,at});}});localStorage.setItem(SENT_KEY,JSON.stringify({date:today(),items:items.slice(-2000)}));}catch(e){}}
 document.querySelectorAll('input,textarea,select').forEach(e=>e.setAttribute('autocomplete','off'));
 window.addEventListener('pageshow',e=>{if(e.persisted)location.reload();});
 
@@ -763,18 +768,42 @@ function fileName(stamp){
   else if(total)tag=`_총${amountText(total)}`;
   return `하나은행_다계좌이체_${stamp}${tag}.xlsx`.replace(/[\\/:*?"<>|\s]/g,'');
 }
+// 오늘 이미 받은 이체파일과 같은 은행·계좌·금액이 있으면 한 번 더 물어봐요 (다른 창·새로고침 뒤 두 번 송금 방지).
+// 계좌번호를 그대로 남기지 않도록 은행·계좌·금액을 섞은 짧은 지문만 남겨요.
+function sentKey(r){
+  const s=`${r.bank}|${r.account}|${r.amount}`;let h1=0xdeadbeef,h2=0x41c6ce57;
+  for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677);}
+  h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);
+  h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);
+  return (h2>>>0).toString(16).padStart(8,'0')+(h1>>>0).toString(16).padStart(8,'0');
+}
+// sent: [{key,at}] 오늘 받은 지문 목록. 이번 내역 중 겹치는 줄을 [{row,at}]로 돌려줘요.
+function sentMatches(list,sent){
+  const at=new Map((sent||[]).map(x=>[x.key,x.at]));
+  return list.flatMap((r,i)=>at.has(sentKey(r))?[{row:i,at:at.get(sentKey(r))}]:[]);
+}
 $('download').onclick=async()=>{
   updateDownloadBtn();if($('download').disabled)return;
   // 파일에 들어갈 값을 한 번 더 점검: 오류가 있으면 받지 않아요
   const bad=rows.filter(r=>check(r).state==='bad');
   if(bad.length){toast(`오류 ${bad.length}건이 남아 있어요. 2단계에서 고쳐 주세요.`);renderStep3();return;}
+  const again=sentMatches(rows,loadSent());
+  if(again.length&&downloadedSig!==dataSig()){
+    const lines=again.slice(0,10).map(m=>{const r=rows[m.row];return `${r.bank} ${r.account} ${won(r.amount)}원 · ${m.at}에 받음`;});
+    if(again.length>10)lines.push(`외 ${again.length-10}건`);
+    const box=document.createElement('div'),p=document.createElement('p'),ul=document.createElement('ul');
+    p.textContent=`같은 은행·계좌·금액 ${again.length}건이 오늘 받은 이체파일에 이미 들어 있어요. 두 번 송금하지 않도록 확인해 주세요.`;
+    lines.forEach(t=>{const li=document.createElement('li');li.textContent=t;ul.append(li);});box.append(p,ul);
+    const go=await new Promise(res=>modal('오늘 이미 받은 이체 건이 있어요',box,[['취소','',()=>res(false)],['그래도 받기','primary',()=>res(true)]]));
+    if(!go)return;
+  }
   downloading=true;updateDownloadBtn();
   try{
   const d=new Date(),stamp=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('')+'_'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0');
   const name=fileName(stamp), blob=xlsxBlob(fileRows());
   const r=await saveFile(blob,name);
   if(r==='declined')return;
-  if(r==='ok'||r==='browser')downloadedSig=dataSig();
+  if(r==='ok'||r==='browser'){downloadedSig=dataSig();rememberSent(rows,stamp.slice(9,11)+':'+stamp.slice(11,13));}
   if(r==='ok')toast('이체파일을 저장했어요. 은행 업로드 전에 한 번 더 확인해 주세요.');
   else if(r==='browser')toast('브라우저 다운로드로 받았어요. 저장 위치를 확인해 주세요.');
   else modal('파일을 저장하지 못했어요','잠시 뒤 다시 눌러 주세요. 계속 안 되면 다른 브라우저로 열어 주세요.',[['확인','primary',null]]);

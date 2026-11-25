@@ -32,6 +32,19 @@ var resplit = rules.Split(editedSplit);
 Assert(resplit.Count == 3 && resplit.All(item => item.Text("splitGroup") == records[0].Text("splitGroup")),
     "Splitting an existing installment preserves its group");
 Assert(rules.Comments(records).Contains("송금완료"), "comment generation executes without DOM");
+var sentKeys = rules.SentKeys(records);
+Assert(sentKeys.Length == 2 && sentKeys.All(k => k.Length == 16 && !k.Contains("123456789012")), "sent fingerprints hide account numbers");
+var sentToday = new JsonArray(new JsonObject { ["key"] = sentKeys[1], ["at"] = "09:30" });
+var sentHits = rules.SentMatches(records, sentToday);
+Assert(sentHits.Count == 1 && sentHits[0]!["row"]!.GetValue<int>() == 1 && sentHits[0].Text("at") == "09:30", "same bank, account and amount sent today is found again");
+{
+    var shiftedHead = new JsonArray(); var shiftedRow = new JsonArray();
+    for (var i = 0; i < 45; i++) { shiftedHead.Add(""); shiftedRow.Add(""); }
+    shiftedHead[0] = "출발지 차량번호"; shiftedHead[1] = "운행상태"; shiftedHead[2] = "출발지 주소(현재차량 상세위치)";
+    shiftedRow[0] = "12가3456"; shiftedRow[1] = "운행완료"; shiftedRow[3] = "서울시 강남구"; shiftedRow[9] = "2026-11-20"; shiftedRow[18] = "홍길동";
+    var shifted = rules.ReadSheets(new JsonArray(new JsonObject { ["name"] = "탁송기한", ["rows"] = new JsonArray(shiftedHead, shiftedRow) }), "렌톡.xlsx");
+    Assert(shifted["warnings"]!.AsArray().Count == 3 && shifted["records"]!.AsArray().Count == 1, "shifted vendor columns warn without dropping records");
+}
 var vehicles = rules.ParseVehicles("2026-11-25 10:00 123가4567\n45나6789\n2026-02-30 10:00 12가3456");
 Assert(vehicles["vehicles"]!.AsArray().Count == 2 && vehicles["invalid"]!.AsArray().Count == 1, "invalid calendar date rejected");
 var head = new JsonArray(); var body = new JsonArray();

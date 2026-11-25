@@ -168,17 +168,7 @@ public sealed partial class MainWindow : Window
         NavigateUri = new Uri("https://chowonki.github.io/WorkTool/" + page)
     };
 
-    private static string ThemeFile
-    {
-        get
-        {
-            var appDirectory = AppContext.BaseDirectory;
-            if (File.Exists(Path.Combine(appDirectory, "portable.mode")))
-                return Path.GetFullPath(Path.Combine(appDirectory, "..", "Data", "theme.txt"));
-
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WorkTool", "theme.txt");
-        }
-    }
+    private static string ThemeFile => LocalState.DataFile("theme.txt");
 
     private void LoadWorkToolTheme()
     {

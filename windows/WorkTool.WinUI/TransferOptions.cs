@@ -28,8 +28,7 @@ public sealed partial class MainWindow
     private readonly double[] transferWidths = (double[])DefaultTransferWidths.Clone();
 
     private double TransferWidth(string key) => transferWidths[Array.FindIndex(TransferFields, field => field.Key == key)];
-    private static string TransferWidthsFile => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "WorkTool", "transfer-columns.json");
+    private static string TransferWidthsFile => LocalState.DataFile("transfer-columns.json");
 
     private void LoadTransferWidths()
     {
