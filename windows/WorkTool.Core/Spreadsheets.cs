@@ -43,7 +43,19 @@ public static class Spreadsheets
     }
     public static void Write(string path, JsonArray values, string sheetName = "조회 결과")
     {
-        using var stream = File.Create(path);
+        var destination = Path.GetFullPath(path);
+        var temporary = Path.Combine(Path.GetDirectoryName(destination)!, $".worktool-{Guid.NewGuid():N}.tmp");
+        try
+        {
+            using (var stream = File.Open(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                WriteWorkbook(stream, values, sheetName);
+            File.Move(temporary, destination, overwrite: true);
+        }
+        finally { File.Delete(temporary); }
+    }
+
+    private static void WriteWorkbook(Stream stream, JsonArray values, string sheetName)
+    {
         using var zip = new ZipArchive(stream, ZipArchiveMode.Create);
         void Entry(string name, string xml)
         { using var writer = new StreamWriter(zip.CreateEntry(name).Open(), new UTF8Encoding(false)); writer.Write(xml); }

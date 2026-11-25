@@ -14,7 +14,7 @@ public sealed partial class MainWindow
         try
         {
             Go("transfer");
-            thread.Text = "123가4567\r국민은행\r001234567890\r3만5천원";
+            threadBoxes[0].Text = "123가4567\r국민은행\r001234567890\r3만5천원";
             ExtractTransfer();
             Assert(transfers.Count == 1 && transfers[0].Text("amount") == "35000" && transfers[0].Text("plate") == "123가4567", "WinUI multiline input extracts correctly");
             ExtractTransfer(); Assert(transfers.Count == 1, "Repeated extraction does not duplicate transfer");
@@ -32,8 +32,13 @@ public sealed partial class MainWindow
                 && transfers[1].Text("label") == "정산 계좌", "Second Slack input preserves holder and remittance context");
             Assert(NormalizeTransferValue("amount", "3만 5천원") == "35000"
                 && NormalizeTransferValue("account", "001-234 567890") == "001234567890", "Manual amount and account edits follow web formatting");
+            var malformed = NormalizeTransferValue("amount", "35,00원");
+            var malformedRows = new System.Text.Json.Nodes.JsonArray(transfers[0]!.DeepClone());
+            malformedRows[0]!["amount"] = malformed;
+            Assert(malformed == "35,00원" && rules.Check(malformedRows)[0].Text("state") == "bad"
+                && NormalizeTransferValue("amount", "35,000.00원") == "35000", "Malformed amounts remain invalid while standard formats normalize");
             await SetTextAndWait(transferSearch, "987654321012");
-            Assert(transferCards.Count(card => card.Visibility == Microsoft.UI.Xaml.Visibility.Visible) == 1, "Transfer search filters review rows");
+            Assert(transferViews.Count(view => view.Card.Visibility == Microsoft.UI.Xaml.Visibility.Visible) == 1, "Transfer search filters review rows");
             await SetTextAndWait(transferSearch, "");
             Go("dispatch");
             await SetVehicleText("123가4567\r\n123가4567\r\n45나6789\r\n확인 필요");

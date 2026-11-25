@@ -106,7 +106,14 @@ const won=n=>Number(n||0).toLocaleString('ko-KR');
 function parseForReview(text) {
   const result = parseOne(text);
   const rawLines = text.split('\n');
-  const accounts = result.items.map(item => item.account ? rawLines.findIndex(line => line.replace(/\D/g, '').includes(item.account)) : -1);
+  let nextLine = 0;
+  const accounts = result.items.map(item => {
+    if (!item.account) return -1;
+    const index = rawLines.findIndex((line, i) => i >= nextLine && !/^https?:\/\//i.test(line.trim())
+      && line.replace(/\D/g, '') === item.account);
+    if (index >= 0) nextLine = index + 1;
+    return index;
+  });
   const cuts = accounts.map(index => Math.max(0, index - 1));
   const labels = accounts.map((account, i) => {
     if (account < 0) return -1;
@@ -148,7 +155,7 @@ function splitRow(r){
   const full=Math.floor(a/LIMIT),rest=a-full*LIMIT;
   if(full+(rest?1:0)>MAX)return [r]; // 나누면 100건을 넘는 금액은 나누지 않고 오류로 남겨요 (화면 멈춤 방지)
   const parts=Array(full).fill(LIMIT);if(rest)parts.push(rest);
-  const g='g'+uid();
+  const g=r.splitGroup||'g'+uid();
   return parts.map((v,k)=>({...r,id:k?uid():r.id,amount:String(v),splitGroup:g}));
 }
 function splitAll(list){return list.flatMap(splitRow);}

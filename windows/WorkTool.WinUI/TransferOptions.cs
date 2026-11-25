@@ -14,8 +14,6 @@ public sealed partial class MainWindow
     private StackPanel threadInputs = null!;
     private readonly List<TextBox> threadBoxes = [];
     private readonly HashSet<string> selectedTransfers = [];
-    private readonly List<FrameworkElement> transferCards = [];
-    private readonly List<CheckBox> transferChecks = [];
     private readonly Dictionary<(string Id, string Field), Action<string>> groupedEditors = new();
     private ComboBox transferFilter = null!, transferColumn = null!;
     private TextBox transferSearch = null!;
@@ -137,8 +135,8 @@ public sealed partial class MainWindow
 
     private void SelectVisibleTransfers()
     {
-        for (var i = 0; i < transferCards.Count; i++)
-            if (transferCards[i].Visibility == Visibility.Visible) transferChecks[i].IsChecked = true;
+        foreach (var view in transferViews)
+            if (view.Card.Visibility == Visibility.Visible) view.Selection.IsChecked = true;
     }
 
     private string NormalizeTransferValue(string field, string value)
@@ -148,14 +146,19 @@ public sealed partial class MainWindow
             return Regex.Replace(value, @"[\s-]+", "");
         if (field == "plate") return Regex.Replace(value, @"\s+", "");
         if (field != "amount") return value;
-        var stripped = Regex.Replace(value, @"[,\s원₩]", "");
-        if (Regex.IsMatch(stripped, @"^[0-9]+(?:\.0+)?$"))
+        var numeric = Regex.Match(value, @"^₩?\s*(?<whole>[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\.0+)?\s*원?$");
+        if (numeric.Success)
         {
-            var whole = stripped.Split('.')[0].TrimStart('0');
+            var whole = numeric.Groups["whole"].Value.Replace(",", "").TrimStart('0');
             return whole.Length > 0 ? whole : "0";
         }
+        // The Slack parser accepts surrounding prose. Manual edits must keep
+        // ambiguous separators and other input intact so validation can flag them.
+        if (!Regex.IsMatch(value, @"^₩?[0-9영공일이삼사오육칠팔구십백천만억,\s]+원?$") ||
+            !value.Any(character => character is '십' or '백' or '천' or '만' or '억'))
+            return value;
         var parsed = rules.ParseTransferAmount(value);
-        return parsed.Length > 0 ? parsed : stripped;
+        return parsed.Length > 0 ? parsed : value;
     }
 
     private void UpdateTransferField(JsonNode row, string field, string value)
@@ -183,11 +186,19 @@ public sealed partial class MainWindow
     {
         if (refreshing || !transfers.Contains(row)) return;
         var normalized = NormalizeTransferValue(field, box.Text);
+        UpdateTransferField(row, field, normalized);
         if (box.Text != normalized) box.Text = normalized;
         if (field != "amount" || !long.TryParse(normalized, out var amount) || amount <= 100_000_000) return;
-        var parts = (amount - 1) / 100_000_000 + 1;
-        if (parts + transfers.Count - 1 <= 100) SplitTransfers();
-        else Notify("금액을 나누면 100건을 넘어요. 다른 줄을 줄이거나 금액을 확인해 주세요.", true);
+        var parts = rules.Split(new JsonArray(row.DeepClone()));
+        if (parts.Count + transfers.Count - 1 > MaxTransferRows || parts.Count == 1)
+        {
+            Notify("금액을 나눌 수 없어요. 금액과 최대 100건 제한을 확인해 주세요.", true);
+            return;
+        }
+        var index = transfers.IndexOf(row);
+        transfers.RemoveAt(index);
+        for (var i = 0; i < parts.Count; i++) transfers.Insert(index + i, parts[i]!.DeepClone());
+        RenderTransfers();
     }
 
     private void AddTransferShortcuts(Grid page)

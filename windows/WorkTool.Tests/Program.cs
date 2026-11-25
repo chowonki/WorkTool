@@ -10,6 +10,11 @@ var parsed = rules.ParseTransfer("123가4567\n국민은행\n123-456-789012\n3만
 var row = parsed["items"]![0]!;
 Assert(row.Text("bank") == "국민" && row.Text("account") == "123456789012" && row.Text("amount") == "35000" && row.Text("plate") == "123가4567", "Jint parses Korean request exactly");
 Assert(rules.ParseTransfer("123가4567\r국민은행\r001234567890\r3만5천원")["items"]![0].Text("amount") == "35000", "WinUI carriage returns normalize to line feeds");
+var sameAccount = rules.ParseTransferForReview(
+    "123가4567\n(첫 정산)\n국민은행\n001234567890\n예금주: 첫째\n3만원\n\n45나6789\n(다음 정산)\n국민은행\n001234567890\n예금주: 둘째\n5만원")["items"]!.AsArray();
+Assert(sameAccount.Count == 2 && sameAccount[0].Text("holder") == "첫째" &&
+    sameAccount[1].Text("holder") == "둘째" && sameAccount[1].Text("label") == "다음 정산",
+    "Repeated accounts retain the source and holder of each request");
 foreach (var bad in new[] { "3.5억", "-35000원", "35,00원", "1/2만원", "1e5원", "35000원 / 40000원" })
     Assert(rules.ParseTransfer("국민은행\n123-456-789012\n" + bad)["items"]![0].Text("amount") == "", "reject ambiguous amount " + bad);
 var records = parsed["items"]!.DeepClone().AsArray();
@@ -21,6 +26,11 @@ records.RemoveAt(1); records[0]!["amount"] = "120000000";
 records = rules.Split(records);
 Assert(records.Count == 2 && records[0].Text("amount") == "100000000" && records[1].Text("amount") == "20000000", "1억 limit splits exactly");
 Assert(rules.Check(records).All(c => c.Text("state") == "warn"), "split transfers require review");
+var editedSplit = records.DeepClone().AsArray();
+editedSplit[1]!["amount"] = "125000000";
+var resplit = rules.Split(editedSplit);
+Assert(resplit.Count == 3 && resplit.All(item => item.Text("splitGroup") == records[0].Text("splitGroup")),
+    "Splitting an existing installment preserves its group");
 Assert(rules.Comments(records).Contains("송금완료"), "comment generation executes without DOM");
 var vehicles = rules.ParseVehicles("2026-11-25 10:00 123가4567\n45나6789\n2026-02-30 10:00 12가3456");
 Assert(vehicles["vehicles"]!.AsArray().Count == 2 && vehicles["invalid"]!.AsArray().Count == 1, "invalid calendar date rejected");
@@ -51,6 +61,12 @@ try
         Assert(book.GetString(1) == "001234567890", "Excel preserves account leading zeroes");
         Assert(book.GetValue(2) is double, "bank amount is numeric cell");
     }
+    var originalBytes = File.ReadAllBytes(path);
+    var wroteInvalidWorkbook = true;
+    try { Spreadsheets.Write(path, new JsonArray("not-a-row")); }
+    catch (InvalidOperationException) { wroteInvalidWorkbook = false; }
+    Assert(!wroteInvalidWorkbook && File.ReadAllBytes(path).SequenceEqual(originalBytes)
+        && !Directory.EnumerateFiles(dir, ".worktool-*.tmp").Any(), "Failed Excel generation preserves the existing destination and removes the temporary file");
     var company = Path.Combine(dir, "company.xlsx");
     Spreadsheets.Write(company, sheets[0]!["rows"]!.AsArray());
     Assert(rules.ReadSheets(Spreadsheets.Read(company), "company.xlsx")["records"]!.AsArray().Count == 1, "native Excel import recognizes vendor");
