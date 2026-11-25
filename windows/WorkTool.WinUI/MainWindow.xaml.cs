@@ -34,6 +34,7 @@ public sealed partial class MainWindow : Window
     private string? smokeDirectory;
     private int step = 1;
     private int dispatchPage;
+    private TextBlock vehicleCount = null!;
     private static readonly double[] DispatchColumns = [120, 0, 102, 106, 96, 145, 90, 48, 64];
     private static readonly double[] TransferColumns = [120, 178, 120, 0, 0, 95];
     private Button previousResults = null!, nextResults = null!;
@@ -132,6 +133,9 @@ public sealed partial class MainWindow : Window
     {
         vehicles = Input("차량목록", "2026-11-25 10:00  123가4567\n45나6789");
         vehicles.AcceptsReturn = true; vehicles.Height = 100;
+        vehicleCount = Text("입력 차량 0대", 13);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetLiveSetting(vehicleCount, Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Polite);
+        vehicles.TextChanged += (_, _) => UpdateVehicleCount();
         fileSummary = Text("업체 엑셀 파일을 첨부해 주세요. .xlsx / .xls · 암호 파일 지원");
         dispatchSummary = Text("차량목록과 업체 파일을 넣고 조회하세요.");
         dispatchList = new StackPanel();
@@ -161,7 +165,9 @@ public sealed partial class MainWindow : Window
         ExportItem("PDF 저장", () => CaptureDispatch(false, true));
         previousResults = Button("이전", () => ChangeDispatchPage(-1));
         nextResults = Button("다음", () => ChangeDispatchPage(1));
-        var inputs = SplitLayout(vehicles, Stack(Text("업체 파일", 14), fileSummary,
+        var vehicleInput = Stack(vehicles, vehicleCount);
+        vehicleInput.Spacing = 5;
+        var inputs = SplitLayout(vehicleInput, Stack(Text("업체 파일", 14), fileSummary,
             Horizontal(Bar(AsyncButton("Excel 첨부", ImportFiles), Button("첨부 초기화", () =>
             {
                 files.Clear(); results.Clear(); selected.Clear(); completed.Clear();
@@ -219,6 +225,31 @@ public sealed partial class MainWindow : Window
         }
         fileSummary.Text = string.Join("   ·   ", files.Select(f => $"{f.Text("name")} ({f!["records"]!.AsArray().Count:N0}건)"));
     }
+    private void UpdateVehicleCount()
+    {
+        if (string.IsNullOrWhiteSpace(vehicles.Text))
+        {
+            vehicleCount.Text = "입력 차량 0대";
+            return;
+        }
+
+        try
+        {
+            var input = rules.ParseVehicles(vehicles.Text);
+            var duplicates = input["duplicates"]!.GetValue<int>();
+            var invalid = input["invalid"]!.AsArray().Count;
+            var count = input["vehicles"]!.AsArray().Count - duplicates;
+            var parts = new List<string> { $"입력 차량 {count:N0}대" };
+            if (duplicates > 0) parts.Add($"중복 {duplicates:N0}줄");
+            if (invalid > 0) parts.Add($"확인 필요 {invalid:N0}줄");
+            vehicleCount.Text = string.Join(" · ", parts);
+        }
+        catch (Exception)
+        {
+            vehicleCount.Text = "차량 수를 계산할 수 없어요.";
+        }
+    }
+
     private void QueryDispatch()
     {
         try

@@ -26,6 +26,18 @@ public sealed partial class MainWindow
             transfers[0]!["amount"] = "35000"; RenderTransfers(); Step(3); await SaveTransfer();
             Assert(Directory.GetFiles(smokeDirectory, "하나은행*.xlsx").Length == 1, "Native transfer export writes Excel");
             Go("dispatch");
+            if (!vehicles.IsLoaded)
+            {
+                var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                void OnLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs args) => loaded.TrySetResult();
+                vehicles.Loaded += OnLoaded;
+                try { await loaded.Task.WaitAsync(TimeSpan.FromSeconds(3)); }
+                finally { vehicles.Loaded -= OnLoaded; }
+            }
+            await SetVehicleText("123가4567\r\n123가4567\r\n45나6789\r\n확인 필요");
+            Assert(vehicleCount.Text == "입력 차량 2대 · 중복 1줄 · 확인 필요 1줄", $"Vehicle input counts unique valid plates ({vehicleCount.Text})");
+            await SetVehicleText("");
+            Assert(vehicleCount.Text == "입력 차량 0대", "Clearing vehicle input resets the count");
             vehicles.Text = await File.ReadAllTextAsync(Path.Combine(fixtures, "차량목록.txt"));
             foreach (var path in Directory.GetFiles(fixtures, "*.xlsx")) files.Add(rules.ReadSheets(Spreadsheets.Read(path), Path.GetFileName(path)));
             QueryDispatch(); Assert(results.Count > 0, "Native dispatch renders synthetic vendor files");
@@ -49,5 +61,18 @@ public sealed partial class MainWindow
             Notify(e.Message, true);
         }
         finally { smokeDirectory = null; }
+    }
+
+    private async Task SetVehicleText(string value)
+    {
+        var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnChanged(object sender, Microsoft.UI.Xaml.Controls.TextChangedEventArgs args) => changed.TrySetResult();
+        vehicles.TextChanged += OnChanged;
+        try
+        {
+            vehicles.Text = value;
+            await changed.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        }
+        finally { vehicles.TextChanged -= OnChanged; }
     }
 }
