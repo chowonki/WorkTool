@@ -100,7 +100,7 @@ test('하나은행 엑셀 열 순서는 A 입금은행 ~ F CMS코드예요',()=>
 });
 test('모든 은행 선택지에 하나은행 코드가 있어요',()=>{
  const codes=Function('return '+appSource.match(/const BANK_CODES=(\{[\s\S]*?\});/)[1])();
- const groups=Function('return '+appSource.match(/const BANK_GROUPS=(\[[\s\S]*?\]);\nconst BANK_OPTIONS/)[1])();
+ const groups=Function('return '+appSource.match(/const BANK_GROUPS=(\[[\s\S]*?\]);\r?\nconst BANK_OPTIONS/)[1])();
  for(const [,list] of groups)for(const b of list)assert.match(codes[b]||'',/^\d{3}$/,b);
  const aliasTargets=new Set(Function('return '+ruleSource.match(/const banks=(\[[\s\S]*?\]);/)[1])().map(x=>x[1]));
  for(const b of aliasTargets)assert.ok(codes[b],'별칭 대상 '+b+' 이 드롭다운에 없음');
