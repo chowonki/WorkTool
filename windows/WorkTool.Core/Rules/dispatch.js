@@ -178,11 +178,55 @@ function match(input,files){
 function unique(rows){return [...new Map(rows.map(r=>[r.plate,r])).values()];}
 // 진행 중: 기록은 있지만 아직 탁송완료가 아니고, 탁송 중이거나 배정완료인 차량 (취소·기타 상태는 제외)
 const inProgress=r=>r.status==='incomplete'&&(r.rawState==='탁송 중'||r.rawState==='배정완료');
-const statusLabel=r=>inProgress(r)?'진행 중':statuses[r.status];
-function includes(r,f){return f==='all'||(f==='confirmed'&&r.status==='confirmed')||(f==='missing'&&r.status==='missing')||(f==='progress'&&inProgress(r))||(f==='jeju'&&r.jeju)||(f==='carrier'&&r.carrier)||(f==='slack'&&r.cInquiry)||(f==='review'&&((r.status!=='confirmed'&&r.status!=='carrier')||r.inputDuplicate||r.carrierType==='확인 필요'||hasUnresolvedChoice(r)));}
+const slackPending='확인 중';
+const statusLabel=r=>r.slackPending?slackPending:inProgress(r)?'진행 중':statuses[r.status];
+function includes(r,f){return f==='all'||(f==='confirmed'&&r.status==='confirmed')||(f==='missing'&&r.status==='missing')||(f==='progress'&&inProgress(r))||(f==='jeju'&&r.jeju)||(f==='carrier'&&r.carrier)||(f==='slack'&&r.cInquiry&&(!r.slackReviewed||r.slackPending))||(f==='slack-replies'&&r.slackReviewed)||(f==='review'&&((r.status!=='confirmed'&&r.status!=='carrier')||r.inputDuplicate||r.carrierType==='확인 필요'||hasUnresolvedChoice(r)));}
+function slackValue(value){
+ const token=value.trim();
+ if(token.replace(/\s+/g,'')==='확인중')return {amount:null};
+ if(token.toUpperCase()==='X')return {amount:0};
+ const match=token.match(/^(?:₩\s*)?(?<number>[0-9]+|[0-9]{1,3}(?<separator>[,.])[0-9]{3}(?:\k<separator>[0-9]{3})*)\s*원?$/);
+ if(!match)return null;
+ const amount=Number(match.groups.number.replace(/[,.]/g,''));
+ return Number.isSafeInteger(amount)?{amount}:null;
+}
+function applySlackReplies(text,rows){
+ const eligible=new Map(), replies=new Map(), conflicts=new Set(), issues=[];
+ for(const row of rows){
+  if(!row.cInquiry)continue;
+  if(!eligible.has(row.plate))eligible.set(row.plate,[]);
+  eligible.get(row.plate).push(row);
+ }
+ text.split(/\r\n|\r|\n/).forEach((raw,index)=>{
+  const line=raw.trim().normalize('NFKC');
+  if(!line)return;
+  const split=line.match(/^(.+?)\s*[-–—−]\s*(.+)$/);
+  const key=split?plate(split[1]):'';
+  const value=split?slackValue(split[2]):null;
+  if(!valid(key)||!value){issues.push(`${index+1}줄: 차량번호와 값 형식을 확인해 주세요.`);return;}
+  if(!eligible.has(key)){issues.push(`${index+1}줄: ${key}은(는) 현재 슬랙봇 확인 대상이 아니에요.`);return;}
+  if(replies.has(key)&&replies.get(key)!==value.amount){
+   if(!conflicts.has(key))issues.push(`${key}: 서로 다른 값이 있어 반영하지 않았어요.`);
+   conflicts.add(key);
+  }else replies.set(key,value.amount);
+ });
+ let applied=0;
+ for(const [key,amount] of replies){
+  if(conflicts.has(key))continue;
+  for(const row of eligible.get(key)){
+   row.slackPending=amount===null;
+   row.slackReviewed=true;
+   row.amount=amount;
+   row.status=amount===null?'slack':'confirmed';
+   row.meaning='슬랙봇 확인';
+  }
+  applied++;
+ }
+ return {applied,issues};
+}
 const notes=r=>[r.inputDuplicate?'입력 중복':'',r.jeju?'제주 출발':'',r.carrier?'캐리어탁송':r.carrierType==='확인 필요'?'캐리어 여부 확인 필요':'',r.cInquiry?'렌톡 문의':'',r.scheduleConflict?'일정 중첩 · 선택 필요':'',r.feeConflict?'탁송비용 중첩 · 선택 필요':''].filter(Boolean).join(' · ');
 const headers=['탁송일정','차량번호','주유비용/충전비용(원)','탁송비용(원)','부가세(원)','비용 구분','조회 상태','입력 일시','업체','탁송 구분','출발지','메모','원본 위치'];
-const values=r=>[r.schedule,r.plate,r.amount,r.dispatchFee,r.vat,r.meaning,statusLabel(r),r.date,r.vendor,r.carrierType,r.origin,notes(r),r.sources];
+const values=r=>[r.schedule,r.plate,r.slackPending?slackPending:r.amount,r.dispatchFee,r.vat,r.meaning,statusLabel(r),r.date,r.vendor,r.carrierType,r.origin,notes(r),r.sources];
 function textExport(rows){return '\ufeff'+[headers,...unique(rows).map(values)].map(row=>row.map(v=>String(v??'').replace(/[\t\r\n]/g,' ')).join('\t')).join('\r\n');}
-globalThis.DispatchCore={statuses,inProgress,statusLabel,meaning,plate,valid,parseInput,money,round10,complete,jeju,readSheets,match,unique,includes,notes,headers,values,textExport,dispatchSchedule,scheduleDateTime,scheduleTime,useCandidate,hasUnresolvedChoice};
+globalThis.DispatchCore={statuses,inProgress,statusLabel,meaning,plate,valid,parseInput,money,round10,complete,jeju,readSheets,match,unique,includes,notes,headers,values,textExport,dispatchSchedule,scheduleDateTime,scheduleTime,useCandidate,hasUnresolvedChoice,slackPending,applySlackReplies};
 })();

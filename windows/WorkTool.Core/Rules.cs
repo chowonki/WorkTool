@@ -7,6 +7,9 @@ namespace WorkTool.Core;
 // No browser, DOM, CLR access or network. Only embedded, repository-owned rules run.
 public sealed class Rules
 {
+    public const string SlackPending = "확인 중";
+    public sealed record SlackReplyResult(int Applied, IReadOnlyList<string> Issues);
+
     private readonly Engine dispatch = Create("dispatch");
     private readonly Engine transfer = Create("transfer");
     private static Engine Create(string name)
@@ -41,16 +44,22 @@ public sealed class Rules
     public JsonObject ParseVehicles(string text) => Eval(dispatch, $"DispatchCore.parseInput({Json(text)})").AsObject();
     public JsonObject ReadSheets(JsonArray sheets, string name) => Eval(dispatch, $"DispatchCore.readSheets({sheets.ToJsonString()},{Json(name)})").AsObject();
     public JsonArray Match(JsonArray vehicles, JsonArray files) => Eval(dispatch, $"DispatchCore.match({vehicles.ToJsonString()},{files.ToJsonString()})").AsArray();
-    public JsonArray Filter(JsonArray results, string filter) => filter switch
+    public JsonArray Filter(JsonArray results, string filter)
+        => Eval(dispatch, $"{results.ToJsonString()}.filter(r=>DispatchCore.includes(r,{Json(filter)}))").AsArray();
+    public string Status(JsonNode row) => Eval(dispatch, $"DispatchCore.statusLabel({row.ToJsonString()})").GetValue<string>();
+    public SlackReplyResult ApplySlackReplies(string text, JsonArray rows)
     {
-        "slack-replies" => new JsonArray(results.Where(row => row?.Flag("slackReviewed") == true)
-            .Select(row => row!.DeepClone()).ToArray()),
-        "slack" => Eval(dispatch, $"{results.ToJsonString()}.filter(r=>r.cInquiry && (!r.slackReviewed || r.slackPending))").AsArray(),
-        _ => Eval(dispatch, $"{results.ToJsonString()}.filter(r=>DispatchCore.includes(r,{Json(filter)}))").AsArray()
-    };
-    public string Status(JsonNode row) => row.Flag("slackPending")
-        ? SlackDispatch.Pending
-        : Eval(dispatch, $"DispatchCore.statusLabel({row.ToJsonString()})").GetValue<string>();
+        var result = Eval(dispatch, $$"""
+            ((rows)=>({rows,...DispatchCore.applySlackReplies({{Json(text)}},rows)}))({{rows.ToJsonString()}})
+            """);
+        var applied = result["applied"]!.GetValue<int>();
+        if (applied > 0)
+        {
+            rows.Clear();
+            foreach (var row in result["rows"]!.AsArray()) rows.Add(row!.DeepClone());
+        }
+        return new SlackReplyResult(applied, result["issues"]!.AsArray().Select(issue => issue!.GetValue<string>()).ToArray());
+    }
     public string Notes(JsonNode row) => Eval(dispatch, $"DispatchCore.notes({row.ToJsonString()})").GetValue<string>();
     public JsonObject Choose(JsonNode row, string field, string id)
     {
@@ -58,16 +67,9 @@ public sealed class Rules
         return Eval(dispatch, "chosen").AsObject();
     }
     public JsonArray ExportRows(JsonArray results)
-        => Eval(dispatch, $$"""
-            [DispatchCore.headers,...DispatchCore.unique({{results.ToJsonString()}}).map(r=>{
-                const values=DispatchCore.values(r);
-                if(r.slackPending){values[2]=values[6]={{Json(SlackDispatch.Pending)}};}
-                return values;
-            })]
-            """).AsArray();
+        => Eval(dispatch, $"[DispatchCore.headers,...DispatchCore.unique({results.ToJsonString()}).map(DispatchCore.values)]").AsArray();
     public string ExportText(JsonArray results)
-        => "\uFEFF" + string.Join("\r\n", ExportRows(results).Select(row => string.Join("\t",
-            row!.AsArray().Select(cell => (cell?.ToString() ?? "").Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ')))));
+        => Eval(dispatch, $"DispatchCore.textExport({results.ToJsonString()})").GetValue<string>();
 }
 
 public static class NodeText

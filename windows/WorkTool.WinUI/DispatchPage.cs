@@ -367,7 +367,7 @@ public sealed partial class MainWindow
             plateCell.Children.Add(workStatus);
             var schedule = row.Text("schedule");
             var entry = Columns(dispatchColumns, plateCell, CopyCell("탁송일정", schedule, schedule, onCopy: MarkCopied),
-                CopyCell("주유·충전비", row!.Flag("slackPending") ? SlackDispatch.Pending : row.Text("amount"), Money(row, "amount"), right: true, onCopy: MarkCopied),
+                CopyCell("주유·충전비", row!.Flag("slackPending") ? Rules.SlackPending : row.Text("amount"), Money(row, "amount"), right: true, onCopy: MarkCopied),
                 CopyCell("탁송비", row.Text("dispatchFee"), Money(row, "dispatchFee"), right: true, onCopy: MarkCopied),
                 CopyCell("부가세", row.Text("vat"), Money(row, "vat"), right: true, onCopy: MarkCopied),
                 status, Text(row.Text("vendor")), done, details);
@@ -407,7 +407,7 @@ public sealed partial class MainWindow
         $"전체 {results.Count:N0}대 · 표시 {visibleCount:N0}대 · 선택 {selected.Count:N0}대 · 주유·충전비 {visibleAmount:N0}원 · {dispatchPage + 1}/{Math.Max(1, (visibleCount + 99) / 100)}페이지";
     private static string Money(JsonNode? row, string field)
     {
-        if (field == "amount" && row?.Flag("slackPending") == true) return SlackDispatch.Pending;
+        if (field == "amount" && row?.Flag("slackPending") == true) return Rules.SlackPending;
         return decimal.TryParse(row.Text(field), NumberStyles.Any, CultureInfo.InvariantCulture, out var number) ? $"{number:N0}원" : "—";
     }
     private static TextBlock Amount(JsonNode? row, string field)

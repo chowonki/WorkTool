@@ -46,7 +46,7 @@ public sealed partial class MainWindow
         slackDispatchList.ItemsSource = eligible.Select(row =>
         {
             var value = !row.Flag("slackReviewed") ? "미입력" : row.Flag("slackPending")
-                ? SlackDispatch.Pending : row.Text("amount") + "원";
+                ? Rules.SlackPending : row.Text("amount") + "원";
             return $"{row.Text("plate")}   ·   {value}";
         }).ToArray();
     }
@@ -59,7 +59,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        var result = SlackDispatch.Apply(slackReplies.Text, results);
+        var result = rules.ApplySlackReplies(slackReplies.Text, results);
         var report = new List<string> { $"{result.Applied:N0}대 반영 · 확인 필요 {result.Issues.Count:N0}건" };
         report.AddRange(result.Issues.Take(8));
         if (result.Issues.Count > 8) report.Add($"외 {result.Issues.Count - 8:N0}건");

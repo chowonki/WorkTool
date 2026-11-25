@@ -53,14 +53,14 @@ var slackRows = new JsonArray(
     new JsonObject { ["plate"] = "77다1234", ["cInquiry"] = true, ["status"] = "slack" },
     new JsonObject { ["plate"] = "25마7579", ["cInquiry"] = true, ["status"] = "slack" },
     new JsonObject { ["plate"] = "12서7567", ["status"] = "confirmed", ["amount"] = 5000 });
-var slackResult = SlackDispatch.Apply("08구8701 - X\r\n77다1234 - 1.234.567원\r25마7579 - 확인 중\n12서7567 - 9000", slackRows);
+var slackResult = rules.ApplySlackReplies("08구8701 - X\r\n77다1234 - 1.234.567원\r25마7579 - 확인 중\n12서7567 - 9000", slackRows);
 Assert(slackResult.Applied == 3 && slackResult.Issues.Count == 1 && slackRows[0].Text("amount") == "0"
     && slackRows[1].Text("amount") == "1234567" && slackRows[3].Text("amount") == "5000",
     "Slack replies accept X and grouped integers while protecting non-target rows");
 Assert(rules.Status(slackRows[2]!) == "확인 중" && rules.Filter(slackRows, "slack").Count == 1
     && rules.ExportRows(slackRows)[3]![2]!.ToString() == "확인 중"
     && rules.ExportText(slackRows).Contains("25마7579\t확인 중"), "Pending remains text in review, Excel and TXT");
-var invalidSlack = SlackDispatch.Apply("08구8701 - 1,500\n08구8701 - 2,000\n77다1234 - 35,00원", slackRows);
+var invalidSlack = rules.ApplySlackReplies("08구8701 - 1,500\n08구8701 - 2,000\n77다1234 - 35,00원", slackRows);
 Assert(invalidSlack.Applied == 0 && invalidSlack.Issues.Count == 2 && slackRows[0].Text("amount") == "0"
     && slackRows[1].Text("amount") == "1234567", "Conflicting replies and malformed separators are not applied");
 var dir = Path.Combine(Path.GetTempPath(), "WorkTool-tests-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(dir);

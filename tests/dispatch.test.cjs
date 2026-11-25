@@ -11,6 +11,27 @@ function load(){const ctx=vm.createContext({});vm.runInContext(core,ctx);return 
 const C=load();
 const plain=v=>JSON.parse(JSON.stringify(v));
 
+test('슬랙봇 회신을 차량별로 반영하고 확인 중을 표와 저장에 유지해요',()=>{
+ const rows=[
+  {plate:'08구8701',status:'slack',cInquiry:true},
+  {plate:'77다1234',status:'slack',cInquiry:true},
+  {plate:'25마7579',status:'slack',cInquiry:true},
+  {plate:'12서7567',status:'confirmed',amount:5000}
+ ];
+ const actual=C.applySlackReplies('08구8701 - X\r\n77다1234 - 12.350원\r25마7579 - 확인 중\n12서7567 - 9000',rows);
+ assert.equal(actual.applied,3);
+ assert.equal(actual.issues.length,1);
+ assert.deepEqual(rows.map(row=>row.amount),[0,12350,null,5000]);
+ assert.equal(C.statusLabel(rows[2]),'확인 중');
+ assert.equal(C.values(rows[2])[2],'확인 중');
+ assert.match(C.textExport(rows),/25마7579\t확인 중/);
+ assert.deepEqual(rows.filter(row=>C.includes(row,'slack')).map(row=>row.plate),['25마7579']);
+ const rejects=C.applySlackReplies('08구8701 - 1,500\n08구8701 - 2,000\n77다1234 - 35,00',rows);
+ assert.equal(rejects.applied,0);
+ assert.equal(rejects.issues.length,2);
+ assert.deepEqual(rows.map(row=>row.amount),[0,12350,null,5000]);
+});
+
 // 업체 시트 만들기: 업체별 고정 열(A: K일자·L시간·AP비용, B: C일자·U비용, C: D일자·J캐리어·S비용)
 const HEAD={
  A:{0:'차량번호',1:'상태',2:'주유/부대비용 총액',3:'출발지 주소'},
