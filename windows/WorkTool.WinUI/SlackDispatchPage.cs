@@ -11,7 +11,10 @@ public sealed partial class MainWindow
     private TextBox slackReplies = null!;
     private TextBlock slackDispatchSummary = null!, slackReplyReport = null!;
     private ListView slackDispatchList = null!;
-    private Button showSlackResults = null!;
+    private Button showSlackResults = null!, previousSlackPage = null!, nextSlackPage = null!;
+    private TextBlock slackPageLabel = null!;
+    private int slackPage;
+    private const int SlackPageSize = 10;
 
     private FrameworkElement CreateSlackDispatchStage()
     {
@@ -22,15 +25,21 @@ public sealed partial class MainWindow
         slackReplyReport = Text("");
         slackReplyReport.Visibility = Visibility.Collapsed;
         slackDispatchSummary = Text("");
-        slackDispatchList = new ListView { SelectionMode = ListViewSelectionMode.None, IsItemClickEnabled = false, MaxHeight = 420 };
+        slackDispatchList = new ListView { SelectionMode = ListViewSelectionMode.None, IsItemClickEnabled = false };
+        ScrollViewer.SetVerticalScrollBarVisibility(slackDispatchList, ScrollBarVisibility.Disabled);
+        ScrollViewer.SetVerticalScrollMode(slackDispatchList, ScrollMode.Disabled);
+        previousSlackPage = Button("이전", () => ChangeSlackPage(-1));
+        nextSlackPage = Button("다음", () => ChangeSlackPage(1));
+        slackPageLabel = Text("");
         showSlackResults = Button("반영된 차량 표에서 보기", ShowSlackResults);
         var entry = Card(Stack(Text("슬랙봇 회신 붙여넣기", 21),
-            Text("한 줄에 차량번호 - 값 형식으로 입력해 주세요. X는 0원, 확인 중은 그대로 반영돼요."),
+            Text("한 줄에 차량번호 - 값 형식으로 입력해 주세요. 금액은 10원 단위로 반올림하고, X는 0원, 확인 중은 그대로 반영돼요."),
             slackReplies, WrapActions(Button("확인 내용 반영", ApplySlackReplies, true), showSlackResults,
                 Button("다음: 복사·저장", () => ShowDispatchStage(DispatchStage.Save))),
             slackReplyReport));
         var list = Card(Stack(Text("확인 대상", 21), slackDispatchSummary,
-            Button("미확인 차량번호 복사", CopyOutstandingSlackNumbers), slackDispatchList));
+            Button("미확인 차량번호 복사", CopyOutstandingSlackNumbers), slackDispatchList,
+            WrapActions(previousSlackPage, slackPageLabel, nextSlackPage)));
         return VerticalScroll(SplitLayout(entry, list, 820));
     }
 
@@ -43,12 +52,23 @@ public sealed partial class MainWindow
         slackDispatchSummary.Text = eligible.Length == 0
             ? "이번 조회에는 슬랙봇 확인 대상이 없어요."
             : $"대상 {eligible.Length:N0}대 · 금액 확인 {eligible.Length - unanswered - pending:N0}대 · 확인 중 {pending:N0}대 · 미입력 {unanswered:N0}대";
-        slackDispatchList.ItemsSource = eligible.Select(row =>
+        var pages = Math.Max(1, (eligible.Length + SlackPageSize - 1) / SlackPageSize);
+        slackPage = Math.Clamp(slackPage, 0, pages - 1);
+        previousSlackPage.IsEnabled = slackPage > 0;
+        nextSlackPage.IsEnabled = slackPage + 1 < pages;
+        slackPageLabel.Text = $"{slackPage + 1}/{pages}페이지";
+        slackDispatchList.ItemsSource = eligible.Skip(slackPage * SlackPageSize).Take(SlackPageSize).Select(row =>
         {
             var value = !row.Flag("slackReviewed") ? "미입력" : row.Flag("slackPending")
                 ? Rules.SlackPending : row.Text("amount") + "원";
             return $"{row.Text("plate")}   ·   {value}";
         }).ToArray();
+    }
+
+    private void ChangeSlackPage(int offset)
+    {
+        slackPage += offset;
+        RefreshSlackDispatchList();
     }
 
     private void ApplySlackReplies()

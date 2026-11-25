@@ -30,6 +30,9 @@ public sealed class Rules
         transfer.Execute($"rows={rows.ToJsonString()};");
         return Eval(transfer, $"fileName({Json(stamp)})").GetValue<string>();
     }
+    // 오늘 받은 이체 지문(은행·계좌·금액을 섞은 값). 계좌번호 원문은 남기지 않아요.
+    public string[] SentKeys(JsonArray rows) => Eval(transfer, $"{rows.ToJsonString()}.map(sentKey)").AsArray().Select(x => x!.GetValue<string>()).ToArray();
+    public JsonArray SentMatches(JsonArray rows, JsonArray sent) => Eval(transfer, $"sentMatches({rows.ToJsonString()},{sent.ToJsonString()})").AsArray();
     public JsonArray Split(JsonArray rows) => Eval(transfer, $"splitAll({rows.ToJsonString()})").AsArray();
     public JsonArray Check(JsonArray rows)
     {

@@ -263,6 +263,7 @@ public sealed partial class MainWindow
         saving = true;
         try
         {
+            if (smokeDirectory is null && savedSignature != signature && !await ConfirmSentAgain()) return;
             var sourceSignature = ThreadSignature;
             var values = Spreadsheets.TransferRows(transfers);
             var fileName = rules.TransferFileName(transfers, DateTime.Now.ToString("yyyyMMdd_HHmm"));
@@ -276,10 +277,43 @@ public sealed partial class MainWindow
             await Task.Run(() => Spreadsheets.Write(file.Path, values, "다계좌이체"));
             savedSignature = signature;
             savedThread = sourceSignature;
+            if (smokeDirectory is null) RememberSent(DateTime.Now.ToString("HH:mm"));
             Notify("이체파일을 저장했어요. 은행 업로드 전에 계좌와 금액을 확인해 주세요.");
         }
         finally { saving = false; ValidateTransfers(); }
     }
+    private const string SentTodayFile = "transfer-sent-today.json";
+
+    // 오늘 이미 받은 이체파일과 같은 은행·계좌·금액이 있으면 한 번 더 물어봐요 (앱을 다시 연 뒤 두 번 송금 방지).
+    private async Task<bool> ConfirmSentAgain()
+    {
+        var sent = LocalState.ReadToday(SentTodayFile)["items"] as JsonArray ?? new JsonArray();
+        var matches = rules.SentMatches(transfers, sent);
+        if (matches.Count == 0) return true;
+        var lines = matches.Take(10).Select(m =>
+        {
+            var row = transfers[m!["row"]!.GetValue<int>()]!;
+            return $"{row.Text("bank")} {row.Text("account")} {decimal.Parse(row.Text("amount")):N0}원 · {m.Text("at")}에 받음";
+        }).ToList();
+        if (matches.Count > 10) lines.Add($"외 {matches.Count - 10}건");
+        var dialog = Dialog("오늘 이미 받은 이체 건이 있어요",
+            Stack(Text($"같은 은행·계좌·금액 {matches.Count}건이 오늘 받은 이체파일에 이미 들어 있어요. 두 번 송금하지 않도록 확인해 주세요."),
+                Text(string.Join(Environment.NewLine, lines), 13)), "그래도 저장");
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+    }
+
+    private void RememberSent(string at)
+    {
+        var saved = LocalState.ReadToday(SentTodayFile);
+        var items = saved["items"] as JsonArray ?? new JsonArray();
+        var have = new HashSet<string>(items.Select(x => x.Text("key")));
+        foreach (var key in rules.SentKeys(transfers))
+            if (have.Add(key)) items.Add(new JsonObject { ["key"] = key, ["at"] = at });
+        while (items.Count > 2000) items.RemoveAt(0);
+        saved["items"] = items.DeepClone();
+        LocalState.WriteToday(SentTodayFile, saved);
+    }
+
     private async Task ResetTransfers()
     {
         if (await Dialog("전체 초기화", Text("붙여넣은 스레드와 이체 내역을 모두 지울까요?"), "모두 지우기").ShowAsync() != ContentDialogResult.Primary) return;

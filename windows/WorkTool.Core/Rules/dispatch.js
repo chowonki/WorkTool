@@ -82,9 +82,25 @@ function dispatchSchedule(vendor,row){
  }
  return scheduleDateTime(vendor==='B'?row[2]:row[3]);
 }
+// 업체 양식 점검: 열 위치로 읽는 값(탁송일정·탁송비용·캐리어 구분)이 절반 넘게 예상과 다르면
+// 업체가 열을 끼워 넣거나 옮겼을 수 있어서 경고해요. 값은 그대로 읽고, 경고만 붙여요.
+const FIXED_COLUMNS={A:{schedule:'K·L',fee:'AP'},B:{schedule:'C',fee:'U'},C:{schedule:'D',fee:'S',carrier:'J'}};
+const FIXED_LABELS={schedule:'탁송일정',fee:'탁송비용',carrier:'캐리어 구분'};
+function layoutWarnings(sheetName,vendor,list){
+ const stat={schedule:[0,0],fee:[0,0],carrier:[0,0]};
+ for(const r of list){
+  const s=String(r.dispatchSchedule??'').trim();
+  if(s){stat.schedule[0]++;if(!/^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?$|^\d{2}:\d{2}$/.test(s))stat.schedule[1]++;}
+  if(String(r.dispatchFeeRaw??'').trim()!==''){stat.fee[0]++;if(r.dispatchFee===null||r.dispatchFee<0)stat.fee[1]++;}
+  if(vendor==='C'&&r.carrierFlag){stat.carrier[0]++;if(r.carrierFlag!=='Y'&&r.carrierFlag!=='N')stat.carrier[1]++;}
+ }
+ const cols=FIXED_COLUMNS[vendor]||{};
+ return Object.keys(stat).flatMap(k=>{const [n,bad]=stat[k];
+  return cols[k]&&bad>0&&bad*2>n?[`${sheetName} 시트: ${FIXED_LABELS[k]}(${cols[k]}열) ${n}건 중 ${bad}건이 예상한 형식이 아니에요. 업체 양식이 바뀌었는지 확인해 주세요.`]:[];});
+}
 function readSheets(sheets,name){
- const records=[],recognized=[];let ignored=0;
- for(const sheet of sheets){let header=null,vendor,hi;
+ const records=[],recognized=[],warnings=[];let ignored=0;
+ for(const sheet of sheets){let header=null,vendor,hi;const first=records.length;
   for(let i=0;i<Math.min(30,sheet.rows.length);i++){
    const h=new Map();sheet.rows[i].forEach((v,j)=>{if(!h.has(clean(v)))h.set(clean(v),j);});
    if(h.has('출발지 차량번호')&&h.has('운행상태')&&h.has('출발지 주소(현재차량 상세위치)'))vendor='C';
@@ -99,9 +115,10 @@ function readSheets(sheets,name){
    const rawCost=vendor==='C'?'':get(vendor==='A'?'주유/부대비용 총액':'주유비');
    records.push({plate:p,vendor,state:get(vendor==='C'?'운행상태':'상태'),cost:vendor==='C'?null:(vendor==='A'&&String(rawCost??'').trim()===''?0:money(rawCost)),rawCost,dispatchSchedule:dispatchSchedule(vendor,row),dispatchFeeRaw:row[vendor==='A'?41:vendor==='B'?20:18]??'',dispatchFee:money(row[vendor==='A'?41:vendor==='B'?20:18]),carrierFlag:vendor==='C'?String(row[9]??'').trim().toUpperCase():'',origin:get(vendor==='C'?'출발지 주소(현재차량 상세위치)':vendor==='A'?'출발지 주소':'출발지'),dispatchDate:dateText(vendor==='A'?row[10]:vendor==='B'?row[2]:row[3]),file:name,sheet:sheet.name,row:(sheet.startRow??1)+i});
   }
+  warnings.push(...layoutWarnings(sheet.name,vendor,records.slice(first)));
  }
  if(!recognized.length)throw Error('지원하는 A·B·C 양식을 찾지 못했어요. 원래 제목 행이 있는 .xlsx 파일을 첨부해 주세요.');
- return {name,records,sheets:recognized,ignored};
+ return {name,records,sheets:recognized,ignored,warnings};
 }
 // 업체 A·B·C 구분 없이 동일 차량번호의 전체 기록에서 탁송일자가 가장 최신인 한 건만 적용해요.
 // 날짜가 같으면 나중에 불러온 파일/아래쪽 행을 우선하고, 날짜가 없는 건은 후순위예요.
@@ -188,7 +205,7 @@ function slackValue(value){
  const match=token.match(/^(?:₩\s*)?(?<number>[0-9]+|[0-9]{1,3}(?<separator>[,.])[0-9]{3}(?:\k<separator>[0-9]{3})*)\s*원?$/);
  if(!match)return null;
  const amount=Number(match.groups.number.replace(/[,.]/g,''));
- return Number.isSafeInteger(amount)?{amount}:null;
+ return Number.isSafeInteger(amount)?{amount:round10(amount)}:null;
 }
 function applySlackReplies(text,rows){
  const eligible=new Map(), replies=new Map(), conflicts=new Set(), issues=[];

@@ -22,8 +22,26 @@ public sealed partial class MainWindow
          ("vat", "부가세"), ("status", "조회 상태"), ("vendor", "업체"), ("origin", "출발지"), ("notes", "메모"),
          ("meaning", "비용 구분"), ("carrierType", "탁송 구분")];
 
-    private static string DispatchWidthsFile => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "WorkTool", "dispatch-columns.json");
+    private static string DispatchWidthsFile => LocalState.DataFile("dispatch-columns.json");
+    private const string WorkMarksFile = "dispatch-work-marks.json";
+
+    // 복사함·완료 표시는 오늘 날짜로만 이 기기에 남겨요. 앱을 다시 열고 같은 목록을 조회해도 이어서 볼 수 있어요.
+    private void LoadWorkMarks()
+    {
+        var saved = LocalState.ReadToday(WorkMarksFile);
+        copiedDispatch.UnionWith(LocalState.Strings(saved["copied"]));
+        completed.UnionWith(LocalState.Strings(saved["done"]));
+    }
+
+    private void SaveWorkMarks()
+    {
+        if (copiedDispatch.Count == 0 && completed.Count == 0) { LocalState.Delete(WorkMarksFile); return; }
+        LocalState.WriteToday(WorkMarksFile, new JsonObject
+        {
+            ["copied"] = new JsonArray(copiedDispatch.Select(x => (JsonNode?)x).ToArray()),
+            ["done"] = new JsonArray(completed.Select(x => (JsonNode?)x).ToArray())
+        });
+    }
 
     private void LoadDispatchWidths()
     {
@@ -100,7 +118,13 @@ public sealed partial class MainWindow
             });
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(remove, file.Text("name") + " 제거");
             var count = file!["records"]!.AsArray().Count;
-            dispatchFiles.Children.Add(Columns([0, 65], Text($"{file.Text("name")} ({count:N0}건)"), remove));
+            var warnings = LocalState.Strings(file["warnings"]).ToArray();
+            var label = Text($"{file.Text("name")} ({count:N0}건)");
+            if (warnings.Length == 0) { dispatchFiles.Children.Add(Columns([0, 65], label, remove)); continue; }
+            var warning = Text($"⚠ 양식 확인 필요 · {warnings.Length}건", 12);
+            warning.Foreground = ThemeBrush("SystemFillColorCautionBrush");
+            ToolTipService.SetToolTip(warning, string.Join(Environment.NewLine, warnings));
+            dispatchFiles.Children.Add(Columns([0, 65], Stack(label, warning), remove));
         }
     }
 
@@ -109,8 +133,6 @@ public sealed partial class MainWindow
         if (results.Count == 0) return;
         results.Clear();
         selected.Clear();
-        completed.Clear();
-        copiedDispatch.Clear();
         ClearSlackReplies();
         RenderDispatch();
         ShowDispatchStage(DispatchStage.Input);
@@ -122,6 +144,9 @@ public sealed partial class MainWindow
         if ((files.Count > 0 || vehicles.Text.Length > 0) &&
             await Dialog("탁송체크 전체 초기화", Text("차량목록과 첨부 파일을 모두 비울까요?"), "초기화").ShowAsync() != ContentDialogResult.Primary) return;
         files.Clear();
+        completed.Clear();
+        copiedDispatch.Clear();
+        SaveWorkMarks();
         vehicles.Text = "";
         search.Text = "";
         dispatchVendor = dispatchState = dispatchSort = "";
@@ -146,6 +171,7 @@ public sealed partial class MainWindow
         void MarkCopied()
         {
             copiedDispatch.UnionWith(rows.Select(row => row.Text("plate")));
+            SaveWorkMarks();
             RenderDispatch();
         }
         if ((filter.SelectedItem as ComboBoxItem)?.Tag?.ToString() != "slack")

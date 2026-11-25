@@ -32,6 +32,19 @@ var resplit = rules.Split(editedSplit);
 Assert(resplit.Count == 3 && resplit.All(item => item.Text("splitGroup") == records[0].Text("splitGroup")),
     "Splitting an existing installment preserves its group");
 Assert(rules.Comments(records).Contains("송금완료"), "comment generation executes without DOM");
+var sentKeys = rules.SentKeys(records);
+Assert(sentKeys.Length == 2 && sentKeys.All(k => k.Length == 16 && !k.Contains("123456789012")), "sent fingerprints hide account numbers");
+var sentToday = new JsonArray(new JsonObject { ["key"] = sentKeys[1], ["at"] = "09:30" });
+var sentHits = rules.SentMatches(records, sentToday);
+Assert(sentHits.Count == 1 && sentHits[0]!["row"]!.GetValue<int>() == 1 && sentHits[0].Text("at") == "09:30", "same bank, account and amount sent today is found again");
+{
+    var shiftedHead = new JsonArray(); var shiftedRow = new JsonArray();
+    for (var i = 0; i < 45; i++) { shiftedHead.Add(""); shiftedRow.Add(""); }
+    shiftedHead[0] = "출발지 차량번호"; shiftedHead[1] = "운행상태"; shiftedHead[2] = "출발지 주소(현재차량 상세위치)";
+    shiftedRow[0] = "12가3456"; shiftedRow[1] = "운행완료"; shiftedRow[3] = "서울시 강남구"; shiftedRow[9] = "2026-11-20"; shiftedRow[18] = "홍길동";
+    var shifted = rules.ReadSheets(new JsonArray(new JsonObject { ["name"] = "탁송기한", ["rows"] = new JsonArray(shiftedHead, shiftedRow) }), "렌톡.xlsx");
+    Assert(shifted["warnings"]!.AsArray().Count == 3 && shifted["records"]!.AsArray().Count == 1, "shifted vendor columns warn without dropping records");
+}
 var vehicles = rules.ParseVehicles("2026-11-25 10:00 123가4567\n45나6789\n2026-02-30 10:00 12가3456");
 Assert(vehicles["vehicles"]!.AsArray().Count == 2 && vehicles["invalid"]!.AsArray().Count == 1, "invalid calendar date rejected");
 var head = new JsonArray(); var body = new JsonArray();
@@ -55,14 +68,14 @@ var slackRows = new JsonArray(
     new JsonObject { ["plate"] = "12서7567", ["status"] = "confirmed", ["amount"] = 5000 });
 var slackResult = rules.ApplySlackReplies("08구8701 - X\r\n77다1234 - 1.234.567원\r25마7579 - 확인 중\n12서7567 - 9000", slackRows);
 Assert(slackResult.Applied == 3 && slackResult.Issues.Count == 1 && slackRows[0].Text("amount") == "0"
-    && slackRows[1].Text("amount") == "1234567" && slackRows[3].Text("amount") == "5000",
-    "Slack replies accept X and grouped integers while protecting non-target rows");
+    && slackRows[1].Text("amount") == "1234570" && slackRows[3].Text("amount") == "5000",
+    "Slack replies accept X and grouped integers, round to 10 won, and protect non-target rows");
 Assert(rules.Status(slackRows[2]!) == "확인 중" && rules.Filter(slackRows, "slack").Count == 1
     && rules.ExportRows(slackRows)[3]![2]!.ToString() == "확인 중"
     && rules.ExportText(slackRows).Contains("25마7579\t확인 중"), "Pending remains text in review, Excel and TXT");
 var invalidSlack = rules.ApplySlackReplies("08구8701 - 1,500\n08구8701 - 2,000\n77다1234 - 35,00원", slackRows);
 Assert(invalidSlack.Applied == 0 && invalidSlack.Issues.Count == 2 && slackRows[0].Text("amount") == "0"
-    && slackRows[1].Text("amount") == "1234567", "Conflicting replies and malformed separators are not applied");
+    && slackRows[1].Text("amount") == "1234570", "Conflicting replies and malformed separators are not applied");
 var dir = Path.Combine(Path.GetTempPath(), "WorkTool-tests-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(dir);
 try
 {
