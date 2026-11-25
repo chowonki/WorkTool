@@ -5,6 +5,7 @@
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <RootNamespace>WorkTool.WinUI</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\WorkTool.ico</ApplicationIcon>
     <Platforms>x64</Platforms>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <UseWinUI>true</UseWinUI>
@@ -20,6 +21,7 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2957" />
     <ProjectReference Include="../WorkTool.Core/WorkTool.Core.csproj" />
     <Content Include="Assets/Fonts/*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Assets/WorkTool.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Licenses/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="CopyNativeXamlResources" AfterTargets="Publish">
