@@ -30,11 +30,16 @@ try {
     & (Join-Path $vsPath 'Common7/Tools/Launch-VsDevShell.ps1') -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
     $launcherPath = Join-Path $packageRoot 'WorkTool.exe'
     $launcherObject = Join-Path $packageRoot 'WorkToolLauncher.obj'
-    & cl.exe /nologo /utf-8 /O2 /MT "/Fo$launcherObject" "/Fe$launcherPath" "$PSScriptRoot/WorkToolLauncher.c" /link /SUBSYSTEM:WINDOWS user32.lib
+    $launcherResource = Join-Path $packageRoot 'WorkToolLauncher.res'
+    & rc.exe /nologo "/fo$launcherResource" "$PSScriptRoot/WorkToolLauncher.rc"
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Portable launcher icon resource build failed.'
+    }
+    & cl.exe /nologo /utf-8 /O2 /MT "/Fo$launcherObject" "/Fe$launcherPath" "$PSScriptRoot/WorkToolLauncher.c" /link /SUBSYSTEM:WINDOWS user32.lib $launcherResource
     if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath $launcherPath -PathType Leaf)) {
         throw 'Portable launcher build failed.'
     }
-    Remove-Item -LiteralPath $launcherObject
+    Remove-Item -LiteralPath $launcherObject, $launcherResource
 
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($zipPath)) | Out-Null

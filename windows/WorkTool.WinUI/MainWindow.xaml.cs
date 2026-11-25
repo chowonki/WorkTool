@@ -32,6 +32,9 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(Header); // System caption buttons retain Snap Layouts, accessibility and DPI handling.
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1440, 960));
+        // 작업 표시줄·Alt+Tab 아이콘. 실행 파일에 들어간 아이콘과 같은 파일이에요.
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "WorkTool.ico");
+        if (File.Exists(iconPath)) AppWindow.SetIcon(iconPath);
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
         AppWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
         AppWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
