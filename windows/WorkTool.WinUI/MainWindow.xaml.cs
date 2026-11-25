@@ -170,17 +170,21 @@ public sealed partial class MainWindow : Window
         ExportItem("PDF 저장", () => CaptureDispatch(false, true));
         previousResults = Button("이전", () => ChangeDispatchPage(-1));
         nextResults = Button("다음", () => ChangeDispatchPage(1));
-        var vehicleInput = Stack(vehicles, Columns([0, 90], vehicleCount, Button("목록 정리", CleanVehicles)));
+        var vehicleActions = Columns([0, 90], vehicleCount, Button("목록 정리", CleanVehicles));
+        vehicleActions.Padding = new Thickness(0);
+        var vehicleInput = Stack(vehicles, vehicleActions);
         vehicleInput.Spacing = 5;
         dispatchFiles = new StackPanel();
         var fileList = new ScrollViewer { Content = dispatchFiles, MaxHeight = 112, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         var filePanel = Stack(Text("업체 파일", 14), fileSummary, fileList,
-            Horizontal(Bar(AsyncButton("Excel 첨부", ImportFiles), Button("첨부 초기화", () =>
+            WrapActions(AsyncButton("Excel 첨부", ImportFiles), Button("첨부 초기화", () =>
             {
                 if (importingDispatch) return;
                 files.Clear(); RenderDispatchFiles(); InvalidateDispatch();
-            }), Button("조회하기", QueryDispatch, true))));
-        var dropArea = new Border { Child = filePanel, Background = ThemeBrush("LayerFillColorDefaultBrush"), Padding = new Thickness(8), AllowDrop = true };
+            }), Button("조회하기", QueryDispatch, true)));
+        filePanel.Spacing = 8;
+        var dropArea = new Border { Child = filePanel, Background = ThemeBrush("LayerFillColorDefaultBrush"),
+            Padding = new Thickness(12, 0, 12, 8), CornerRadius = new CornerRadius(6), AllowDrop = true };
         dropArea.DragOver += (_, args) =>
         {
             if (!importingDispatch && args.DataView.Contains(StandardDataFormats.StorageItems)) args.AcceptedOperation = DataPackageOperation.Copy;
@@ -199,7 +203,7 @@ public sealed partial class MainWindow : Window
         RenderDispatchFiles();
         var inputs = SplitLayout(vehicleInput, dropArea, 820);
         var inputPanel = new Expander { Header = "조회 자료", Content = inputs, IsExpanded = true, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
-        var actions = Horizontal(Bar(
+        var actions = WrapActions(
             Button("번호 복사", CopyDispatchNumbers),
             Button("표시 차량 선택", () =>
             {
@@ -208,10 +212,10 @@ public sealed partial class MainWindow : Window
             }),
             Button("선택 해제", () => { selected.Clear(); RenderDispatch(); }),
             AsyncButton("캡처 복사", () => CaptureDispatch(true)),
-            new DropDownButton { Content = "파일 저장", Flyout = export }));
-        var top = Stack(Bar(TitleText("탁송체크"), AsyncButton("전체 초기화", ResetDispatch)), inputPanel,
-            Horizontal(Bar(filter, search, scope, AsyncButton("필터·정렬", EditDispatchFilters),
-                AsyncButton("열 너비", EditDispatchWidths))), actions);
+            new DropDownButton { Content = "파일 저장", Flyout = export });
+        var top = Stack(PageHeading("탁송체크", AsyncButton("전체 초기화", ResetDispatch)), inputPanel,
+            WrapActions(filter, search, scope, AsyncButton("필터·정렬", EditDispatchFilters),
+                AsyncButton("열 너비", EditDispatchWidths)), actions);
         top.Spacing = 9;
         grid.Children.Add(top);
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -226,7 +230,10 @@ public sealed partial class MainWindow : Window
         var list = Horizontal(dispatchTable);
         Grid.SetRow(list, 1);
         grid.Children.Add(list);
-        var footer = SplitLayout(dispatchSummary, Bar(previousResults, nextResults), 820);
+        dispatchSummary.VerticalAlignment = VerticalAlignment.Center;
+        var pagination = Bar(previousResults, nextResults);
+        pagination.HorizontalAlignment = HorizontalAlignment.Right;
+        var footer = SplitLayout(dispatchSummary, pagination, 720);
         Grid.SetRow(footer, 2);
         grid.Children.Add(footer);
         RenderDispatch();
@@ -347,7 +354,8 @@ public sealed partial class MainWindow : Window
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(check, plate + " 행 선택");
             check.Checked += (_, _) => { selected.Add(id); UpdateDispatchSummary(); };
             check.Unchecked += (_, _) => { selected.Remove(id); UpdateDispatchSummary(); };
-            var done = new CheckBox { IsChecked = completed.Contains(id), MinWidth = 0, Padding = new Thickness(0) };
+            var done = new CheckBox { IsChecked = completed.Contains(id), MinWidth = 0, Padding = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Center };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(done, row.Text("plate") + " 완료");
             var workStatus = Text("", 11);
             workStatus.MinHeight = 14;
@@ -386,12 +394,20 @@ public sealed partial class MainWindow : Window
                 flagged.Foreground = ThemeBrush("SystemFillColorCautionBrush");
                 status.Children.Add(flagged);
             }
-            var details = new Button { Content = needsChoice ? "선택" : "보기", Flyout = new Flyout { Content = content } };
+            var details = new Button { Content = needsChoice ? "선택" : "보기", Flyout = new Flyout { Content = content },
+                HorizontalAlignment = HorizontalAlignment.Center };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(details, row.Text("plate") + " 상세");
             void MarkCopied() { copiedDispatch.Add(plate); UpdateWorkStatus(); }
             UpdateWorkStatus();
-            var plateCell = Stack(Bar(check, CopyCell("차량번호", plate, plate, onCopy: MarkCopied)), workStatus);
-            plateCell.Spacing = 0;
+            var plateLink = Bar(check, CopyCell("차량번호", plate, plate, onCopy: MarkCopied));
+            plateLink.VerticalAlignment = VerticalAlignment.Center;
+            check.VerticalAlignment = VerticalAlignment.Center;
+            workStatus.VerticalAlignment = VerticalAlignment.Bottom;
+            workStatus.Margin = new Thickness(28, 0, 0, 0);
+            workStatus.IsHitTestVisible = false;
+            var plateCell = new Grid { MinHeight = 48 };
+            plateCell.Children.Add(plateLink);
+            plateCell.Children.Add(workStatus);
             var schedule = row.Text("schedule");
             var entry = Columns(dispatchColumns, plateCell, CopyCell("탁송일정", schedule, schedule, onCopy: MarkCopied),
                 CopyCell("주유·충전비", row.Text("amount"), Money(row, "amount"), right: true, onCopy: MarkCopied),
@@ -466,16 +482,16 @@ public sealed partial class MainWindow : Window
         previewTable.Spacing = 0;
         previewTable.MinWidth = 790;
         transferInput = new Grid();
-        transferInput.Children.Add(Scroll(Stack(Card(Stack(Text("① 이체 요청 입력", 20), threadInputs,
-            Bar(Button("입력칸 추가", () => AddThreadInput().Focus(FocusState.Programmatic)),
+        transferInput.Children.Add(VerticalScroll(Stack(Card(Stack(Text("① 이체 요청 입력", 20), threadInputs,
+            WrapActions(Button("입력칸 추가", () => AddThreadInput().Focus(FocusState.Programmatic)),
                 Button("이체정보 추출하기", ExtractTransfer, true)))),
             Text("같은 요청을 다시 추출하면 이미 가져온 건은 건너뛰어요. 새 스레드를 붙여넣어 추가할 수 있어요."))));
         transferReview = new Grid();
         autoFixAccounts = new CheckBox { Content = "계좌번호의 하이픈·공백 자동 제거", IsChecked = true };
-        transferReview.Children.Add(Scroll(Stack(
-            Horizontal(Bar(Button("내역 추가", AddTransfer), Button("표시 내역 선택", SelectVisibleTransfers),
+        transferReview.Children.Add(VerticalScroll(Stack(
+            WrapActions(Button("내역 추가", AddTransfer), Button("표시 내역 선택", SelectVisibleTransfers),
                 AsyncButton("선택 삭제", DeleteSelectedTransfers), Button("1억 초과 분할", SplitTransfers), AsyncButton("열 너비", EditTransferWidths),
-                Button("파일 미리보기", () => Step(3), true))),
+                Button("파일 미리보기", () => Step(3), true)),
             TransferFilters(), autoFixAccounts,
             new Expander { Header = "통장 메모·CMS 일괄 적용", Content = MemoControls(), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch },
             transferList)));
@@ -489,9 +505,9 @@ public sealed partial class MainWindow : Window
             HorizontalScrollMode = ScrollMode.Disabled
         });
         acknowledge.Content = Text("검토 항목과 원문을 대조했고, 중복 송금 여부를 확인했어요.");
-        var saveActions = Stack(acknowledge,
-            Horizontal(Bar(download, Button("송금 코멘트 전체 복사", () => Copy(rules.Comments(transfers))),
-                AsyncButton("코멘트 목록", ShowTransferComments))));
+        var saveActions = Stack(acknowledge, WrapActions(download,
+            Button("송금 코멘트 전체 복사", () => Copy(rules.Comments(transfers))),
+            AsyncButton("코멘트 목록", ShowTransferComments)));
         saveActions.Spacing = 6;
         Grid.SetRow(saveActions, 1);
         transferDownload.Children.Add(saveActions);
@@ -499,8 +515,8 @@ public sealed partial class MainWindow : Window
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         transferSteps = [Button("1. 요청 입력", () => Step(1)), Button("2. 확인·수정", () => Step(2)), Button("3. 미리보기·저장", () => Step(3))];
-        grid.Children.Add(Stack(TitleText("하나은행 이체파일"),
-            Horizontal(Bar([.. transferSteps, AsyncButton("전체 초기화", ResetTransfers), AsyncButton("단축키", ShowTransferShortcuts)])), transferSummary));
+        grid.Children.Add(Stack(PageHeading("하나은행 이체파일", AsyncButton("전체 초기화", ResetTransfers)),
+            WrapActions([.. transferSteps, AsyncButton("단축키", ShowTransferShortcuts)]), transferSummary));
         var host = new Grid(); host.Children.Add(transferInput); host.Children.Add(transferReview); host.Children.Add(transferDownload);
         Grid.SetRow(host, 1); grid.Children.Add(host); Step(1);
         AddTransferShortcuts(grid);
@@ -589,21 +605,23 @@ public sealed partial class MainWindow : Window
             var amount = Edit(row!, "amount", "입금액(원)", TransferWidth("amount"));
             amount.TextAlignment = TextAlignment.Right;
             var plate = Edit(row!, "plate", "차량번호", TransferWidth("plate"));
-            var main = SplitLayout(Horizontal(Bar(bank, account)), Horizontal(Bar(amount, plate)),
-                2 * Math.Max(bank.Width + account.Width, amount.Width + plate.Width) + 32);
+            var main = WrapActions(bank, account, amount, plate);
             var id = row.Text("id");
             var pick = new CheckBox { Content = $"{transferStatuses.Count + 1}번 선택", IsChecked = selectedTransfers.Contains(id) };
             pick.Checked += (_, _) => selectedTransfers.Add(id);
             pick.Unchecked += (_, _) => selectedTransfers.Remove(id);
             var remove = Button("삭제", () => { selectedTransfers.Remove(id); transfers.Remove(row); RenderTransfers(); });
-            var memo = Bar(Edit(row!, "outMemo", "출금통장 표시", TransferWidth("outMemo")),
+            var memo = WrapActions(Edit(row!, "outMemo", "출금통장 표시", TransferWidth("outMemo")),
                 Edit(row!, "inMemo", "입금통장 표시", TransferWidth("inMemo")), Edit(row!, "cms", "CMS코드", TransferWidth("cms")));
             var status = Text(""); status.Tag = row.Text("id");
             transferStatuses.Add(status);
             var original = new TextBox { Header = "Slack 원문", Text = row.Text("ctx").Length > 0 ? row.Text("ctx") : row.Text("source"), IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 220 };
             var details = new Expander { Header = "예금주·메모·CMS 및 원문", Content = Stack(Edit(row!, "holder", "예금주", TransferWidth("holder")),
-                Horizontal(memo), original), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
-            var card = Card(Stack(main, Bar(pick, remove), status, details));
+                memo, original), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
+            pick.VerticalAlignment = remove.VerticalAlignment = status.VerticalAlignment = VerticalAlignment.Center;
+            var cardContent = Stack(main, WrapControls(center: true, pick, status, remove), details);
+            cardContent.Spacing = 10;
+            var card = Card(cardContent);
             transferChecks.Add(pick);
             transferCards.Add(card);
             transferList.Children.Add(card);

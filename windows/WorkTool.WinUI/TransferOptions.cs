@@ -114,7 +114,7 @@ public sealed partial class MainWindow
             ValidateTransfers();
         });
         clear.VerticalAlignment = VerticalAlignment.Bottom;
-        return Horizontal(Bar(transferFilter, transferColumn, transferSearch, clear));
+        return WrapActions(transferFilter, transferColumn, transferSearch, clear);
     }
 
     private bool ShowTransfer(JsonNode? row, string state)
