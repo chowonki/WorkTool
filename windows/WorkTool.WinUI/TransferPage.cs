@@ -231,22 +231,7 @@ public sealed partial class MainWindow
     private void Step(int n)
     {
         step = n;
-        for (var i = 0; i < transferSteps.Length; i++)
-        {
-            var button = transferSteps[i];
-            if (i + 1 == n)
-            {
-                button.Background = transferTone.Fill;
-                button.Foreground = transferTone.Ink;
-                button.BorderBrush = transferTone.Accent;
-            }
-            else
-            {
-                button.ClearValue(Control.BackgroundProperty);
-                button.ClearValue(Control.ForegroundProperty);
-                button.ClearValue(Control.BorderBrushProperty);
-            }
-        }
+        SetActiveStep(transferSteps, n - 1, transferTone);
         transferInput.Visibility = n == 1 ? Visibility.Visible : Visibility.Collapsed;
         transferReview.Visibility = n == 2 ? Visibility.Visible : Visibility.Collapsed;
         transferDownload.Visibility = n == 3 ? Visibility.Visible : Visibility.Collapsed;

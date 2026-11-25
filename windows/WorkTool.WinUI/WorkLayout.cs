@@ -49,6 +49,26 @@ public sealed partial class MainWindow
     private static Panel WrapActions(params UIElement[] controls)
         => WrapControls(center: false, controls);
 
+    private static void SetActiveStep(Button[] buttons, int activeIndex, WorkTone tone)
+    {
+        for (var i = 0; i < buttons.Length; i++)
+        {
+            var button = buttons[i];
+            if (i == activeIndex)
+            {
+                button.Background = tone.Fill;
+                button.Foreground = tone.Ink;
+                button.BorderBrush = tone.Accent;
+            }
+            else
+            {
+                button.ClearValue(Control.BackgroundProperty);
+                button.ClearValue(Control.ForegroundProperty);
+                button.ClearValue(Control.BorderBrushProperty);
+            }
+        }
+    }
+
     private static Panel WrapControls(bool center, params UIElement[] controls)
     {
         var panel = new WorkWrapPanel { CenterVertically = center };

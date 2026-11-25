@@ -41,6 +41,9 @@ public sealed partial class MainWindow
             Assert(transferViews.Count(view => view.Card.Visibility == Microsoft.UI.Xaml.Visibility.Visible) == 1, "Transfer search filters review rows");
             await SetTextAndWait(transferSearch, "");
             Go("dispatch");
+            ShowDispatchStage(DispatchStage.Save);
+            Assert(dispatchStage == DispatchStage.Input && !dispatchSteps[(int)DispatchStage.Save].IsEnabled,
+                "Dispatch starts at input and gates result actions until lookup");
             await SetVehicleText("123가4567\r\n123가4567\r\n45나6789\r\n확인 필요");
             Assert(vehicleCount.Text == "입력 차량 2대 · 중복 1줄 · 확인 필요 1줄", $"Vehicle input counts unique valid plates ({vehicleCount.Text})");
             await SetVehicleText("");
@@ -48,6 +51,17 @@ public sealed partial class MainWindow
             await SetVehicleText(await File.ReadAllTextAsync(Path.Combine(fixtures, "차량목록.txt")));
             foreach (var path in Directory.GetFiles(fixtures, "*.xlsx")) files.Add(rules.ReadSheets(Spreadsheets.Read(path), Path.GetFileName(path)));
             QueryDispatch(); Assert(results.Count > 0, "Native dispatch renders synthetic vendor files");
+            Assert(dispatchStage == DispatchStage.Review && dispatchInputStage.Visibility == Microsoft.UI.Xaml.Visibility.Collapsed
+                && dispatchSaveActions.Visibility == Microsoft.UI.Xaml.Visibility.Collapsed, "Successful lookup opens the review stage");
+            var firstVehicleId = results[0].Text("id");
+            selected.Add(firstVehicleId);
+            await SetTextAndWait(search, results[0].Text("plate"));
+            ShowDispatchStage(DispatchStage.Save);
+            Assert(dispatchStage == DispatchStage.Save && dispatchSaveActions.Visibility == Microsoft.UI.Xaml.Visibility.Visible
+                && VisibleResults().Count == 1 && selected.Contains(firstVehicleId), "Save stage retains selected rows and search");
+            ShowDispatchStage(DispatchStage.Review);
+            await SetTextAndWait(search, "");
+            selected.Clear();
             for (var i = 0; i < results.Count; i++)
                 foreach (var field in new[] { "schedule", "fee" })
                     if (results[i]!.Flag(field + "Conflict")) results[i] = rules.Choose(results[i]!, field, results[i]![field + "Candidates"]![0].Text("id"));
@@ -66,6 +80,12 @@ public sealed partial class MainWindow
             await CaptureDispatch(false); await CaptureDispatch(false, true);
             Assert(Directory.GetFiles(smokeDirectory, "*.png").Any(p => new FileInfo(p).Length > 1000), "Native PNG capture writes image");
             Assert(Directory.GetFiles(smokeDirectory, "*.pdf").Any(p => new FileInfo(p).Length > 1000), "Native PDF capture writes document");
+            ShowDispatchStage(DispatchStage.Input);
+            await SetVehicleText("123가4567");
+            Assert(dispatchStage == DispatchStage.Input && results.Count == 0
+                && !dispatchSteps[(int)DispatchStage.Review].IsEnabled, "Editing source invalidates prior dispatch results");
+            await SetVehicleText(await File.ReadAllTextAsync(Path.Combine(fixtures, "차량목록.txt")));
+            QueryDispatch();
             Root.RequestedTheme = Microsoft.UI.Xaml.ElementTheme.Dark;
             Assert(Root.RequestedTheme == Microsoft.UI.Xaml.ElementTheme.Dark, "Dark theme applies");
             Root.RequestedTheme = Microsoft.UI.Xaml.ElementTheme.Default;

@@ -112,6 +112,7 @@ public sealed partial class MainWindow
         completed.Clear();
         copiedDispatch.Clear();
         RenderDispatch();
+        ShowDispatchStage(DispatchStage.Input);
     }
 
     private async Task ResetDispatch()
@@ -130,6 +131,7 @@ public sealed partial class MainWindow
         InvalidateDispatch();
         RenderDispatchFiles();
         RenderDispatch();
+        ShowDispatchStage(DispatchStage.Input);
     }
 
     private JsonArray SelectedOrVisibleDispatch() => selected.Count == 0

@@ -30,6 +30,11 @@ public sealed partial class MainWindow
     private int dispatchPage;
     private int visibleCount;
     private decimal visibleAmount;
+    private enum DispatchStage { Input, Review, Save }
+    private DispatchStage dispatchStage;
+    private Button[] dispatchSteps = [];
+    private FrameworkElement dispatchInputStage = null!, dispatchResultsStage = null!,
+        dispatchSaveActions = null!, dispatchReviewNext = null!;
 
     private FrameworkElement DispatchPage()
     {
@@ -78,7 +83,7 @@ public sealed partial class MainWindow
             {
                 if (importingDispatch) return;
                 files.Clear(); RenderDispatchFiles(); InvalidateDispatch();
-            }), Button("조회하기", QueryDispatch, true)));
+            })));
         filePanel.Spacing = 8;
         var dropArea = new Border { Child = filePanel, Background = cardFill,
             Padding = new Thickness(12, 0, 12, 8), CornerRadius = new CornerRadius(6), AllowDrop = true };
@@ -99,23 +104,40 @@ public sealed partial class MainWindow
         };
         RenderDispatchFiles();
         var inputs = SplitLayout(vehicleInput, dropArea, 820);
-        var inputPanel = new Expander { Header = "조회 자료", Content = inputs, IsExpanded = true, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
-        var actions = WrapActions(
-            Button("번호 복사", CopyDispatchNumbers),
+        dispatchInputStage = VerticalScroll(Card(Stack(inputs,
+            WrapControls(center: true, Button("차량 조회하기", QueryDispatch, true),
+                Text("차량목록과 업체 Excel 파일을 넣어 주세요.")))));
+        var selectionActions = WrapActions(
             Button("표시 차량 선택", () =>
             {
                 foreach (var row in VisibleResults()) selected.Add(row.Text("id"));
                 RenderDispatch();
             }),
-            Button("선택 해제", () => { selected.Clear(); RenderDispatch(); }),
+            Button("선택 해제", () => { selected.Clear(); RenderDispatch(); }));
+        dispatchReviewNext = Button("다음: 복사·저장", () => ShowDispatchStage(DispatchStage.Save), true);
+        selectionActions.Children.Add(dispatchReviewNext);
+        dispatchSaveActions = WrapActions(scope, Button("번호 복사", CopyDispatchNumbers),
             AsyncButton("캡처 복사", () => CaptureDispatch(true)),
             new DropDownButton { Content = "파일 저장", Flyout = export });
-        var top = Stack(PageHeading("탁송체크", "\uE804", dispatchTone, AsyncButton("전체 초기화", ResetDispatch)), inputPanel,
-            WrapActions(filter, search, scope, AsyncButton("필터·정렬", EditDispatchFilters),
-                AsyncButton("열 너비", EditDispatchWidths)), actions);
+        dispatchSteps =
+        [
+            Button("1. 자료 입력", () => ShowDispatchStage(DispatchStage.Input)),
+            Button("2. 결과 확인", () => ShowDispatchStage(DispatchStage.Review)),
+            Button("3. 복사·저장", () => ShowDispatchStage(DispatchStage.Save))
+        ];
+        var top = Stack(PageHeading("탁송체크", "\uE804", dispatchTone, AsyncButton("전체 초기화", ResetDispatch)),
+            WrapActions(dispatchSteps));
         top.Spacing = 9;
         grid.Children.Add(top);
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var resultsStage = new Grid { RowSpacing = 10 };
+        resultsStage.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        resultsStage.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        resultsStage.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var resultControls = Stack(WrapActions(filter, search, AsyncButton("필터·정렬", EditDispatchFilters),
+            AsyncButton("열 너비", EditDispatchWidths)), selectionActions, dispatchSaveActions);
+        resultControls.Spacing = 8;
+        resultsStage.Children.Add(resultControls);
         dispatchTable = new Grid();
         dispatchTable.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         dispatchTable.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -126,15 +148,34 @@ public sealed partial class MainWindow
         UpdateDispatchHeader();
         var list = Horizontal(dispatchTable);
         Grid.SetRow(list, 1);
-        grid.Children.Add(list);
+        resultsStage.Children.Add(list);
         dispatchSummary.VerticalAlignment = VerticalAlignment.Center;
         var pagination = Bar(previousResults, nextResults);
         pagination.HorizontalAlignment = HorizontalAlignment.Right;
         var footer = SplitLayout(dispatchSummary, pagination, 720);
         Grid.SetRow(footer, 2);
-        grid.Children.Add(footer);
+        resultsStage.Children.Add(footer);
+        dispatchResultsStage = resultsStage;
+        Grid.SetRow(dispatchInputStage, 1);
+        Grid.SetRow(dispatchResultsStage, 1);
+        grid.Children.Add(dispatchInputStage);
+        grid.Children.Add(dispatchResultsStage);
         RenderDispatch();
+        ShowDispatchStage(DispatchStage.Input);
         return grid;
+    }
+
+    private void ShowDispatchStage(DispatchStage stage)
+    {
+        if (stage != DispatchStage.Input && results.Count == 0) return;
+        dispatchStage = stage;
+        SetActiveStep(dispatchSteps, (int)stage, dispatchTone);
+        dispatchSteps[(int)DispatchStage.Review].IsEnabled = results.Count > 0;
+        dispatchSteps[(int)DispatchStage.Save].IsEnabled = results.Count > 0;
+        dispatchInputStage.Visibility = stage == DispatchStage.Input ? Visibility.Visible : Visibility.Collapsed;
+        dispatchResultsStage.Visibility = stage != DispatchStage.Input ? Visibility.Visible : Visibility.Collapsed;
+        dispatchReviewNext.Visibility = stage == DispatchStage.Review ? Visibility.Visible : Visibility.Collapsed;
+        dispatchSaveActions.Visibility = stage == DispatchStage.Save ? Visibility.Visible : Visibility.Collapsed;
     }
     private async Task ImportFiles()
     {
@@ -214,6 +255,7 @@ public sealed partial class MainWindow
             if (files.Count == 0) { Notify("업체 파일을 첨부해 주세요.", true); return; }
             results = rules.Match(input["vehicles"]!.AsArray(), files);
             selected.Clear(); completed.Clear(); copiedDispatch.Clear(); dispatchPage = 0; RenderDispatch();
+            ShowDispatchStage(DispatchStage.Review);
         }
         catch (Exception e) { Notify(e.Message, true); }
     }
