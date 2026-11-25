@@ -77,19 +77,39 @@ body #table{min-width:1680px;font-size:14px;background:#ffffff80}body #table th,
 @media(max-width:650px){body .toolnav{padding:8px 12px;gap:4px;font-size:12px}body .toolnav a{padding:7px 10px}.topbar{padding:0 16px;height:66px}main{padding:10px 12px 0}.pagehead{display:block;margin-bottom:16px}h1{font-size:29px}.headbuttons{padding-top:12px}.inputs{display:flex;flex-direction:column;gap:12px}.inputcard,.filescard{padding:17px;border-radius:19px}textarea{height:140px}.sidenote{padding:0}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.stat:last-child{grid-column:1/-1;min-height:72px}.stat{min-height:80px}.resulthead{padding:18px 16px}.filterbar{padding:0 14px 13px}.tabs{width:100%;gap:4px}.tab{font-size:12px;padding:8px 10px}.search{width:100%}.search input{width:100%}.colresetbar{padding:10px;flex-wrap:wrap}.tablewrap{min-height:390px;max-height:70vh}.tablefoot,.exportbar{padding:14px 16px}.exportbar>div{width:100%}.exportbuttons .button{padding:10px 12px;font-size:12px}.legend{font-size:10px}.resultcard{border-radius:20px}}
 @media(prefers-reduced-transparency:reduce){.card,.stat,dialog,body .toolnav{background:#f7fafc;backdrop-filter:none;-webkit-backdrop-filter:none}}
 @supports not (backdrop-filter:blur(1px)){.card,.stat,dialog{background:#f7fafc}}
+#slackRepliesDialog{width:min(36rem,calc(100% - 2rem));max-height:calc(100% - 2rem);overflow:auto}
+#slackRepliesForm{display:grid;gap:.75rem}
+#slackRepliesForm h2,#slackRepliesForm p{margin:0}
+#slackRepliesInput{box-sizing:border-box;width:100%;min-height:8rem;resize:vertical}
+#slackRepliesForm .dialogactions{flex-wrap:wrap}
 </style><nav class="toolnav" aria-label="업무 도구 메뉴"><a class="homelink" href="./index.html">업무 도구 홈</a><a aria-current="page" href="./dispatch.html">탁송체크</a><a href="./transfer.html">하나은행 이체파일</a><a class="navguide" href="./quick-guide.html#dispatch" target="_blank" rel="noopener">그림 사용법 ↗</a></nav>
-<main><section class="pagehead"><div><h1>차량 조회</h1></div><div class="headbuttons"><button id="reset" class="button subtle">전체 초기화</button><button id="help" class="iconbutton" title="사용 안내" aria-label="사용 안내">?</button></div></section>
+<main><section class="pagehead"><div><h1>차량 조회</h1></div><div class="headbuttons"><button id="openSlackReplies" type="button" class="button">슬랙봇 확인</button><button id="reset" class="button subtle">전체 초기화</button><button id="help" class="iconbutton" title="사용 안내" aria-label="사용 안내">?</button></div></section>
 
 <div class="workspace"><aside class="inputs"><section class="card inputcard"><div class="sectionhead"><div class="steptitle"><span class="step">1</span><h2>차량목록 입력</h2></div><span id="inputCount" class="muted small">0대</span></div><label class="sr" for="input">날짜·시간·차량번호 또는 차량번호 목록</label><textarea id="input" spellcheck="false" placeholder="2026-10-23 10:00  12서7567&#10;2026-10-23 11:00  55노4983&#10;&#10;차량번호만 입력해도 돼요."></textarea><div class="inputfoot"><button id="clean" class="textbutton">↳ 빈줄·공백 정리</button><span id="inputNotice" class="small muted">한 줄에 한 대씩</span></div></section>
 <section class="card filescard"><div class="sectionhead"><div class="steptitle"><span class="step">2</span><h2>업체 파일 첨부</h2></div></div><label id="drop" class="drop" tabindex="0" role="button" aria-label="업체 엑셀 파일 여러 개 선택"><svg viewBox="0 0 32 32" width="30" height="30" fill="none" aria-hidden="true"><path d="M6 21v5h20v-5M16 21V6m-6 6 6-6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><strong>파일을 놓거나 클릭해서 첨부</strong><span>.xlsx · 여러 파일 선택 가능</span><input type="file" id="fileInput" accept=".xlsx" multiple></label><ul id="fileList" class="filelist" aria-label="첨부 파일"></ul></section>
 <button id="run" class="button primary run"><span>차량 조회하기</span><span>→</span></button></aside>
 <section class="results" aria-label="조회 결과"><div class="stats"><button class="stat active" data-filter="all"><span>전체 차량</span><strong id="statAll">0<small>대</small></strong></button><button class="stat" data-filter="confirmed"><span><i class="dot green"></i>금액 확인</span><strong id="statConfirmed">0<small>대</small></strong></button><button class="stat" data-filter="progress" title="탁송 중·배정완료 차량"><span><i class="dot orange"></i>진행 중</span><strong id="statProgress">0<small>대</small></strong></button><button class="stat" data-filter="jeju"><span><i class="dot blue"></i>제주 출발</span><strong id="statJeju">0<small>대</small></strong></button><button class="stat" data-filter="carrier"><span><i class="dot green"></i>캐리어탁송</span><strong id="statCarrier">0<small>대</small></strong></button></div>
-<div class="card resultcard"><div class="resulthead"><h2>조회 결과 <span id="rowCount" class="countbadge">0</span></h2><p class="copyhint"><span aria-hidden="true">⧉</span> 차량번호·탁송일정·주유비용/충전비용·탁송비용·부가세는 <u>점선 밑줄</u> 값을 누르면 바로 복사돼요. 숫자는 쉼표 없이 복사돼요.</p><div class="resultactions"><div id="colResetBar" class="colresetbar" hidden><span id="colFilterInfo" style="font-size:11px;color:#81909f"></span><span id="pickInfo" style="font-size:11px;color:#81909f"></span><button class="button small" id="selAll" type="button">전체 선택</button><button class="button small" id="clearFilter" type="button">필터 지우기</button><button class="button small" id="resetCols" type="button">열 너비 초기화</button></div><button id="copy" class="button compact"><span aria-hidden="true">▣</span> 차량번호 복사</button></div></div><div class="filterbar"><div class="tabs" role="group" aria-label="결과 필터"><button class="tab active" data-filter="all">전체</button><button class="tab" data-filter="confirmed">금액 확인</button><button class="tab" data-filter="progress" title="탁송 중·배정완료 차량">진행 중</button><button class="tab" data-filter="jeju">제주 출발</button><button class="tab" data-filter="carrier">캐리어탁송</button><button class="tab" data-filter="slack" title="렌톡 J열 Y인 캐리어탁송은 문의 대상에서 제외">렌톡 문의 (캐리어 제외)</button><button class="tab" data-filter="review">확인 필요</button></div><label class="vendorfilterlabel" for="vendorFilter">업체 <select id="vendorFilter" aria-label="업체별 필터"><option value="all">전체 업체</option><option value="한빛탁송">한빛탁송</option><option value="오픈마일">오픈마일</option><option value="렌톡">렌톡</option></select></label><label class="small" for="stateFilter">탁송 상태 <select id="stateFilter"><option value="all">전체 상태</option></select></label><label class="datefilter">시작일 <input type="date" id="dateFrom" aria-label="탁송 시작일"></label><label class="datefilter">종료일 <input type="date" id="dateTo" aria-label="탁송 종료일"></label><button class="button compact" id="dateClear" type="button">날짜 초기화</button><label class="search"><span aria-hidden="true">⌕</span><input id="search" placeholder="차량번호 검색" aria-label="차량번호 검색"></label></div>
+<div class="card resultcard"><div class="resulthead"><h2>조회 결과 <span id="rowCount" class="countbadge">0</span></h2><p class="copyhint"><span aria-hidden="true">⧉</span> 차량번호·탁송일정·주유비용/충전비용·탁송비용·부가세는 <u>점선 밑줄</u> 값을 누르면 바로 복사돼요. 숫자는 쉼표 없이 복사돼요.</p><div class="resultactions"><div id="colResetBar" class="colresetbar" hidden><span id="colFilterInfo" style="font-size:11px;color:#81909f"></span><span id="pickInfo" style="font-size:11px;color:#81909f"></span><button class="button small" id="selAll" type="button">전체 선택</button><button class="button small" id="clearFilter" type="button">필터 지우기</button><button class="button small" id="resetCols" type="button">열 너비 초기화</button></div><button id="copy" class="button compact"><span aria-hidden="true">▣</span> 차량번호 복사</button></div></div><div class="filterbar"><div class="tabs" role="group" aria-label="결과 필터"><button class="tab active" data-filter="all">전체</button><button class="tab" data-filter="confirmed">금액 확인</button><button class="tab" data-filter="progress" title="탁송 중·배정완료 차량">진행 중</button><button class="tab" data-filter="jeju">제주 출발</button><button class="tab" data-filter="carrier">캐리어탁송</button><button class="tab" data-filter="slack" title="렌톡 J열 Y인 캐리어탁송은 문의 대상에서 제외">렌톡 문의 (캐리어 제외)</button><button class="tab" data-filter="slack-replies">슬랙봇 반영</button><button class="tab" data-filter="review">확인 필요</button></div><label class="vendorfilterlabel" for="vendorFilter">업체 <select id="vendorFilter" aria-label="업체별 필터"><option value="all">전체 업체</option><option value="한빛탁송">한빛탁송</option><option value="오픈마일">오픈마일</option><option value="렌톡">렌톡</option></select></label><label class="small" for="stateFilter">탁송 상태 <select id="stateFilter"><option value="all">전체 상태</option></select></label><label class="datefilter">시작일 <input type="date" id="dateFrom" aria-label="탁송 시작일"></label><label class="datefilter">종료일 <input type="date" id="dateTo" aria-label="탁송 종료일"></label><button class="button compact" id="dateClear" type="button">날짜 초기화</button><label class="search"><span aria-hidden="true">⌕</span><input id="search" placeholder="차량번호 검색" aria-label="차량번호 검색"></label></div>
 <div class="tablewrap"><table id="table" hidden><thead><tr><th class="cbcell"><input type="checkbox" id="chkAll" aria-label="전체 선택"></th><th><button class="sorthead" data-sort="schedule">탁송일정 ↕</button></th><th><button type="button" class="sorthead" data-sort="plate">차량번호 ↕</button></th><th class="number"><button type="button" class="sorthead" data-sort="amount">주유비용/충전비용 (원) ↕</button></th><th class="number"><button type="button" class="sorthead" data-sort="dispatchFee">탁송비용 (원) ↕</button></th><th class="number"><button type="button" class="sorthead" data-sort="vat">부가세 10% ↕</button></th><th><button type="button" class="sorthead" data-sort="status">조회 상태 ↕</button></th><th>탁송 상태</th><th><button type="button" class="sorthead" data-sort="vendor">업체명 ↕</button></th><th><button type="button" class="sorthead" data-sort="carrierType">탁송 구분 ↕</button></th><th><button type="button" class="sorthead" data-sort="meaning">비용 구분 ↕</button></th><th><button type="button" class="sorthead" data-sort="origin">출발지 / 메모 ↕</button></th></tr></thead><tbody id="body"></tbody></table><div id="empty" class="empty"><div class="emptygraphic"><svg width="80" height="78" viewBox="0 0 80 78" fill="none" aria-hidden="true"><rect x="13" y="7" width="49" height="62" rx="8" fill="#fff" stroke="#dce3ea" stroke-width="1.5"/><path d="M25 25h25M25 35h17M25 45h20" stroke="#c2ced9" stroke-width="3" stroke-linecap="round"/><circle cx="59" cy="56" r="14" fill="#e6f3ed" stroke="#b5d8c8"/><path d="m53 56 4 4 8-9" stroke="#3c8568" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><h3 id="emptyTitle">조회할 차량목록을 준비해 주세요</h3><p id="emptyText">차량목록을 입력하고 업체 파일을 첨부하면<br>완료 차량의 금액과 확인할 목록을 정리해 드려요.</p></div></div>
 <div class="tablefoot"><span id="tableNotice">입력 목록의 차량번호와 일치하는 완료 기록만 확인해요.</span><span id="duplicateNotice"></span></div>
 <div class="exportbar"><div><strong>결과 내보내기</strong><label class="sr" for="scope">저장 범위</label><select id="scope"><option value="confirmed">금액 확인 차량</option><option value="visible">현재 표시 목록</option><option value="all">전체 조회 결과</option></select></div><div class="exportbuttons"><button class="button" data-capture="copy" title="결과를 이미지로 클립보드에 복사">캡처 복사</button><button class="button" data-capture="png" title="결과를 PNG 이미지로 저장">캡처 저장 <span>↓</span></button><span class="exportsep" aria-hidden="true"></span><button class="button" data-export="txt">TXT <span>↓</span></button><button class="button" data-export="xlsx">엑셀 <span>↓</span></button><button class="button" data-export="pdf">PDF <span>↓</span></button></div></div></div>
 </section></div>
 <footer><span id="status" role="status" aria-live="polite">차량목록 입력부터 시작해 보세요.</span></footer></main>
+<dialog id="slackRepliesDialog" aria-labelledby="slackRepliesTitle">
+ <form id="slackRepliesForm">
+  <h2 id="slackRepliesTitle">슬랙봇 확인</h2>
+  <p id="slackRepliesHelp">회신을 한 줄에 차량번호 - 값으로 붙여넣으세요. X는 0원, 확인 중은 그대로 반영돼요.</p>
+  <label for="slackRepliesInput">슬랙봇 회신</label>
+  <textarea id="slackRepliesInput" aria-describedby="slackRepliesHelp" spellcheck="false" rows="6"
+    placeholder="08구8701 - X&#10;77다1234 - 12,350원&#10;12가3456 - 확인 중"></textarea>
+  <p id="slackRepliesReport" role="status" aria-live="polite" style="white-space:pre-wrap"></p>
+  <div class="dialogactions">
+   <button id="closeSlackReplies" type="button" class="button">닫기</button>
+   <button id="viewSlackReplies" type="button" class="button" disabled>표에서 보기</button>
+   <button type="submit" class="button primary">확인 내용 반영</button>
+  </div>
+ </form>
+</dialog>
 <dialog id="dialog"><form id="dialogForm" method="dialog"><div class="modalicon">↗</div><h2 id="dialogTitle"></h2><p id="dialogMessage"></p><pre id="dialogDetails" hidden></pre><label id="passwordLabel" hidden>열기 암호<input type="password" id="password" autocomplete="off"></label><div class="dialogactions"><button id="dialogCancel" type="button" class="button">취소</button><button id="dialogOK" value="ok" class="button primary">확인</button></div></form></dialog><div id="toast" role="status" aria-live="polite" hidden></div>
 <script id="xlsx-lib">(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.DispatchExcel = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 var asn1 = exports;
@@ -60681,13 +60701,57 @@ function match(input,files){
 function unique(rows){return [...new Map(rows.map(r=>[r.plate,r])).values()];}
 // 진행 중: 기록은 있지만 아직 탁송완료가 아니고, 탁송 중이거나 배정완료인 차량 (취소·기타 상태는 제외)
 const inProgress=r=>r.status==='incomplete'&&(r.rawState==='탁송 중'||r.rawState==='배정완료');
-const statusLabel=r=>inProgress(r)?'진행 중':statuses[r.status];
-function includes(r,f){return f==='all'||(f==='confirmed'&&r.status==='confirmed')||(f==='missing'&&r.status==='missing')||(f==='progress'&&inProgress(r))||(f==='jeju'&&r.jeju)||(f==='carrier'&&r.carrier)||(f==='slack'&&r.cInquiry)||(f==='review'&&((r.status!=='confirmed'&&r.status!=='carrier')||r.inputDuplicate||r.carrierType==='확인 필요'||hasUnresolvedChoice(r)));}
+const slackPending='확인 중';
+const statusLabel=r=>r.slackPending?slackPending:inProgress(r)?'진행 중':statuses[r.status];
+function includes(r,f){return f==='all'||(f==='confirmed'&&r.status==='confirmed')||(f==='missing'&&r.status==='missing')||(f==='progress'&&inProgress(r))||(f==='jeju'&&r.jeju)||(f==='carrier'&&r.carrier)||(f==='slack'&&r.cInquiry&&(!r.slackReviewed||r.slackPending))||(f==='slack-replies'&&r.slackReviewed)||(f==='review'&&((r.status!=='confirmed'&&r.status!=='carrier')||r.inputDuplicate||r.carrierType==='확인 필요'||hasUnresolvedChoice(r)));}
+function slackValue(value){
+ const token=value.trim();
+ if(token.replace(/\s+/g,'')==='확인중')return {amount:null};
+ if(token.toUpperCase()==='X')return {amount:0};
+ const match=token.match(/^(?:₩\s*)?(?<number>[0-9]+|[0-9]{1,3}(?<separator>[,.])[0-9]{3}(?:\k<separator>[0-9]{3})*)\s*원?$/);
+ if(!match)return null;
+ const amount=Number(match.groups.number.replace(/[,.]/g,''));
+ return Number.isSafeInteger(amount)?{amount}:null;
+}
+function applySlackReplies(text,rows){
+ const eligible=new Map(), replies=new Map(), conflicts=new Set(), issues=[];
+ for(const row of rows){
+  if(!row.cInquiry)continue;
+  if(!eligible.has(row.plate))eligible.set(row.plate,[]);
+  eligible.get(row.plate).push(row);
+ }
+ text.split(/\r\n|\r|\n/).forEach((raw,index)=>{
+  const line=raw.trim().normalize('NFKC');
+  if(!line)return;
+  const split=line.match(/^(.+?)\s*[-–—−]\s*(.+)$/);
+  const key=split?plate(split[1]):'';
+  const value=split?slackValue(split[2]):null;
+  if(!valid(key)||!value){issues.push(`${index+1}줄: 차량번호와 값 형식을 확인해 주세요.`);return;}
+  if(!eligible.has(key)){issues.push(`${index+1}줄: ${key}은(는) 현재 슬랙봇 확인 대상이 아니에요.`);return;}
+  if(replies.has(key)&&replies.get(key)!==value.amount){
+   if(!conflicts.has(key))issues.push(`${key}: 서로 다른 값이 있어 반영하지 않았어요.`);
+   conflicts.add(key);
+  }else replies.set(key,value.amount);
+ });
+ let applied=0;
+ for(const [key,amount] of replies){
+  if(conflicts.has(key))continue;
+  for(const row of eligible.get(key)){
+   row.slackPending=amount===null;
+   row.slackReviewed=true;
+   row.amount=amount;
+   row.status=amount===null?'slack':'confirmed';
+   row.meaning='슬랙봇 확인';
+  }
+  applied++;
+ }
+ return {applied,issues};
+}
 const notes=r=>[r.inputDuplicate?'입력 중복':'',r.jeju?'제주 출발':'',r.carrier?'캐리어탁송':r.carrierType==='확인 필요'?'캐리어 여부 확인 필요':'',r.cInquiry?'렌톡 문의':'',r.scheduleConflict?'일정 중첩 · 선택 필요':'',r.feeConflict?'탁송비용 중첩 · 선택 필요':''].filter(Boolean).join(' · ');
 const headers=['탁송일정','차량번호','주유비용/충전비용(원)','탁송비용(원)','부가세(원)','비용 구분','조회 상태','입력 일시','업체','탁송 구분','출발지','메모','원본 위치'];
-const values=r=>[r.schedule,r.plate,r.amount,r.dispatchFee,r.vat,r.meaning,statusLabel(r),r.date,r.vendor,r.carrierType,r.origin,notes(r),r.sources];
+const values=r=>[r.schedule,r.plate,r.slackPending?slackPending:r.amount,r.dispatchFee,r.vat,r.meaning,statusLabel(r),r.date,r.vendor,r.carrierType,r.origin,notes(r),r.sources];
 function textExport(rows){return '\ufeff'+[headers,...unique(rows).map(values)].map(row=>row.map(v=>String(v??'').replace(/[\t\r\n]/g,' ')).join('\t')).join('\r\n');}
-globalThis.DispatchCore={statuses,inProgress,statusLabel,meaning,plate,valid,parseInput,money,round10,complete,jeju,readSheets,match,unique,includes,notes,headers,values,textExport,dispatchSchedule,scheduleDateTime,scheduleTime,useCandidate,hasUnresolvedChoice};
+globalThis.DispatchCore={statuses,inProgress,statusLabel,meaning,plate,valid,parseInput,money,round10,complete,jeju,readSheets,match,unique,includes,notes,headers,values,textExport,dispatchSchedule,scheduleDateTime,scheduleTime,useCandidate,hasUnresolvedChoice,slackPending,applySlackReplies};
 })();
 </script><script id="worker-source" type="text/plain">self.onmessage=async({data})=>{
  try{
@@ -60710,7 +60774,7 @@ function message(title,text,details='',password=false){
   $('dialogForm').onsubmit=e=>{e.preventDefault();finish(password?$('password').value:true);};$('dialogCancel').onclick=()=>finish(null);dialog.oncancel=e=>{e.preventDefault();finish(null);};dialog.showModal();if(password)$('password').focus();else $('dialogOK').focus();
  });
 }
-function invalidate(){results=[];renderResults();setStatus('입력 또는 파일이 바뀌었어요. 차량 조회하기를 눌러 주세요.');}
+function invalidate(){results=[];clearSlackReplies();renderResults();setStatus('입력 또는 파일이 바뀌었어요. 차량 조회하기를 눌러 주세요.');}
 function updateInput(){const p=C.parseInput($('input').value);$('inputCount').textContent=`${number(p.vehicles.length)}대`;$('inputNotice').textContent=p.invalid.length?`확인할 줄 ${p.invalid.length}개`:p.duplicates?`입력 중복 ${p.duplicates}건`:'한 줄에 한 대씩';}
 function renderFiles(){
  $('fileList').replaceChildren();files.forEach((f,index)=>{const li=document.createElement('li'),badge=document.createElement('span'),info=document.createElement('div'),name=document.createElement('div'),meta=document.createElement('div'),remove=document.createElement('button');
@@ -60898,7 +60962,7 @@ function renderResults(){
    td.append(select);return td;
   };
   const dispatchDate=makeChoiceCell('schedule');const p=document.createElement('td');p.className='plate';p.textContent=r.plate;makeCopyable(p,'차량번호',r.plate);
-  const amount=document.createElement('td');amount.className='number amount fuel';amount.textContent=r.amount==null?'—':countNumber(r.amount);makeCopyable(amount,'주유비용/충전비용',r.amount==null?'':String(r.amount).replace(/,/g,''));
+  const amount=document.createElement('td');amount.className='number amount fuel';amount.textContent=r.slackPending?C.slackPending:r.amount==null?'—':countNumber(r.amount);makeCopyable(amount,'주유비용/충전비용',r.slackPending?C.slackPending:r.amount);
   const fee=makeChoiceCell('fee');const vat=document.createElement('td');vat.className='number amount';vat.textContent=r.vat===null?'—':countNumber(r.vat);makeCopyable(vat,'부가세',r.vat==null?'':String(r.vat));
   const state=document.createElement('td'),badge=document.createElement('span');badge.className='badge '+(C.inProgress(r)?'progress':r.status);badge.textContent=C.statusLabel(r);state.append(badge);
   const rawState=document.createElement('td');rawState.textContent=r.rawState||'—';const vendor=document.createElement('td');vendor.textContent=r.vendor||'—';
@@ -60936,7 +61000,7 @@ async function addFiles(selected){
 async function lookup(){
  if(busy)return;const parsed=C.parseInput($('input').value);if(parsed.invalid.length){await message('차량목록을 확인해 주세요',`인식하지 못한 ${parsed.invalid.length}줄이 있어요. 아래 줄을 수정한 뒤 다시 조회해 주세요.`,parsed.invalid.slice(0,30).join('\n'));return;}
  if(!parsed.vehicles.length||!files.length){toast('차량목록과 업체 파일을 모두 넣어 주세요.');return;}
- try{results=C.match(parsed.vehicles,files);renderResults();}catch(error){console.error('차량 조회 오류:',error);setStatus('조회 오류: '+error.message);await message('차량 조회 오류',error.message);return;}setStatus(`조회 완료 · 차량번호 ${C.unique(results).length}대 · 입력 중복 ${parsed.duplicates}건`);toast('차량 조회를 마쳤어요.');
+ try{results=C.match(parsed.vehicles,files);clearSlackReplies();renderResults();}catch(error){console.error('차량 조회 오류:',error);setStatus('조회 오류: '+error.message);await message('차량 조회 오류',error.message);return;}setStatus(`조회 완료 · 차량번호 ${C.unique(results).length}대 · 입력 중복 ${parsed.duplicates}건`);toast('차량 조회를 마쳤어요.');
 }
 // 렌톡 문의목록 복사: [제주도출발차량] → [일반차량] 순으로 제목 줄 아래 차량번호를 나열해요.
 function groupedText(rows){
@@ -60968,7 +61032,7 @@ function pdfBlob(rows){
  for(let p=0;p<pages;p++){
   if(p)doc.addPage();doc.setFontSize(18);doc.setTextColor(36,76,59);doc.text('탁송체크 · 조회결과',14,21);doc.setFontSize(8);doc.setTextColor(130);doc.text(`차량 ${rows.length}대 · ${new Date().toLocaleString('ko-KR')}`,14,30);doc.text('완료 기준 / 10원 단위 반올림 / C업체 금액 제외 / 차량번호 중복 제거',14,36);
   doc.setFillColor(36,76,59);doc.rect(14,43,182,11,'F');doc.setTextColor(255);['탁송일정','차량번호','주유·충전(원)','탁송비(원)','부가세(원)','조회 상태'].forEach((h,i)=>doc.text(h,xs[i]+2,50));
-  rows.slice(p*19,p*19+19).forEach((r,i)=>{const y=54+i*10.7;if(i%2===0){doc.setFillColor(245,248,245);doc.rect(14,y,182,10.7,'F');}doc.setTextColor(55,69,62);doc.setFontSize(7);const vals=[r.schedule||'—',r.plate,r.amount==null?'—':number(r.amount),r.dispatchFee==null?'—':number(r.dispatchFee),r.vat==null?'—':number(r.vat),C.statusLabel(r)];
+  rows.slice(p*19,p*19+19).forEach((r,i)=>{const y=54+i*10.7;if(i%2===0){doc.setFillColor(245,248,245);doc.rect(14,y,182,10.7,'F');}doc.setTextColor(55,69,62);doc.setFontSize(7);const vals=[r.schedule||'—',r.plate,r.slackPending?C.slackPending:r.amount==null?'—':number(r.amount),r.dispatchFee==null?'—':number(r.dispatchFee),r.vat==null?'—':number(r.vat),C.statusLabel(r)];
    vals.forEach((v,c)=>{let t=v;while(t&&doc.getTextWidth(t)>widths[c]-5)t=t.slice(0,-1);if(t!==v)t=t.slice(0,-1)+'…';doc.text(t,xs[c]+2,y+4.3);});
   });doc.setFontSize(8);doc.setTextColor(150);doc.text(`${p+1} / ${pages}`,196,286,{align:'right'});
  }return doc.output('blob');
@@ -60995,7 +61059,7 @@ function captureCanvas(rows){
   if(i%2)g.fillStyle='#f7f9fc',g.fillRect(PAD,y,W-PAD*2,ROW);
   const st=C.statusLabel(r)||r.status,sched=r.scheduleConflict&&!r.schedule?'선택 필요':(r.schedule||'—'),fee=r.feeConflict&&r.dispatchFee==null?'선택 필요':money(r.dispatchFee);
   if(r.amount!=null)sumA+=Number(r.amount);if(r.dispatchFee!=null)sumF+=Number(r.dispatchFee);if(r.vat!=null)sumV+=Number(r.vat);
-  const vals=[sched,r.plate,money(r.amount),fee,money(r.vat),st,vendorName(r.vendor||'')||'—'];x=PAD;
+  const vals=[sched,r.plate,r.slackPending?C.slackPending:money(r.amount),fee,money(r.vat),st,vendorName(r.vendor||'')||'—'];x=PAD;
   vals.forEach((v,c)=>{const [,w,a]=cols[c];g.textAlign=a==='r'?'right':'left';
    if(c===5){const [bg,fg]=tone[C.inProgress(r)?'progress':r.status]||tone.duplicate;g.font=`700 12px ${font}`;const t=fit(v,w-30),tw=g.measureText(t).width+16;g.fillStyle=bg;g.beginPath();g.roundRect?g.roundRect(x+10,y+8,tw,ROW-16,9):g.rect(x+10,y+8,tw,ROW-16);g.fill();g.fillStyle=fg;g.textAlign='left';g.fillText(t,x+18,y+ROW/2);}
    else{g.font=c===1?`700 14px ${font}`:`13.5px ${font}`;g.fillStyle=v==='선택 필요'?'#a65a10':'#2a3a52';g.fillText(fit(v,w-24),a==='r'?x+w-12:x+12,y+ROW/2);}
@@ -61028,9 +61092,41 @@ async function exportRows(type){
 }
 $('input').oninput=()=>{updateInput();invalidate();};$('clean').onclick=async()=>{const p=C.parseInput($('input').value);if(p.invalid.length){await message('입력 확인',`인식하지 못한 ${p.invalid.length}줄을 수정한 뒤 다시 정리해 주세요.`,p.invalid.slice(0,30).join('\n'));return;}$('input').value=p.cleaned;updateInput();invalidate();toast(`${p.vehicles.length}줄 정리 완료`);};
 $('fileInput').onchange=e=>addFiles([...e.target.files]);const drop=$('drop');drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('fileInput').click();}};drop.ondragover=e=>{e.preventDefault();drop.classList.add('drag');};drop.ondragleave=()=>drop.classList.remove('drag');drop.ondrop=e=>{e.preventDefault();drop.classList.remove('drag');addFiles([...e.dataTransfer.files]);};window.addEventListener('dragover',e=>e.preventDefault());window.addEventListener('drop',e=>e.preventDefault());
+function clearSlackReplies(){
+ $('slackRepliesInput').value='';
+ $('slackRepliesReport').textContent='';
+ $('viewSlackReplies').disabled=true;
+}
+function viewSlackReplies(){
+ $('slackRepliesDialog').close();
+ $('search').value='';$('vendorFilter').value='all';$('stateFilter').value='all';
+ $('dateFrom').value='';$('dateTo').value='';
+ clearColFilter($('table'),'colFilterInfo');
+ $('scope').value='visible';
+ setFilter('slack-replies');
+ document.querySelector('[data-filter="slack-replies"]').focus();
+}
+$('openSlackReplies').onclick=()=>{
+ if(!results.some(row=>row.cInquiry)){toast('조회 결과에 슬랙봇 확인 대상이 없어요.');return;}
+ $('slackRepliesDialog').showModal();
+ $('slackRepliesInput').focus();
+};
+$('closeSlackReplies').onclick=()=>$('slackRepliesDialog').close();
+$('viewSlackReplies').onclick=viewSlackReplies;
+$('slackRepliesForm').onsubmit=event=>{
+ event.preventDefault();
+ const text=$('slackRepliesInput').value;
+ if(!text.trim()){$('slackRepliesReport').textContent='슬랙봇 회신을 붙여넣어 주세요.';return;}
+ const {applied,issues}=C.applySlackReplies(text,results);
+ $('slackRepliesReport').textContent=[`${applied}대 반영 · 확인 필요 ${issues.length}건`,...issues.slice(0,8),
+  ...(issues.length>8?[`외 ${issues.length-8}건`]:[])].join('\n');
+ $('viewSlackReplies').disabled=!results.some(row=>row.slackReviewed);
+ if(applied&&!issues.length){viewSlackReplies();toast(`슬랙봇 회신 ${applied}대를 표에 반영했어요.`);}
+ else if(applied)renderResults();
+};
 $('run').onclick=lookup;$('copy').onclick=copy;$('search').oninput=renderResults;document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>setFilter(b.dataset.filter));document.querySelectorAll('[data-export]').forEach(b=>b.onclick=()=>exportRows(b.dataset.export));document.querySelectorAll('[data-capture]').forEach(b=>b.onclick=()=>captureResults(b.dataset.capture));
 $('vendorFilter').addEventListener('change',renderResults);$('stateFilter').addEventListener('change',renderResults);
-$('reset').onclick=async()=>{if(busy)return;if((files.length||$('input').value)&&!(await ask('전체 초기화','입력 목록과 첨부 파일을 모두 비울까요?')))return;files=[];results=[];copiedPlates.clear();completedPlates.clear();picked.clear();$('input').value='';$('search').value='';$('vendorFilter').value='all';$('stateFilter').value='all';$('scope').value='confirmed';updateInput();renderFiles();setFilter('all');setStatus('차량목록 입력부터 시작해 보세요.');};
+$('reset').onclick=async()=>{if(busy)return;if((files.length||$('input').value)&&!(await ask('전체 초기화','입력 목록과 첨부 파일을 모두 비울까요?')))return;files=[];results=[];clearSlackReplies();copiedPlates.clear();completedPlates.clear();picked.clear();$('input').value='';$('search').value='';$('vendorFilter').value='all';$('stateFilter').value='all';$('scope').value='confirmed';updateInput();renderFiles();setFilter('all');setStatus('차량목록 입력부터 시작해 보세요.');};
 $('help').onclick=()=>message('사용 안내','1. 차량목록을 붙여넣어요.\n2. 업체 .xlsx 파일을 여러 개 첨부해요.\n3. 차량 조회하기를 눌러요.\n4. 필터를 선택해 차량번호를 복사하거나 저장해요.','• 매칭 조건: 차량번호 (날짜·시간은 표시용)\n• 중첩 차량의 탁송일정을 선택하면 같은 원본 건의 탁송비용도 자동 반영돼요. 비용이 없는 건은 직접 확인해야 저장할 수 있어요.\n• 탁송일정은 렌톡 D열 / 오픈마일 C열 / 한빛 K+L열이에요.\n• 탁송비용은 렌톡 S열 / 오픈마일 U열 / 한빛 AP열이며, 부가세는 선택한 비용의 10%를 원 단위로 반올림해요.\n• 12,345원 → 12,350원 / 0원은 유효해요.\n• 한빛탁송의 빈 금액은 0원으로 처리해요.\n• 제주는 렌톡(C업체)의 출발지 주소를 기준으로 상태와 무관하게 판별해요.\n• C업체는 금액 없이 렌톡 문의 목록을 제공해요.\n• 렌톡 J열 Y는 캐리어탁송으로 분류하며 문의 목록에서 제외해요. N은 일반탁송으로 문의 목록에 포함해요.\n• 복사와 저장은 차량번호 중복을 제거해요.\n• 파일을 서버에 보내거나 원본을 수정하지 않아요.\n• 한 파일 40MB / 한 시트 100,000행까지 지원해요.\n• 최신 Chrome·Edge·Safari를 사용해 주세요.');
 renderResults();window.DispatchApp={excelBlob,pdfBlob,readFile,getResults:()=>results,getFiles:()=>files};
 })();
