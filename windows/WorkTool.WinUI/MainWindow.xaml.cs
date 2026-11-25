@@ -29,12 +29,20 @@ public sealed partial class MainWindow : Window
     private CheckBox acknowledge = null!;
     private Button download = null!;
     private Grid transferInput = null!, transferReview = null!, transferDownload = null!;
-    private TextBox preview = null!;
     private bool refreshing, allowClose, saving;
     private string savedSignature = "", savedThread = "", acknowledgedSignature = "";
     private string? smokeDirectory;
     private int step = 1;
     private int dispatchPage;
+    private static readonly double[] DispatchColumns = [120, 0, 102, 106, 96, 145, 90, 48, 64];
+    private static readonly double[] TransferColumns = [120, 178, 120, 0, 0, 95];
+    private Button previousResults = null!, nextResults = null!;
+    private ScrollViewer dispatchScroll = null!;
+    private StackPanel previewRows = null!;
+    private Button[] transferSteps = [];
+    private readonly List<TextBlock> transferStatuses = [];
+    private int visibleCount;
+    private decimal visibleAmount;
 
     public MainWindow()
     {
@@ -123,10 +131,10 @@ public sealed partial class MainWindow : Window
     private FrameworkElement DispatchPage()
     {
         vehicles = Input("차량목록", "2026-11-25 10:00  123가4567\n45나6789");
-        vehicles.AcceptsReturn = true; vehicles.Height = 120;
+        vehicles.AcceptsReturn = true; vehicles.Height = 100;
         fileSummary = Text("업체 엑셀 파일을 첨부해 주세요. .xlsx / .xls · 암호 파일 지원");
         dispatchSummary = Text("차량목록과 업체 파일을 넣고 조회하세요.");
-        dispatchList = new StackPanel { Spacing = 8 };
+        dispatchList = new StackPanel();
         filter = new ComboBox { Header = "조회 상태", Width = 180 };
         foreach (var (label, key) in new[] { ("전체", "all"), ("확인 필요", "review"), ("금액 확인", "confirmed"), ("진행 중", "progress"), ("미조회", "missing"), ("제주 출발", "jeju"), ("캐리어탁송", "carrier"), ("슬랙봇 문의", "slack") })
             filter.Items.Add(new ComboBoxItem { Content = label, Tag = key });
@@ -136,15 +144,53 @@ public sealed partial class MainWindow : Window
         var grid = new Grid { RowSpacing = 14 };
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        var top = Stack(TitleText("탁송체크"), vehicles,
-            Bar(AsyncButton("업체 파일 첨부", ImportFiles), Button("첨부 초기화", () => { files.Clear(); results.Clear(); selected.Clear(); completed.Clear(); fileSummary.Text = "첨부 파일을 모두 지웠어요."; RenderDispatch(); }), Button("차량 조회하기", QueryDispatch, true)),
-            fileSummary, Bar(filter, search, scope),
-            Bar(AsyncButton("차량번호 복사", () => { Copy(string.Join(Environment.NewLine, ExportScope().Select(x => x.Text("plate")).Distinct())); return Task.CompletedTask; }),
-                AsyncButton("TXT 저장", () => ExportDispatch(".txt")), AsyncButton("Excel 저장", () => ExportDispatch(".xlsx")),
-                AsyncButton("캡처 복사", () => CaptureDispatch(true)), AsyncButton("PNG 저장", () => CaptureDispatch(false)), AsyncButton("PDF 저장", () => CaptureDispatch(false, true))), dispatchSummary,
-            Bar(Button("이전 100대", () => { dispatchPage = Math.Max(0, dispatchPage - 1); RenderDispatch(); }), Button("다음 100대", () => { if ((dispatchPage + 1) * 100 < VisibleResults().Count) dispatchPage++; RenderDispatch(); })));
+        var export = new MenuFlyout();
+        void ExportItem(string title, Func<Task> action)
+        {
+            var item = new MenuFlyoutItem { Text = title };
+            item.Click += async (_, _) =>
+            {
+                try { await action(); }
+                catch (Exception e) { Notify(e.Message, true); }
+            };
+            export.Items.Add(item);
+        }
+        ExportItem("Excel 저장", () => ExportDispatch(".xlsx"));
+        ExportItem("TXT 저장", () => ExportDispatch(".txt"));
+        ExportItem("PNG 저장", () => CaptureDispatch(false));
+        ExportItem("PDF 저장", () => CaptureDispatch(false, true));
+        previousResults = Button("이전", () => ChangeDispatchPage(-1));
+        nextResults = Button("다음", () => ChangeDispatchPage(1));
+        var inputs = SplitLayout(vehicles, Stack(Text("업체 파일", 14), fileSummary,
+            Horizontal(Bar(AsyncButton("Excel 첨부", ImportFiles), Button("첨부 초기화", () =>
+            {
+                files.Clear(); results.Clear(); selected.Clear(); completed.Clear();
+                fileSummary.Text = "첨부 파일을 모두 지웠어요.";
+                RenderDispatch();
+            }), Button("조회하기", QueryDispatch, true)))), 820);
+        var inputPanel = new Expander { Header = "조회 자료", Content = inputs, IsExpanded = true, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
+        var actions = Horizontal(Bar(
+            AsyncButton("번호 복사", () => { Copy(string.Join(Environment.NewLine, ExportScope().Select(x => x.Text("plate")).Distinct())); return Task.CompletedTask; }),
+            AsyncButton("캡처 복사", () => CaptureDispatch(true)),
+            new DropDownButton { Content = "파일 저장", Flyout = export }));
+        var top = Stack(TitleText("탁송체크"), inputPanel, Horizontal(Bar(filter, search, scope)), actions);
+        top.Spacing = 9;
         grid.Children.Add(top);
-        var list = Scroll(dispatchList); Grid.SetRow(list, 1); grid.Children.Add(list);
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var table = new Grid { MinWidth = 1010 };
+        table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        table.Children.Add(TableHeader(DispatchColumns, "차량번호", "탁송일정", "주유·충전비", "탁송비", "부가세", "조회 상태", "업체", "완료", "상세"));
+        dispatchScroll = new ScrollViewer { Content = dispatchList, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollMode = ScrollMode.Enabled };
+        Grid.SetRow(dispatchScroll, 1);
+        table.Children.Add(dispatchScroll);
+        var list = Horizontal(table);
+        Grid.SetRow(list, 1);
+        grid.Children.Add(list);
+        var footer = SplitLayout(dispatchSummary, Bar(previousResults, nextResults), 820);
+        Grid.SetRow(footer, 2);
+        grid.Children.Add(footer);
+        RenderDispatch();
         return grid;
     }
     private async Task ImportFiles()
@@ -206,18 +252,21 @@ public sealed partial class MainWindow : Window
         dispatchList.Children.Clear();
         var visible = VisibleResults();
         dispatchPage = Math.Min(dispatchPage, Math.Max(0, (visible.Count - 1) / 100));
-        dispatchSummary.Text = $"전체 {results.Count:N0}대  ·  표시 {visible.Count:N0}대  ·  선택 {selected.Count:N0}대  ·  주유/충전 합계 {Sum(visible, "amount"):N0}원  ·  {dispatchPage + 1}/{Math.Max(1, (visible.Count + 99) / 100)}페이지";
+        visibleCount = visible.Count;
+        visibleAmount = Sum(visible, "amount");
+        UpdateDispatchSummary();
+        previousResults.IsEnabled = dispatchPage > 0;
+        nextResults.IsEnabled = (dispatchPage + 1) * 100 < visibleCount;
         foreach (var row in visible.Skip(dispatchPage * 100).Take(100))
         {
             var id = row.Text("id");
-            var check = new CheckBox { Content = row.Text("plate"), IsChecked = selected.Contains(id), MinWidth = 140 };
+            var check = new CheckBox { Content = row.Text("plate"), IsChecked = selected.Contains(id), MinWidth = 0 };
             check.Checked += (_, _) => { selected.Add(id); UpdateDispatchSummary(); };
             check.Unchecked += (_, _) => { selected.Remove(id); UpdateDispatchSummary(); };
-            var done = new CheckBox { Content = "완료", IsChecked = completed.Contains(id) };
+            var done = new CheckBox { IsChecked = completed.Contains(id), MinWidth = 0, Padding = new Thickness(0) };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(done, row.Text("plate") + " 완료");
             done.Checked += (_, _) => completed.Add(id); done.Unchecked += (_, _) => completed.Remove(id);
-            var content = Stack(Bar(check, Text(rules.Status(row!), 16), Text(row.Text("vendor")), done),
-                Bar(Text($"주유/충전 {Money(row, "amount")}"), Text($"탁송비 {Money(row, "dispatchFee")}"), Text($"부가세 {Money(row, "vat")}")),
-                Text($"{row.Text("schedule")}  {row.Text("rawState")}  {row.Text("carrierType")}  {row.Text("origin")}"));
+            var content = Stack(Text(string.Join(" · ", new[] { row.Text("rawState"), row.Text("carrierType"), row.Text("origin") }.Where(value => value.Length > 0))));
             foreach (var (field, label) in new[] { ("schedule", "탁송일정"), ("fee", "탁송비용") })
             {
                 if (!row!.Flag(field + "Conflict")) continue;
@@ -234,12 +283,39 @@ public sealed partial class MainWindow : Window
             }
             var notes = rules.Notes(row!); if (notes.Length > 0) content.Children.Add(Text(notes));
             content.Children.Add(Text(row.Text("sources"), 12));
-            dispatchList.Children.Add(Card(content));
+            var status = Stack(Text(rules.Status(row!)));
+            status.Spacing = 0;
+            content.MaxWidth = 420;
+            var needsChoice = row!.Flag("scheduleConflict") || row!.Flag("feeConflict");
+            if (needsChoice)
+            {
+                var flagged = Text("일정·비용 선택 필요", 12);
+                flagged.Foreground = ThemeBrush("SystemFillColorCautionBrush");
+                status.Children.Add(flagged);
+            }
+            var details = new Button { Content = needsChoice ? "선택" : "보기", Flyout = new Flyout { Content = content } };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(details, row.Text("plate") + " 상세");
+            var entry = Columns(DispatchColumns, check, Text(row.Text("schedule")), Amount(row, "amount"),
+                Amount(row, "dispatchFee"), Amount(row, "vat"), status, Text(row.Text("vendor")), done, details);
+            dispatchList.Children.Add(TableRow(entry));
         }
         if (visible.Count == 0) dispatchList.Children.Add(Text(results.Count == 0 ? "조회 결과가 여기에 표시돼요." : "현재 조건에 맞는 차량이 없어요."));
     }
-    private void UpdateDispatchSummary() => dispatchSummary.Text = $"전체 {results.Count:N0}대 · 표시 {VisibleResults().Count:N0}대 · 선택 {selected.Count:N0}대 (선택한 줄이 저장 범위보다 우선해요)";
+    private void ChangeDispatchPage(int offset)
+    {
+        dispatchPage += offset;
+        RenderDispatch();
+        dispatchScroll.ChangeView(null, 0, null);
+    }
+    private void UpdateDispatchSummary() => dispatchSummary.Text =
+        $"전체 {results.Count:N0}대 · 표시 {visibleCount:N0}대 · 선택 {selected.Count:N0}대 · 주유·충전비 {visibleAmount:N0}원 · {dispatchPage + 1}/{Math.Max(1, (visibleCount + 99) / 100)}페이지";
     private static string Money(JsonNode? row, string field) => decimal.TryParse(row.Text(field), NumberStyles.Any, CultureInfo.InvariantCulture, out var n) ? $"{n:N0}원" : "—";
+    private static TextBlock Amount(JsonNode? row, string field)
+    {
+        var text = Text(Money(row, field));
+        text.TextAlignment = TextAlignment.Right;
+        return text;
+    }
     private static decimal Sum(JsonArray rows, string field) => rows.Sum(r => decimal.TryParse(r.Text(field), NumberStyles.Any, CultureInfo.InvariantCulture, out var n) ? n : 0);
     private async Task ExportDispatch(string extension)
     {
@@ -254,27 +330,46 @@ public sealed partial class MainWindow : Window
     private FrameworkElement TransferPage()
     {
         thread = Input("Slack 스레드", "차량번호, 은행, 계좌번호, 금액이 포함된 요청을 붙여넣으세요.");
-        thread.AcceptsReturn = true; thread.MinHeight = 260; thread.MaxLength = 50_000;
+        thread.AcceptsReturn = true; thread.Height = 280; thread.MaxLength = 50_000;
         transferSummary = Text("이체 요청을 붙여넣고 추출해 주세요.");
         transferList = new StackPanel { Spacing = 12 };
         acknowledge = new CheckBox { Content = "검토 항목과 원문을 대조했고, 중복 송금 여부를 확인했어요." };
         acknowledge.Checked += (_, _) => { acknowledgedSignature = Signature; ValidateTransfers(); };
         acknowledge.Unchecked += (_, _) => { acknowledgedSignature = ""; ValidateTransfers(); };
         download = AsyncButton("하나은행 이체파일 저장", SaveTransfer, true);
-        preview = new TextBox { IsReadOnly = true, AcceptsReturn = true, MinHeight = 230, TextWrapping = TextWrapping.NoWrap };
+        previewRows = new StackPanel();
+        var previewTable = Stack(TableHeader(TransferColumns, "입금은행", "입금계좌번호", "입금액", "출금통장 표시", "입금통장 표시", "CMS코드"), previewRows);
+        previewTable.Spacing = 0;
+        previewTable.MinWidth = 790;
         transferInput = new Grid();
         transferInput.Children.Add(Scroll(Stack(Card(Stack(Text("① 이체 요청 입력", 20), thread, Button("이체정보 추출하기", ExtractTransfer, true))),
             Text("같은 요청을 다시 추출하면 이미 가져온 건은 건너뛰어요. 새 스레드를 붙여넣어 추가할 수 있어요."))));
         transferReview = new Grid();
-        transferReview.Children.Add(Scroll(Stack(Card(Stack(Text("② 확인 · 수정", 20), Text("은행·계좌번호·금액을 원문과 대조하고 오류를 수정해 주세요. 1억 원 초과 금액은 분할해요."),
-            Bar(Button("내역 추가", AddTransfer), Button("1억 초과 분할", SplitTransfers)), MemoControls())), transferList)));
-        transferDownload = new Grid();
-        transferDownload.Children.Add(Scroll(Stack(Card(Stack(Text("③ 다운로드", 20), Text("파일은 최대 100건이에요. 실제 송금은 은행에서 진행해 주세요."), preview, acknowledge, download,
-            Button("송금 코멘트 복사", () => Copy(rules.Comments(transfers))))))));
+        transferReview.Children.Add(Scroll(Stack(
+            Horizontal(Bar(Button("내역 추가", AddTransfer), Button("1억 초과 분할", SplitTransfers), Button("파일 미리보기", () => Step(3), true))),
+            new Expander { Header = "통장 메모·CMS 일괄 적용", Content = MemoControls(), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch },
+            transferList)));
+        transferDownload = new Grid { RowSpacing = 12 };
+        transferDownload.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        transferDownload.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        transferDownload.Children.Add(new ScrollViewer
+        {
+            Content = Card(Stack(Text("파일 미리보기", 20), Horizontal(previewTable))),
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollMode = ScrollMode.Disabled
+        });
+        acknowledge.Content = Text("검토 항목과 원문을 대조했고, 중복 송금 여부를 확인했어요.");
+        var saveActions = Stack(acknowledge,
+            Horizontal(Bar(download, Button("송금 코멘트 복사", () => Copy(rules.Comments(transfers))))));
+        saveActions.Spacing = 6;
+        Grid.SetRow(saveActions, 1);
+        transferDownload.Children.Add(saveActions);
         var grid = new Grid { RowSpacing = 16 };
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        grid.Children.Add(Stack(TitleText("하나은행 이체파일"), Bar(Button("① 요청 입력", () => Step(1)), Button("② 확인 · 수정", () => Step(2)), Button("③ 다운로드", () => Step(3)), AsyncButton("전체 초기화", ResetTransfers)), transferSummary));
+        transferSteps = [Button("1. 요청 입력", () => Step(1)), Button("2. 확인·수정", () => Step(2)), Button("3. 미리보기·저장", () => Step(3))];
+        grid.Children.Add(Stack(TitleText("하나은행 이체파일"),
+            Horizontal(Bar([.. transferSteps, AsyncButton("전체 초기화", ResetTransfers)])), transferSummary));
         var host = new Grid(); host.Children.Add(transferInput); host.Children.Add(transferReview); host.Children.Add(transferDownload);
         Grid.SetRow(host, 1); grid.Children.Add(host); Step(1);
         return grid;
@@ -322,19 +417,23 @@ public sealed partial class MainWindow : Window
     private string Signature => transfers.ToJsonString();
     private void RenderTransfers()
     {
-        refreshing = true; transferList.Children.Clear();
+        refreshing = true; transferList.Children.Clear(); transferStatuses.Clear();
         foreach (var row in transfers.ToArray())
         {
             var bank = new ComboBox { Header = "입금은행", ItemsSource = rules.Banks, SelectedItem = row.Text("bank"), Width = 155 };
             bank.SelectionChanged += (_, _) => { if (!refreshing) { row!["bank"] = bank.SelectedItem?.ToString() ?? ""; ValidateTransfers(); } };
-            var main = Bar(bank);
-            foreach (var (key, label, width) in new[] { ("account", "입금계좌번호", 200), ("amount", "입금액(원)", 140), ("plate", "차량번호", 140) })
-                main.Children.Add(Edit(row!, key, label, width));
-            main.Children.Add(Button("삭제", () => { transfers.Remove(row); RenderTransfers(); }));
+            var account = Edit(row!, "account", "입금계좌번호", 190);
+            var amount = Edit(row!, "amount", "입금액(원)", 146);
+            amount.TextAlignment = TextAlignment.Right;
+            var plate = Edit(row!, "plate", "차량번호", 125);
+            var main = SplitLayout(Horizontal(Bar(bank, account)), Horizontal(Bar(amount, plate)), 670);
+            var remove = Button("삭제", () => { transfers.Remove(row); RenderTransfers(); });
             var memo = Bar(Edit(row!, "outMemo", "출금통장 표시", 180), Edit(row!, "inMemo", "입금통장 표시", 180), Edit(row!, "cms", "CMS코드", 140));
             var status = Text(""); status.Tag = row.Text("id");
-            var original = new Expander { Header = "원문 보기", Content = new TextBox { Text = row.Text("source"), IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MaxWidth = 900 } };
-            var card = Card(Stack(Scroll(main), Scroll(memo), status, original));
+            transferStatuses.Add(status);
+            var original = new TextBox { Header = "Slack 원문", Text = row.Text("source"), IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 220 };
+            var details = new Expander { Header = "메모·CMS 및 원문", Content = Stack(Horizontal(memo), original), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
+            var card = Card(Stack(main, SplitLayout(Stack(Text($"{transferStatuses.Count}번", 13), status), remove, 670), details));
             transferList.Children.Add(card);
         }
         refreshing = false; ValidateTransfers();
@@ -351,13 +450,17 @@ public sealed partial class MainWindow : Window
         if (acknowledge.IsChecked == true && acknowledgedSignature != Signature) acknowledge.IsChecked = false;
         var checks = rules.Check(transfers); var bad = checks.Count(x => x.Text("state") == "bad"); var warn = checks.Count(x => x.Text("state") == "warn");
         transferSummary.Text = $"{transfers.Count:N0}건 · 합계 {Sum(transfers, "amount"):N0}원 · 오류 {bad}건 · 검토 {warn}건" + (transfers.Count > 100 ? " · 한 파일에 100건까지 가능해요." : "");
-        for (var i = 0; i < checks.Count && i < transferList.Children.Count; i++)
+        for (var i = 0; i < checks.Count && i < transferStatuses.Count; i++)
         {
-            var panel = (StackPanel)((Border)transferList.Children[i]).Child;
-            var status = (TextBlock)panel.Children[2];
+            var status = transferStatuses[i];
             status.Text = string.Join(" · ", checks[i]!["errors"]!.AsArray().Concat(checks[i]!["reviews"]!.AsArray()).Select(x => x!.ToString()));
             if (status.Text.Length == 0) status.Text = "확인 완료";
-            status.Foreground = (Brush)Application.Current.Resources[checks[i].Text("state") == "bad" ? "SystemFillColorCriticalBrush" : "TextFillColorSecondaryBrush"];
+            status.Foreground = ThemeBrush(checks[i].Text("state") switch
+            {
+                "bad" => "SystemFillColorCriticalBrush",
+                "warn" => "SystemFillColorCautionBrush",
+                _ => "TextFillColorSecondaryBrush"
+            });
         }
         download.IsEnabled = !saving && transfers.Count is > 0 and <= 100 && bad == 0 && (warn == 0 || acknowledge.IsChecked == true);
         if (step == 3) UpdatePreview();
@@ -365,6 +468,8 @@ public sealed partial class MainWindow : Window
     private void Step(int n)
     {
         step = n;
+        for (var i = 0; i < transferSteps.Length; i++)
+            transferSteps[i].Style = i + 1 == n ? (Style)Application.Current.Resources["AccentButtonStyle"] : null;
         transferInput.Visibility = n == 1 ? Visibility.Visible : Visibility.Collapsed;
         transferReview.Visibility = n == 2 ? Visibility.Visible : Visibility.Collapsed;
         transferDownload.Visibility = n == 3 ? Visibility.Visible : Visibility.Collapsed;
@@ -372,7 +477,16 @@ public sealed partial class MainWindow : Window
     }
     private void UpdatePreview()
     {
-        preview.Text = string.Join(Environment.NewLine, new[] { "입금은행\t입금계좌번호\t입금액(원)\t출금통장표시\t입금통장표시\tCMS코드" }.Concat(transfers.Select(r => string.Join("\t", new[] { "bank", "account", "amount", "outMemo", "inMemo", "cms" }.Select(r.Text)))));
+        previewRows.Children.Clear();
+        if (transfers.Count == 0) previewRows.Children.Add(Text("이체 내역을 추가하면 여기에 표시돼요."));
+        foreach (var row in transfers)
+        {
+            var amount = Amount(row, "amount");
+            if (row.Text("amount").Trim().Length == 0) amount.Text = "미입력";
+            previewRows.Children.Add(TableRow(Columns(TransferColumns, Text(row.Text("bank")),
+                Text(row.Text("account")), amount, Text(row.Text("outMemo")),
+                Text(row.Text("inMemo")), Text(row.Text("cms")))));
+        }
     }
     private async Task SaveTransfer()
     {
