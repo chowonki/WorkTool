@@ -11,15 +11,28 @@ public sealed partial class MainWindow
 {
     private readonly AccessibilitySettings accessibilitySettings = new();
     private readonly UISettings colorSettings = new();
+    private readonly SolidColorBrush pageFill = new();
     private readonly SolidColorBrush cardFill = new();
     private readonly SolidColorBrush cardStroke = new();
-    private readonly WorkTone dispatchTone = new(0x075361, 0xC9F5E9, 0xE2F6FF, 0x085D71, 0xACF0E3, 0x143E3B, 0x153546, 0x61D7D2);
-    private readonly WorkTone transferTone = new(0x452989, 0xE3DBFF, 0xF4E4FF, 0x6944C4, 0xE4D8FF, 0x342551, 0x44294D, 0xBD9EFF);
-    private readonly WorkTone successTone = new(0x105B40, 0xD7F5E5, 0xD7F5E5, 0x187653, 0xA6ECC8, 0x1B4234, 0x1B4234, 0x71D9A8);
-    private readonly WorkTone activeTone = new(0x174F96, 0xDEEDFF, 0xDEEDFF, 0x2663AC, 0xBBD9FF, 0x233C60, 0x233C60, 0x8BBEFF);
-    private readonly WorkTone attentionTone = new(0x754200, 0xFFECC2, 0xFFECC2, 0x8D5908, 0xF9D88C, 0x4A371E, 0x4A371E, 0xFFCE6D);
-    private readonly WorkTone errorTone = new(0x8F2545, 0xFFE3EC, 0xFFE3EC, 0xA83157, 0xFFBCD0, 0x512537, 0x512537, 0xFBA1BC);
-    private readonly WorkTone neutralTone = new(0x40506C, 0xE8EEF9, 0xE8EEF9, 0x576D93, 0xCCD8ED, 0x303B51, 0x303B51, 0xAFC2E3);
+    private readonly SolidColorBrush fieldFill = new();
+    private readonly SolidColorBrush fieldFocusFill = new();
+    private readonly WorkTone dispatchTone = new(0x194C4E, 0xB4CCC7, 0xC6D3D9, 0x678F8C, 0xB5DCD6, 0x213A38, 0x223641, 0x609891);
+    private readonly WorkTone transferTone = new(0x463364, 0xC7BDD9, 0xD3C8DA, 0x8A739F, 0xD9CBEA, 0x343044, 0x3B3141, 0x917CA7);
+    private readonly WorkTone successTone = new(0x194B39, 0xC3D7CA, 0xC3D7CA, 0x618774, 0xAFD6BE, 0x253E34, 0x253E34, 0x79A891);
+    private readonly WorkTone activeTone = new(0x274C79, 0xC5D4E6, 0xC5D4E6, 0x6988AE, 0xB9CDEA, 0x2A3B55, 0x2A3B55, 0x7794BF);
+    private readonly WorkTone attentionTone = new(0x683D14, 0xDACBAE, 0xDACBAE, 0x9D8154, 0xE6CB9D, 0x42372A, 0x42372A, 0xAA9269);
+    private readonly WorkTone errorTone = new(0x732D45, 0xDCC1CA, 0xDCC1CA, 0xA16D80, 0xE7BACA, 0x46303A, 0x46303A, 0xAE778C);
+    private readonly WorkTone neutralTone = new(0x3F4D63, 0xCED6E1, 0xCED6E1, 0x75869E, 0xC5CFDE, 0x333B49, 0x333B49, 0x8699B5);
+
+    private void ApplyWorkSurfaces()
+    {
+        Root.Background = pageFill;
+        PageHost.Background = pageFill;
+        Root.Resources["NavigationViewContentBackground"] = pageFill;
+        Root.Resources["TextControlBackground"] = fieldFill;
+        Root.Resources["TextControlBackgroundPointerOver"] = fieldFocusFill;
+        Root.Resources["TextControlBackgroundFocused"] = fieldFocusFill;
+    }
 
     private void ObserveSystemColors()
     {
@@ -43,11 +56,16 @@ public sealed partial class MainWindow
         var highContrast = accessibilitySettings.HighContrast;
         var foreground = colorSettings.GetColorValue(UIColorType.Foreground);
         var background = colorSettings.GetColorValue(UIColorType.Background);
-        cardFill.Color = highContrast ? background : dark ? Color.FromArgb(255, 43, 45, 52) : Colors.White;
-        cardStroke.Color = highContrast ? foreground : dark ? Color.FromArgb(255, 69, 73, 87) : Color.FromArgb(255, 224, 229, 239);
+        pageFill.Color = highContrast ? background : Rgb(dark ? 0x222428 : 0xDCE2E8);
+        cardFill.Color = highContrast ? background : Rgb(dark ? 0x2B2D34 : 0xE6EBF0);
+        cardStroke.Color = highContrast ? foreground : Rgb(dark ? 0x454957 : 0xC3CCD7);
+        fieldFill.Color = highContrast ? background : Rgb(dark ? 0x30333C : 0xE9EDF1);
+        fieldFocusFill.Color = highContrast ? background : Rgb(dark ? 0x343943 : 0xEEF1F4);
         foreach (var tone in new[] { dispatchTone, transferTone, successTone, activeTone, attentionTone, errorTone, neutralTone })
             tone.Apply(dark, highContrast, foreground, background);
     }
+
+    private static Color Rgb(int value) => Color.FromArgb(255, (byte)(value >> 16), (byte)(value >> 8), (byte)value);
 
     private FrameworkElement ToolCard(WorkTone tone, string glyph, string title, string description, string action, string route)
     {
@@ -94,8 +112,8 @@ public sealed partial class MainWindow
         _ => neutralTone
     };
 
-    private sealed class WorkTone(uint lightInk, uint lightFill, uint lightTail, uint lightAccent,
-        uint darkInk, uint darkFill, uint darkTail, uint darkAccent)
+    private sealed class WorkTone(int lightInk, int lightFill, int lightTail, int lightAccent,
+        int darkInk, int darkFill, int darkTail, int darkAccent)
     {
         public SolidColorBrush Ink { get; } = new();
         public SolidColorBrush Fill { get; } = new();
@@ -120,6 +138,5 @@ public sealed partial class MainWindow
             Surface.GradientStops[1].Color = highContrast ? background : Rgb(dark ? darkTail : lightTail);
         }
 
-        private static Color Rgb(uint value) => Color.FromArgb(255, (byte)(value >> 16), (byte)(value >> 8), (byte)value);
     }
 }

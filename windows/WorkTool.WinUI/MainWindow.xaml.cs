@@ -55,6 +55,7 @@ public sealed partial class MainWindow : Window
         Title = "WorkTool";
         LoadWorkToolTheme();
         Header.Background = dispatchTone.Surface;
+        ApplyWorkSurfaces();
         UpdateWorkColors();
         ObserveSystemColors();
         SystemBackdrop = new MicaBackdrop();
@@ -127,7 +128,7 @@ public sealed partial class MainWindow : Window
     {
         Notice.Message = message; Notice.Severity = error ? InfoBarSeverity.Error : InfoBarSeverity.Success; Notice.IsOpen = true;
     }
-    private static TextBox Input(string header, string placeholder = "", double width = double.NaN) => new() { Header = header, PlaceholderText = placeholder, Width = width, HorizontalAlignment = HorizontalAlignment.Stretch };
+    private TextBox Input(string header, string placeholder = "", double width = double.NaN) => new() { Header = header, PlaceholderText = placeholder, Width = width, HorizontalAlignment = HorizontalAlignment.Stretch, Background = fieldFill };
     private static TextBlock TitleText(string title) => new() { Text = title, FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private FrameworkElement HomePage()
     {
