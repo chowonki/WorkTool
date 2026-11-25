@@ -11,6 +11,7 @@ public sealed partial class MainWindow
     private TextBox slackReplies = null!;
     private TextBlock slackDispatchSummary = null!, slackReplyReport = null!;
     private ListView slackDispatchList = null!;
+    private Button showSlackResults = null!;
 
     private FrameworkElement CreateSlackDispatchStage()
     {
@@ -22,9 +23,10 @@ public sealed partial class MainWindow
         slackReplyReport.Visibility = Visibility.Collapsed;
         slackDispatchSummary = Text("");
         slackDispatchList = new ListView { SelectionMode = ListViewSelectionMode.None, IsItemClickEnabled = false, MaxHeight = 420 };
+        showSlackResults = Button("반영된 차량 표에서 보기", ShowSlackResults);
         var entry = Card(Stack(Text("슬랙봇 회신 붙여넣기", 21),
             Text("한 줄에 차량번호 - 값 형식으로 입력해 주세요. X는 0원, 확인 중은 그대로 반영돼요."),
-            slackReplies, WrapActions(Button("확인 내용 반영", ApplySlackReplies, true),
+            slackReplies, WrapActions(Button("확인 내용 반영", ApplySlackReplies, true), showSlackResults,
                 Button("다음: 복사·저장", () => ShowDispatchStage(DispatchStage.Save))),
             slackReplyReport));
         var list = Card(Stack(Text("확인 대상", 21), slackDispatchSummary,
@@ -37,6 +39,7 @@ public sealed partial class MainWindow
         var eligible = results.OfType<JsonObject>().Where(row => row.Flag("cInquiry")).DistinctBy(row => row.Text("plate")).ToArray();
         var unanswered = eligible.Count(row => !row.Flag("slackReviewed"));
         var pending = eligible.Count(row => row.Flag("slackPending"));
+        showSlackResults.IsEnabled = eligible.Length > unanswered;
         slackDispatchSummary.Text = eligible.Length == 0
             ? "이번 조회에는 슬랙봇 확인 대상이 없어요."
             : $"대상 {eligible.Length:N0}대 · 금액 확인 {eligible.Length - unanswered - pending:N0}대 · 확인 중 {pending:N0}대 · 미입력 {unanswered:N0}대";
@@ -64,7 +67,25 @@ public sealed partial class MainWindow
         slackReplyReport.Foreground = result.Issues.Count > 0 ? attentionTone.Ink : successTone.Ink;
         slackReplyReport.Visibility = Visibility.Visible;
         RefreshSlackDispatchList();
+        if (result.Applied > 0 && result.Issues.Count == 0)
+        {
+            ShowSlackResults();
+            Notify($"슬랙봇 회신 {result.Applied:N0}대를 표에 반영했어요.");
+        }
+        else RenderDispatch();
+    }
+
+    private void ShowSlackResults()
+    {
+        // This view shows all reconciled rows, even when an earlier filter hid them.
+        dispatchVendor = dispatchState = "";
+        dispatchFrom = dispatchTo = null;
+        dispatchSearches.Clear();
+        search.Text = "";
+        dispatchPage = 0;
+        filter.SelectedItem = filter.Items.OfType<ComboBoxItem>().First(item => Equals(item.Tag, "slack-replies"));
         RenderDispatch();
+        ShowDispatchStage(DispatchStage.Review);
     }
 
     private void CopyOutstandingSlackNumbers()

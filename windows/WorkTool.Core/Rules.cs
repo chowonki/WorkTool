@@ -41,7 +41,13 @@ public sealed class Rules
     public JsonObject ParseVehicles(string text) => Eval(dispatch, $"DispatchCore.parseInput({Json(text)})").AsObject();
     public JsonObject ReadSheets(JsonArray sheets, string name) => Eval(dispatch, $"DispatchCore.readSheets({sheets.ToJsonString()},{Json(name)})").AsObject();
     public JsonArray Match(JsonArray vehicles, JsonArray files) => Eval(dispatch, $"DispatchCore.match({vehicles.ToJsonString()},{files.ToJsonString()})").AsArray();
-    public JsonArray Filter(JsonArray results, string filter) => Eval(dispatch, $"{results.ToJsonString()}.filter(r=>DispatchCore.includes(r,{Json(filter)}) && ({Json(filter)}!=='slack' || !r.slackReviewed || r.slackPending))").AsArray();
+    public JsonArray Filter(JsonArray results, string filter) => filter switch
+    {
+        "slack-replies" => new JsonArray(results.Where(row => row?.Flag("slackReviewed") == true)
+            .Select(row => row!.DeepClone()).ToArray()),
+        "slack" => Eval(dispatch, $"{results.ToJsonString()}.filter(r=>r.cInquiry && (!r.slackReviewed || r.slackPending))").AsArray(),
+        _ => Eval(dispatch, $"{results.ToJsonString()}.filter(r=>DispatchCore.includes(r,{Json(filter)}))").AsArray()
+    };
     public string Status(JsonNode row) => row.Flag("slackPending")
         ? SlackDispatch.Pending
         : Eval(dispatch, $"DispatchCore.statusLabel({row.ToJsonString()})").GetValue<string>();

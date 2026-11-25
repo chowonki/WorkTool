@@ -47,7 +47,7 @@ public sealed partial class MainWindow
         dispatchSummary = Text("차량목록과 업체 파일을 넣고 조회하세요.");
         dispatchList = new StackPanel();
         filter = new ComboBox { Header = "조회 상태", Width = 180 };
-        foreach (var (label, key) in new[] { ("전체", "all"), ("확인 필요", "review"), ("금액 확인", "confirmed"), ("진행 중", "progress"), ("미조회", "missing"), ("제주 출발", "jeju"), ("캐리어탁송", "carrier"), ("슬랙봇 문의", "slack") })
+        foreach (var (label, key) in new[] { ("전체", "all"), ("확인 필요", "review"), ("금액 확인", "confirmed"), ("진행 중", "progress"), ("미조회", "missing"), ("제주 출발", "jeju"), ("캐리어탁송", "carrier"), ("슬랙봇 문의", "slack"), ("슬랙봇 반영", "slack-replies") })
             filter.Items.Add(new ComboBoxItem { Content = label, Tag = key });
         filter.SelectedIndex = 0; filter.SelectionChanged += (_, _) => { dispatchPage = 0; RenderDispatch(); };
         search = Input("차량번호 검색", "번호 일부", 180); search.TextChanged += (_, _) => { dispatchPage = 0; RenderDispatch(); };
@@ -293,7 +293,7 @@ public sealed partial class MainWindow
         UpdateDispatchSummary();
         previousResults.IsEnabled = dispatchPage > 0;
         nextResults.IsEnabled = (dispatchPage + 1) * 100 < visibleCount;
-        foreach (var row in visible.Skip(dispatchPage * 100).Take(100))
+        foreach (var row in visible.Skip(dispatchPage * 100).Take(100).OfType<JsonObject>())
         {
             var id = row.Text("id");
             var plate = row.Text("plate");
@@ -337,6 +337,12 @@ public sealed partial class MainWindow
             TintTag(tag, statusText, row!.Flag("slackPending") ? attentionTone : DispatchStatusTone(row.Text("status")));
             var status = Stack(tag);
             status.Spacing = 3;
+            if (row.Flag("slackReviewed"))
+            {
+                var source = Text("슬랙봇 회신", 12);
+                source.Foreground = dispatchTone.Ink;
+                status.Children.Add(source);
+            }
             content.MaxWidth = 420;
             var needsChoice = row!.Flag("scheduleConflict") || row!.Flag("feeConflict");
             if (needsChoice)
