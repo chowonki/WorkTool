@@ -1,0 +1,13 @@
+// Cloudflare Workers(dolwork) 배포 설정: 저장소 루트의 정적 화면 파일만 올려요.
+// 올리지 않을 파일은 .assetsignore에 적어요.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dolwork",
+  "compatibility_date": "2026-11-23",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "."
+  }
+}
