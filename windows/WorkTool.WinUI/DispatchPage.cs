@@ -350,6 +350,8 @@ public sealed partial class MainWindow
             {
                 var candidates = row![field + "Candidates"]!.AsArray();
                 if (!row.Flag(field + "Conflict") && candidates.Select(candidate => candidate.Text("value")).Distinct().Take(2).Count() < 2) continue;
+                // 일정이 중첩이면 비용은 고른 일정의 기록을 따라가서 따로 고르지 않아요.
+                if (field == "fee" && row["scheduleCandidates"]!.AsArray().Select(candidate => candidate.Text("value")).Distinct().Take(2).Count() > 1) continue;
                 var combo = new ComboBox { Header = label + " 원본 기록 선택", HorizontalAlignment = HorizontalAlignment.Stretch };
                 foreach (var candidate in candidates) combo.Items.Add(new ComboBoxItem { Content = $"{candidate.Text("value")} · {candidate.Text("source")}", Tag = candidate.Text("id") });
                 combo.SelectionChanged += (_, _) =>

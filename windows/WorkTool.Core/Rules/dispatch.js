@@ -151,7 +151,7 @@ function useCandidate(result,field,id){
   result.selectedFeeId=matchingFee?.id??'';
   result.dispatchFee=matchingFee?.value??null;
   result.vat=matchingFee?Math.round((matchingFee.value*10)/100):null;
-  result.feeConflict=!matchingFee;
+  result.feeConflict=false;
 
  }else{
   result.selectedFeeId=chosen.id;
@@ -208,9 +208,12 @@ function match(input,files){
   const scheduleCandidates=candidateList(ranked,'dispatchSchedule');
   const feeCandidates=candidateList(ranked,'dispatchFee');
   const scheduleConflict=new Set(scheduleCandidates.map(item=>item.value)).size>1;
-  const feeConflict=new Set(feeCandidates.map(item=>item.value)).size>1;
+  // 비용이 기록마다 다르면 비워 두고 고르게 해요. 일정이 중첩이면 비용은 고른 일정의 기록을 따라가서,
+  // 비용만 따로 고르는 건 일정이 하나일 때뿐이에요.
+  const feeDiffers=new Set(feeCandidates.map(item=>item.value)).size>1;
+  const feeConflict=!scheduleConflict&&feeDiffers;
   const chosenSchedule=scheduleConflict?null:scheduleCandidates[0]??null;
-  const chosenFee=feeConflict?null:feeCandidates[0]??null;
+  const chosenFee=feeDiffers?null:feeCandidates[0]??null;
   return {...v,...recordView(selected,rentok),
    schedule:chosenSchedule?.value??'',selectedScheduleId:chosenSchedule?.id??'',scheduleCandidates,scheduleConflict,
    dispatchFee:chosenFee?.value??null,vat:chosenFee?Math.round((chosenFee.value*10)/100):null,selectedFeeId:chosenFee?.id??'',feeCandidates,feeConflict,

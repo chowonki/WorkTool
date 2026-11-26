@@ -52,7 +52,7 @@ th.filtered .filterbtn{color:#267358}
 </head><body class="mac-ui" data-page="dispatch"><style>.toolnav{font:12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;display:flex;gap:10px;align-items:center;padding:10px 24px;background:#203e37;color:#e4f0e8;flex-wrap:wrap}.toolnav a{color:inherit;text-decoration:none;padding:7px 11px;border-radius:6px}.toolnav a:hover,.toolnav a[aria-current="page"]{background:#ffffff20;color:#fff}.toolnav .homelink{margin-right:auto;font-weight:700}.copyable{cursor:pointer;border-radius:4px;text-decoration:underline;text-decoration-color:#a4cdb4;text-underline-offset:3px}.copyable:hover{color:#218257;background:#edf8f0}.copyable:focus-visible{outline:2px solid #2a865f;outline-offset:2px}
 #table{min-width:1490px}
 .overlap-select{width:100%;max-width:200px;height:28px;border:1px solid #a4bda9;border-radius:7px;background:white;color:#254d39;padding:2px 24px 2px 8px;font:inherit;font-size:12px;font-weight:600;line-height:1.2;text-overflow:ellipsis;cursor:pointer}
-.choice-pending{background:#fff5de!important}.chosen-value{display:inline-flex;align-items:center;gap:6px;max-width:100%}.chosen-value .repick{flex:none;width:22px;height:22px;padding:0;border:1px solid #d3dee7;border-radius:6px;background:#ffffffb3;color:#5b7385;font-size:12px;line-height:1;cursor:pointer;opacity:.55}.chosen-value .repick:hover,.chosen-value .repick:focus-visible{opacity:1;border-color:#8fb3a3;color:#267358}html[data-theme=dark] .chosen-value .repick{background:#ffffff14;border-color:#ffffff2e;color:#b0bfd6}
+.choice-pending{background:#fff5de!important}body.mac-ui[data-page=dispatch] #table td.awaiting-choice{color:#8a99a8;font-size:12px}html[data-theme=dark] body.mac-ui[data-page=dispatch] #table td.awaiting-choice{color:#8393a8}.chosen-value{display:inline-flex;align-items:center;gap:6px;max-width:100%}.chosen-value .repick{flex:none;width:22px;height:22px;padding:0;border:1px solid #d3dee7;border-radius:6px;background:#ffffffb3;color:#5b7385;font-size:12px;line-height:1;cursor:pointer;opacity:.55}.chosen-value .repick:hover,.chosen-value .repick:focus-visible{opacity:1;border-color:#8fb3a3;color:#267358}html[data-theme=dark] .chosen-value .repick{background:#ffffff14;border-color:#ffffff2e;color:#b0bfd6}
 body.mac-ui #table select.overlap-select{min-height:0;height:28px;font-size:12px;padding:2px 24px 2px 8px!important;border-width:1px!important;background-position:right 6px center!important;background-size:12px!important}
 .choice-pending .overlap-select{border-color:#d69a31;color:#85520c;font-weight:750;background:#fffaf0}
 .overlap-select:focus-visible{outline:3px solid #269d6a;outline-offset:2px}
@@ -60677,7 +60677,7 @@ function useCandidate(result,field,id){
   result.selectedFeeId=matchingFee?.id??'';
   result.dispatchFee=matchingFee?.value??null;
   result.vat=matchingFee?Math.round((matchingFee.value*10)/100):null;
-  result.feeConflict=!matchingFee;
+  result.feeConflict=false;
 
  }else{
   result.selectedFeeId=chosen.id;
@@ -60734,9 +60734,12 @@ function match(input,files){
   const scheduleCandidates=candidateList(ranked,'dispatchSchedule');
   const feeCandidates=candidateList(ranked,'dispatchFee');
   const scheduleConflict=new Set(scheduleCandidates.map(item=>item.value)).size>1;
-  const feeConflict=new Set(feeCandidates.map(item=>item.value)).size>1;
+  // 비용이 기록마다 다르면 비워 두고 고르게 해요. 일정이 중첩이면 비용은 고른 일정의 기록을 따라가서,
+  // 비용만 따로 고르는 건 일정이 하나일 때뿐이에요.
+  const feeDiffers=new Set(feeCandidates.map(item=>item.value)).size>1;
+  const feeConflict=!scheduleConflict&&feeDiffers;
   const chosenSchedule=scheduleConflict?null:scheduleCandidates[0]??null;
-  const chosenFee=feeConflict?null:feeCandidates[0]??null;
+  const chosenFee=feeDiffers?null:feeCandidates[0]??null;
   return {...v,...recordView(selected,rentok),
    schedule:chosenSchedule?.value??'',selectedScheduleId:chosenSchedule?.id??'',scheduleCandidates,scheduleConflict,
    dispatchFee:chosenFee?.value??null,vat:chosenFee?Math.round((chosenFee.value*10)/100):null,selectedFeeId:chosenFee?.id??'',feeCandidates,feeConflict,
@@ -61026,6 +61029,11 @@ function renderResults(){
    const conflict=kind==='schedule'?r.scheduleConflict:r.feeConflict;
    const td=document.createElement('td');if(kind==='fee')td.className='number amount';
    const display=value=>kind==='schedule'?value:String(value).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+   // 일정이 중첩인 차량은 비용 선택창 없이, 고른 일정의 비용을 보여줘요.
+   if(kind==='fee'&&new Set(r.scheduleCandidates.map(c=>String(c.value))).size>1){
+    if(r.scheduleConflict&&r.dispatchFee==null){td.textContent='일정 선택 후 표시';td.classList.add('awaiting-choice');return td;}
+    td.textContent=r.dispatchFee==null?'—':display(r.dispatchFee);return makeCopyable(td,'탁송비용',r.dispatchFee==null?'':String(r.dispatchFee));
+   }
    const hasMultipleValues=new Set(choices.map(c=>String(c.value))).size>1;
    if(!hasMultipleValues){const val=kind==='schedule'?r.schedule:r.dispatchFee;td.textContent=val==null||val===''?'—':display(val);return makeCopyable(td,kind==='schedule'?'탁송일정':'탁송비용',val==null||val===''?'':String(val));}
    // 선택이 끝난 칸은 다른 칸과 똑같이 고른 값만 보여줘요(눌러서 복사). 출처는 마우스를 올리면 보이고, ↺로 다시 고를 수 있어요.

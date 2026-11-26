@@ -115,12 +115,22 @@ test('제주 출발 렌톡 건을 표시해요',()=>{
 test('탁송비용 부가세는 10%이고, 기록마다 비용이 다르면 직접 고르게 해요',()=>{
  const r=one('12서7567',[read('A',[{plate:'12서7567',fee:'50000',date:'2026-11-01'}])]);
  assert.equal(r.dispatchFee,50000);assert.equal(r.vat,5000);assert.equal(r.feeConflict,false);
+ // 일정이 서로 다르면 일정만 고르고, 비용은 고른 일정의 기록을 따라가요.
  const files=[read('A',[{plate:'12서7567',fee:'50000',date:'2026-11-01'}]),read('B',[{plate:'12서7567',fee:'60000',date:'2026-11-02'}])];
  const row=C.match([{plate:'12서7567',date:''}],files)[0];
- assert.equal(row.feeConflict,true);assert.equal(row.dispatchFee,null);assert.ok(C.hasUnresolvedChoice(row));
- const pick=row.feeCandidates.find(c=>c.value===50000);
- assert.ok(C.useCandidate(row,'fee',pick.id));
- assert.equal(row.dispatchFee,50000);assert.equal(row.vat,5000);assert.ok(!C.hasUnresolvedChoice(row)||row.scheduleConflict);
+ assert.equal(row.scheduleConflict,true);assert.equal(row.feeConflict,false,'일정 중첩이면 비용 선택은 따로 띄우지 않아요');
+ assert.equal(row.dispatchFee,null);assert.ok(C.hasUnresolvedChoice(row));
+ assert.ok(C.useCandidate(row,'schedule',row.scheduleCandidates.find(c=>c.vendor==='A').id));
+ assert.equal(row.dispatchFee,50000);assert.equal(row.vat,5000);assert.ok(!C.hasUnresolvedChoice(row));
+ // 고른 일정의 기록에 비용이 없으면 비용은 비워 두고, 따로 고르라고 하지 않아요.
+ const noFee=C.match([{plate:'12서7567',date:''}],[read('A',[{plate:'12서7567',date:'2026-11-01'}]),read('B',[{plate:'12서7567',fee:'60000',date:'2026-11-02'}])])[0];
+ assert.ok(C.useCandidate(noFee,'schedule',noFee.scheduleCandidates.find(c=>c.vendor==='A').id));
+ assert.equal(noFee.dispatchFee,null);assert.ok(!C.hasUnresolvedChoice(noFee));
+ // 일정이 같고 비용만 다르면 비용을 직접 골라요.
+ const same=C.match([{plate:'12서7567',date:''}],[read('A',[{plate:'12서7567',fee:'50000',date:'2026-11-01'}]),read('B',[{plate:'12서7567',fee:'60000',date:'2026-11-01'}])])[0];
+ assert.equal(same.scheduleConflict,false);assert.equal(same.feeConflict,true);
+ assert.ok(C.useCandidate(same,'fee',same.feeCandidates.find(c=>c.value===50000).id));
+ assert.equal(same.dispatchFee,50000);assert.equal(same.vat,5000);assert.ok(!C.hasUnresolvedChoice(same));
 });
 test('차량목록에 같은 번호가 두 번 있으면 입력 중복으로 표시해요',()=>{
  const rows=plain(C.match([{plate:'12서7567',date:''},{plate:'12서7567',date:''}],[read('A',[{plate:'12서7567'}])]));
