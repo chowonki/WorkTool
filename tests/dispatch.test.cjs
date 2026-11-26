@@ -169,3 +169,27 @@ test('탁송일정은 3사 모두 YYYY-MM-DD HH:MM으로 맞춰요',()=>{
  assert.equal(C.dispatchSchedule('C',Cr('예약 요청')),'예약 요청','날짜가 없는 글자는 그대로 보여요');
  assert.equal(C.dispatchSchedule('C',Cr('2026-13-40 14:00')),'2026-13-40 14:00','없는 날짜는 바꾸지 않아요');
 });
+
+test('중첩 기록을 고르면 상태·업체·주유비·출발지 등 나머지 칸도 고른 기록으로 바뀌어요',()=>{
+ const files=[read('A',[{plate:'25마7579',cost:'10000',origin:'서울 송파구',date:'2026-11-04',time:'10:00',fee:'30000'}]),
+  read('B',[{plate:'25마7579',state:'탁송중',cost:'20000',origin:'경기 수원시',date:'2026-11-04',fee:'35000'}]),
+  read('C',[{plate:'25마7579',origin:'제주특별자치도 제주시',date:'2026-11-03 09:00',carrier:'N',fee:'41000'}])];
+ const row=C.match([{plate:'25마7579',date:''}],files)[0];
+ assert.equal(row.vendor,'오픈마일');assert.equal(row.rawState,'탁송 중');assert.equal(row.status,'incomplete');
+ const pickA=row.scheduleCandidates.find(c=>c.vendor==='A');
+ assert.ok(C.useCandidate(row,'schedule',pickA.id));
+ assert.equal(row.schedule,'2026-11-04 10:00');assert.equal(row.dispatchFee,30000);
+ assert.equal(row.vendor,'한빛탁송');assert.equal(row.status,'confirmed');assert.equal(row.rawState,'탁송완료');
+ assert.equal(row.amount,10000);assert.equal(row.origin,'서울 송파구');assert.equal(row.meaning,C.meaning('A'));
+ assert.match(row.sources,/^A\.xlsx /);assert.equal(row.jeju,false);
+ // 렌톡 기록을 고르면 렌톡 기준(슬랙봇 문의·제주 출발)으로 바뀌고, 이미 받은 슬랙봇 회신 금액은 유지해요.
+ C.applySlackReplies('25마7579 - 15000',[Object.assign(row,{cInquiry:true})]);
+ const pickC=row.scheduleCandidates.find(c=>c.vendor==='C');
+ assert.ok(C.useCandidate(row,'schedule',pickC.id));
+ assert.equal(row.vendor,'렌톡');assert.equal(row.jeju,true);assert.equal(row.cInquiry,true);assert.equal(row.carrierType,'일반탁송');
+ assert.equal(row.amount,15000);assert.equal(row.status,'confirmed');assert.equal(row.meaning,'슬랙봇 확인');
+ // 다시 다른 업체를 고르면 슬랙봇 회신은 풀려요.
+ assert.ok(C.useCandidate(row,'schedule',pickA.id));
+ assert.equal(row.vendor,'한빛탁송');assert.equal(row.amount,10000);assert.equal(row.slackReviewed,false);
+ assert.equal(JSON.parse(JSON.stringify(row)).records.length,3,'Windows 앱처럼 JSON으로 오가도 기록이 남아요');
+});
