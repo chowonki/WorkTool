@@ -75,12 +75,14 @@ function scheduleDateTime(value){
  if(digits){const day=digits[1]+'-'+digits[2]+'-'+digits[3];const time=scheduleTime(digits[4]);return time?day+' '+time:day;}
  return t;
 }
+// 탁송일정은 3사 모두 'YYYY-MM-DD HH:MM'으로 맞춰요. 시간이 없는 건은 00:00을 붙여요.
 function dispatchSchedule(vendor,row){
+ let value;
  if(vendor==='A'){
   const date=scheduleDateTime(row[10]);const time=scheduleTime(row[11]);
-  return time?(date?date.slice(0,10)+' '+time:time):date;
- }
- return scheduleDateTime(vendor==='B'?row[2]:row[3]);
+  value=time?(date?date.slice(0,10)+' '+time:time):date;
+ }else value=scheduleDateTime(vendor==='B'?row[2]:row[3]);
+ return /^\d{4}-\d{2}-\d{2}$/.test(value)?value+' 00:00':value;
 }
 // 업체 양식 점검: 열 위치로 읽는 값(탁송일정·탁송비용·캐리어 구분)이 절반 넘게 예상과 다르면
 // 업체가 열을 끼워 넣거나 옮겼을 수 있어서 경고해요. 값은 그대로 읽고, 경고만 붙여요.
