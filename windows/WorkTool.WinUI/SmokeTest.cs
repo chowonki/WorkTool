@@ -67,6 +67,16 @@ public sealed partial class MainWindow
                     if (results[i]!.Flag(field + "Conflict")) results[i] = rules.Choose(results[i]!, field, results[i]![field + "Candidates"]![0].Text("id"));
             RenderDispatch();
             var allMatches = VisibleResults().Count;
+            var savedPageSize = dispatchPageSize;
+            SetDispatchPageSize(10);
+            Assert(dispatchList.Children.Count == Math.Min(10, allMatches) && dispatchPage == 0, "Dispatch shows one page of the chosen size");
+            if (allMatches > 10)
+            {
+                ChangeDispatchPage(1);
+                Assert(dispatchList.Children.Count == Math.Min(10, allMatches - 10) && dispatchSummary.Text.Contains("11–"), "Dispatch moves to the next page");
+            }
+            SetDispatchPageSize(savedPageSize == 10 ? 30 : savedPageSize);
+            Assert(dispatchPageSize != 10 && dispatchList.Children.Count == Math.Min(dispatchPageSize, allMatches), "Dispatch page size can be changed back");
             dispatchVendor = "한빛탁송";
             Assert(VisibleResults().Count < allMatches && VisibleResults().All(row => row.Text("vendor") == "한빛탁송"), "Dispatch filters by vendor");
             dispatchVendor = "";

@@ -26,8 +26,14 @@ public sealed partial class MainWindow
     private ComboBox filter = null!, scope = null!;
     private Grid dispatchTable = null!;
     private Button previousResults = null!, nextResults = null!;
+    private StackPanel dispatchPageNumbers = null!;
+    private ComboBox dispatchPageSizeBox = null!;
     private ScrollViewer dispatchScroll = null!;
     private int dispatchPage;
+    // 한 페이지에 보여줄 건수: 웹과 같이 기본 30건, 고른 값은 이 기기에 기억해요.
+    private static readonly int[] DispatchPageSizes = [10, 30, 50, 100];
+    private int dispatchPageSize = 30;
+    private static string DispatchPageSizeFile => LocalState.DataFile("dispatch-page-size.txt");
     private int visibleCount;
     private decimal visibleAmount;
     private enum DispatchStage { Input, Review, Slack, Save }
@@ -71,8 +77,21 @@ public sealed partial class MainWindow
         ExportItem("TXT 저장", () => ExportDispatch(".txt"));
         ExportItem("PNG 저장", () => CaptureDispatch(false));
         ExportItem("PDF 저장", () => CaptureDispatch(false, true));
-        previousResults = Button("이전", () => ChangeDispatchPage(-1));
-        nextResults = Button("다음", () => ChangeDispatchPage(1));
+        previousResults = Button("‹ 이전", () => ChangeDispatchPage(dispatchPage - 1));
+        nextResults = Button("다음 ›", () => ChangeDispatchPage(dispatchPage + 1));
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(previousResults, "이전 페이지");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(nextResults, "다음 페이지");
+        dispatchPageNumbers = Bar();
+        dispatchPageNumbers.Spacing = 4;
+        LoadDispatchPageSize();
+        dispatchPageSizeBox = new ComboBox { Width = 104, VerticalAlignment = VerticalAlignment.Center };
+        foreach (var size in DispatchPageSizes) dispatchPageSizeBox.Items.Add(new ComboBoxItem { Content = $"{size}건", Tag = size });
+        dispatchPageSizeBox.SelectedIndex = Array.IndexOf(DispatchPageSizes, dispatchPageSize);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(dispatchPageSizeBox, "한 페이지에 표시할 건수");
+        dispatchPageSizeBox.SelectionChanged += (_, _) =>
+        {
+            if (dispatchPageSizeBox.SelectedItem is ComboBoxItem { Tag: int size }) SetDispatchPageSize(size);
+        };
         var vehicleActions = Columns([0, 90], vehicleCount, Button("목록 정리", CleanVehicles));
         vehicleActions.Padding = new Thickness(0);
         var vehicleInput = Stack(vehicles, vehicleActions);
@@ -152,7 +171,9 @@ public sealed partial class MainWindow
         Grid.SetRow(list, 1);
         resultsStage.Children.Add(list);
         dispatchSummary.VerticalAlignment = VerticalAlignment.Center;
-        var pagination = Bar(previousResults, nextResults);
+        var pageSizeLabel = Text("페이지당", 13);
+        pageSizeLabel.VerticalAlignment = VerticalAlignment.Center;
+        var pagination = WrapControls(center: true, previousResults, dispatchPageNumbers, nextResults, pageSizeLabel, dispatchPageSizeBox);
         pagination.HorizontalAlignment = HorizontalAlignment.Right;
         var footer = SplitLayout(dispatchSummary, pagination, 720);
         Grid.SetRow(footer, 2);
@@ -298,13 +319,12 @@ public sealed partial class MainWindow
         if (dispatchList is null || search is null) return;
         dispatchList.Children.Clear();
         var visible = VisibleResults();
-        dispatchPage = Math.Min(dispatchPage, Math.Max(0, (visible.Count - 1) / 100));
+        dispatchPage = Math.Clamp(dispatchPage, 0, Math.Max(0, (visible.Count - 1) / dispatchPageSize));
         visibleCount = visible.Count;
         visibleAmount = Sum(visible, "amount");
         UpdateDispatchSummary();
-        previousResults.IsEnabled = dispatchPage > 0;
-        nextResults.IsEnabled = (dispatchPage + 1) * 100 < visibleCount;
-        foreach (var row in visible.Skip(dispatchPage * 100).Take(100).OfType<JsonObject>())
+        RenderDispatchPager();
+        foreach (var row in visible.Skip(dispatchPage * dispatchPageSize).Take(dispatchPageSize).OfType<JsonObject>())
         {
             var id = row.Text("id");
             var plate = row.Text("plate");
@@ -408,14 +428,74 @@ public sealed partial class MainWindow
         return button;
     }
 
-    private void ChangeDispatchPage(int offset)
+    private int DispatchPageCount => Math.Max(1, (visibleCount + dispatchPageSize - 1) / dispatchPageSize);
+
+    private void ChangeDispatchPage(int page)
     {
-        dispatchPage += offset;
+        dispatchPage = page;
         RenderDispatch();
         dispatchScroll.ChangeView(null, 0, null);
     }
-    private void UpdateDispatchSummary() => dispatchSummary.Text =
-        $"전체 {results.Count:N0}대 · 표시 {visibleCount:N0}대 · 선택 {selected.Count:N0}대 · 주유·충전비 {visibleAmount:N0}원 · {dispatchPage + 1}/{Math.Max(1, (visibleCount + 99) / 100)}페이지";
+
+    // 페이지 번호: 현재 페이지 주변 7개와 첫·마지막 페이지를 보여줘요.
+    private void RenderDispatchPager()
+    {
+        var pages = DispatchPageCount;
+        previousResults.IsEnabled = dispatchPage > 0;
+        nextResults.IsEnabled = dispatchPage + 1 < pages;
+        dispatchPageNumbers.Children.Clear();
+        if (pages <= 1) return;
+        void Number(int page)
+        {
+            var button = Button((page + 1).ToString(CultureInfo.InvariantCulture), () => ChangeDispatchPage(page), page == dispatchPage);
+            button.MinWidth = 36;
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, $"{page + 1}페이지");
+            dispatchPageNumbers.Children.Add(button);
+        }
+        void Gap()
+        {
+            var text = Text("…");
+            text.VerticalAlignment = VerticalAlignment.Center;
+            dispatchPageNumbers.Children.Add(text);
+        }
+        var from = Math.Max(0, dispatchPage - 3);
+        var to = Math.Min(pages - 1, from + 6);
+        from = Math.Max(0, to - 6);
+        if (from > 0) { Number(0); if (from > 1) Gap(); }
+        for (var page = from; page <= to; page++) Number(page);
+        if (to < pages - 1) { if (to < pages - 2) Gap(); Number(pages - 1); }
+    }
+
+    private void SetDispatchPageSize(int size)
+    {
+        if (!DispatchPageSizes.Contains(size) || size == dispatchPageSize) return;
+        var firstRow = dispatchPage * dispatchPageSize;
+        dispatchPageSize = size;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(DispatchPageSizeFile)!);
+            File.WriteAllText(DispatchPageSizeFile, size.ToString(CultureInfo.InvariantCulture));
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+        ChangeDispatchPage(firstRow / size);
+    }
+
+    private void LoadDispatchPageSize()
+    {
+        try
+        {
+            if (File.Exists(DispatchPageSizeFile) && int.TryParse(File.ReadAllText(DispatchPageSizeFile).Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var size)
+                && DispatchPageSizes.Contains(size)) dispatchPageSize = size;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+    }
+
+    private void UpdateDispatchSummary()
+    {
+        var first = visibleCount == 0 ? 0 : dispatchPage * dispatchPageSize + 1;
+        var last = Math.Min(visibleCount, (dispatchPage + 1) * dispatchPageSize);
+        dispatchSummary.Text = $"전체 {results.Count:N0}대 · 표시 {visibleCount:N0}대 · 선택 {selected.Count:N0}대 · 주유·충전비 {visibleAmount:N0}원 · {first:N0}–{last:N0}줄 ({dispatchPage + 1}/{DispatchPageCount}페이지)";
+    }
     private static string Money(JsonNode? row, string field)
     {
         if (field == "amount" && row?.Flag("slackPending") == true) return Rules.SlackPending;
