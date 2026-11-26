@@ -146,3 +146,21 @@ test('진행 중: 탁송 중·배정완료만 해당하고, 취소·미조회·�
  assert.ok(C.includes(by['55노4983'],'progress')&&!C.includes(by['77다1234'],'progress'));
  assert.ok(C.textExport([by['12서7567']]).includes('진행 중'),'TXT 저장에도 진행 중');
 });
+
+test('탁송일정은 3사 모두 YYYY-MM-DD HH:MM으로 맞춰요',()=>{
+ const A=(date,time)=>{const r=[];r[10]=date;r[11]=time;return r;},B=v=>{const r=[];r[2]=v;return r;},Cr=v=>{const r=[];r[3]=v;return r;};
+ assert.equal(C.dispatchSchedule('A',A('2026-11-03','09:30')),'2026-11-03 09:30');
+ assert.equal(C.dispatchSchedule('A',A('2026-11-03','')),'2026-11-03 00:00');
+ assert.equal(C.dispatchSchedule('A',A(46329,0.5)),'2026-11-03 12:00');
+ assert.equal(C.dispatchSchedule('B',B('2026-11-03')),'2026-11-03 00:00');
+ assert.equal(C.dispatchSchedule('B',B('2026.11.3 오후 2:20')),'2026-11-03 14:20');
+ assert.equal(C.dispatchSchedule('B',B(46329.25)),'2026-11-03 06:00');
+ assert.equal(C.dispatchSchedule('C',Cr('2026/11/04')),'2026-11-04 00:00');
+ assert.equal(C.dispatchSchedule('C',Cr('20261104 13:05:00')),'2026-11-04 13:05');
+ assert.equal(C.dispatchSchedule('C',Cr(46330)),'2026-11-04 00:00');
+ assert.equal(C.dispatchSchedule('B',B('')),'','빈 값은 그대로 비워요');
+ // 오픈마일·렌톡은 한 칸에 날짜와 시간이 같이 들어와요.
+ for(const [raw,want] of [['2026-11-03 14:20:00','2026-11-03 14:20'],['2026. 11. 3. 오후 2:20','2026-11-03 14:20'],['2026-11-03T14:20','2026-11-03 14:20'],['2026-11-03(화) 14:20','2026-11-03 14:20'],['2026-11-03 14시 20분','2026-11-03 14:20'],['2026-11-03 오후 2시','2026-11-03 14:00'],['2026-11-0314:20','2026-11-03 14:20'],[46329.597222,'2026-11-03 14:20']]){
+  assert.equal(C.dispatchSchedule('B',B(raw)),want,'오픈마일 '+raw);assert.equal(C.dispatchSchedule('C',Cr(raw)),want,'렌톡 '+raw);}
+ assert.equal(C.dispatchSchedule('C',Cr('11/03/26 14:20')),'11/03/26 14:20','연도를 알 수 없는 모양은 원문 그대로 두고 양식 경고로 알려요');
+});
