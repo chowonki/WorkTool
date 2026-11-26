@@ -18,9 +18,9 @@ function dispatchDemo(root){
   const FILES=[['한빛탁송.xlsx',3],['오픈마일.xlsx',4],['렌톡.xlsx',3]];
   const BASE=[
     {date:'11-03 09:30',car:'12서7567',fuel:12350,fee:28000,st:'ok'},
-    {date:'11-03',car:'55노4983',fuel:0,fee:26000,st:'ok'},
-    {date:'11-04',car:'02두3821',fuel:8700,fee:30000,st:'ok',jeju:true},
-    {date:'11-06',car:'39수7009',fuel:null,fee:28000,st:'progress'},
+    {date:'11-03 00:00',car:'55노4983',fuel:0,fee:26000,st:'ok'},
+    {date:'11-04 00:00',car:'02두3821',fuel:8700,fee:30000,st:'ok',jeju:true},
+    {date:'11-06 00:00',car:'39수7009',fuel:null,fee:28000,st:'progress'},
     {date:null,car:'25마7579',fuel:20000,fee:null,st:'pick',carrier:true,
      picks:[{date:'11-05 08:10',vendor:'한빛탁송',fee:24000},{date:'11-05 14:40',vendor:'오픈마일',fee:22000}]}
   ];
