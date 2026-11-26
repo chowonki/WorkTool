@@ -60594,11 +60594,18 @@ function scheduleDateTime(value){
  if(value==null||String(value).trim()==='')return '';
  if(value instanceof Date)return Number.isFinite(value.getTime())?excelDateTime((value.getTime()-Date.UTC(1899,11,30))/86400000):'';
  if((typeof value==='number'||/^\d{4,5}(?:\.\d+)?$/.test(String(value).trim()))&&Number(value)>=1000&&Number(value)<100000)return excelDateTime(value);
- const t=String(value).normalize('NFKC').trim();
+ // 보이지 않는 문자(폭 없는 공백·BOM)는 지우고 읽어요.
+ const t=String(value).normalize('NFKC').replace(/[\u200B-\u200D\u2060\uFEFF]/g,'').trim();
  const match=t.match(/^(\d{4})\s*[.\/\-]\s*(\d{1,2})\s*[.\/\-]\s*(\d{1,2})\.?(?:\s*\([월화수목금토일]\))?(?:\s*T?\s*(.*))?$/);
- if(match){const day=match[1]+'-'+match[2].padStart(2,'0')+'-'+match[3].padStart(2,'0');const time=scheduleTime(match[4]);return time?day+' '+time:day;}
+ if(match){const day=match[1]+'-'+match[2].padStart(2,'0')+'-'+match[3].padStart(2,'0');const time=scheduleTime(match[4]);if(!match[4]||/^\d{2}:\d{2}$/.test(time))return time?day+' '+time:day;}
  const digits=t.match(/^(\d{4})(\d{2})(\d{2})(?:\s+(.*))?$/);
- if(digits){const day=digits[1]+'-'+digits[2]+'-'+digits[3];const time=scheduleTime(digits[4]);return time?day+' '+time:day;}
+ if(digits){const day=digits[1]+'-'+digits[2]+'-'+digits[3];const time=scheduleTime(digits[4]);if(!digits[4]||/^\d{2}:\d{2}$/.test(time))return time?day+' '+time:day;}
+ // 따옴표·괄호·시간대(+09:00)·뒤에 붙은 글자가 있어도 안에 든 날짜·시간을 찾아 맞춰요.
+ const inside=t.match(/(\d{4})\s*[.\/\-]\s*(\d{1,2})\s*[.\/\-]\s*(\d{1,2})\.?(?:\s*\([월화수목금토일]\))?(?:\s*T?\s*((?:오전|오후|AM|PM)?\s*\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:\s*(?:AM|PM))?))?/i);
+ if(inside&&Number(inside[2])>=1&&Number(inside[2])<=12&&Number(inside[3])>=1&&Number(inside[3])<=31){
+  const day=inside[1]+'-'+inside[2].padStart(2,'0')+'-'+inside[3].padStart(2,'0');const time=inside[4]?scheduleTime(inside[4]):'';
+  if(!inside[4]||/^\d{2}:\d{2}$/.test(time))return time?day+' '+time:day;
+ }
  return t;
 }
 // 탁송일정은 3사 모두 'YYYY-MM-DD HH:MM'으로 맞춰요. 시간이 없는 건은 00:00을 붙여요.
