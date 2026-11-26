@@ -1,0 +1,12 @@
+# 사이트(dolwork)에 올리지 않는 파일: 화면은 *.html, assets/, guide/만 써요.
+.git
+.github
+.gitignore
+.assetsignore
+wrangler.jsonc
+.wrangler
+node_modules
+tests
+scripts
+windows
+*.md
