@@ -43,7 +43,7 @@ function dateText(v){
 // Values are normalized to local date-time text; Excel serials are not shifted by timezone.
 function excelDateTime(value){
  const epoch=Date.UTC(1899,11,30);
- const ms=epoch+Math.round(Number(value)*86400000);
+ const ms=epoch+Math.round(Number(value)*1440)*60000;
  if(!Number.isFinite(ms))return '';
  const d=new Date(ms);
  if(!Number.isFinite(d.getTime()))return '';
@@ -55,9 +55,9 @@ function scheduleTime(value){
  if(value instanceof Date)return Number.isFinite(value.getTime())?value.toISOString().slice(11,16):'';
  if((typeof value==='number'||/^(?:0(?:\.\d+)?|1(?:\.0+)?)$/.test(String(value).trim()))&&Number(value)>=0&&Number(value)<1){const mins=Math.round(Number(value)*1440)%1440;return String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0');}
  const text=String(value).trim();
- const match=text.match(/^(오전|오후|AM|PM)?\s*(\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?\s*(AM|PM)?$/i);
- if(match){let hour=Number(match[2]),min=Number(match[3]);if(hour>23||min>59)return text;
-  const meridiem=(match[1]||match[4]||'').toUpperCase();
+ const match=text.match(/^(오전|오후|AM|PM)?\s*(\d{1,2})(?::(\d{2})(?::\d{2}(?:\.\d+)?)?|\s*시(?:\s*(\d{1,2})\s*분)?)\s*(AM|PM)?$/i);
+ if(match){let hour=Number(match[2]),min=Number(match[3]??match[4]??0);if(hour>23||min>59)return text;
+  const meridiem=(match[1]||match[5]||'').toUpperCase();
   if(meridiem==='오전'||meridiem==='AM')hour=hour===12?0:hour;
   if(meridiem==='오후'||meridiem==='PM')hour=hour===12?12:hour+12;
   return String(hour).padStart(2,'0')+':'+String(min).padStart(2,'0');
@@ -69,7 +69,7 @@ function scheduleDateTime(value){
  if(value instanceof Date)return Number.isFinite(value.getTime())?excelDateTime((value.getTime()-Date.UTC(1899,11,30))/86400000):'';
  if((typeof value==='number'||/^\d{4,5}(?:\.\d+)?$/.test(String(value).trim()))&&Number(value)>=1000&&Number(value)<100000)return excelDateTime(value);
  const t=String(value).normalize('NFKC').trim();
- const match=t.match(/^(\d{4})[.\/\-](\d{1,2})[.\/\-](\d{1,2})(?:\s*(.*))?$/);
+ const match=t.match(/^(\d{4})\s*[.\/\-]\s*(\d{1,2})\s*[.\/\-]\s*(\d{1,2})\.?(?:\s*\([월화수목금토일]\))?(?:\s*T?\s*(.*))?$/);
  if(match){const day=match[1]+'-'+match[2].padStart(2,'0')+'-'+match[3].padStart(2,'0');const time=scheduleTime(match[4]);return time?day+' '+time:day;}
  const digits=t.match(/^(\d{4})(\d{2})(\d{2})(?:\s+(.*))?$/);
  if(digits){const day=digits[1]+'-'+digits[2]+'-'+digits[3];const time=scheduleTime(digits[4]);return time?day+' '+time:day;}
