@@ -38,7 +38,7 @@ cd windows-flutter
 flutter build windows --release
 ```
 
-결과: `build/windows/x64/runner/Release/` 폴더 전체. 포터블 ZIP은 이 폴더에 `portable.mode`를 넣어 묶어요(설정·오늘 기록이 `Data` 폴더에 저장돼요).
+결과: `build/windows/x64/runner/Release/` 폴더 전체. 포터블 ZIP은 이 폴더에 `portable.mode`를 넣어 묶어요(설정·오늘 기록이 `UserData` 폴더에 저장돼요).
 
 GitHub Actions `Windows Flutter`가 빌드·검사·화면 캡처·포터블 ZIP(`WorkTool-Windows-x64.zip`)을 만들어요.
 

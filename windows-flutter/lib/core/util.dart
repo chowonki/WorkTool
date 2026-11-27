@@ -51,7 +51,8 @@ String copyPreview(String text) {
   return lines.length > 5 ? '$shown\n외 ${lines.length - 5}줄 (총 ${lines.length}줄 복사)' : shown;
 }
 
-/// 작은 설정·오늘 기록 저장소(JSON 파일). 포터블이면 실행 폴더의 Data 안에 둬요.
+/// 작은 설정·오늘 기록 저장소(JSON 파일). 포터블이면 실행 폴더의 UserData 안에 둬요.
+/// (Flutter 엔진 파일이 든 `data` 폴더와 겹치지 않게 이름을 달리해요. Windows는 대소문자를 구분하지 않아요.)
 class Store {
   Store._(this._file, this._data);
   static late Store shared;
@@ -62,8 +63,8 @@ class Store {
     Directory dir = Directory.systemTemp;
     try {
       final exeDir = File(Platform.resolvedExecutable).parent;
-      final portable = Directory('${exeDir.path}${Platform.pathSeparator}Data');
-      if (Platform.isWindows && (File('${exeDir.path}${Platform.pathSeparator}portable.mode').existsSync() || portable.existsSync())) {
+      final portable = Directory('${exeDir.path}${Platform.pathSeparator}UserData');
+      if (Platform.isWindows && (File('${exeDir.path}${Platform.pathSeparator}portable.mode').existsSync())) {
         dir = portable;
         dir.createSync(recursive: true);
         // 쓰기 되는지 확인 (Program Files처럼 막힌 곳이면 사용자 폴더를 써요)
