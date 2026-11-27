@@ -7,10 +7,10 @@
   <Grid x:Name="Header" Background="Transparent">
    <StackPanel Orientation="Horizontal" Spacing="12" Margin="16,0,150,0" VerticalAlignment="Center">
     <Image Source="ms-appx:///Assets/WorkTool.ico" Width="16" Height="16"/>
-    <TextBlock Text="WorkTool 업무도구" FontSize="12" VerticalAlignment="Center"/>
+    <TextBlock Text="WorkTool 업무도구" FontSize="12" VerticalAlignment="Center" FontFamily="{StaticResource AppFont}"/>
    </StackPanel>
   </Grid>
-  <NavigationView x:Name="Navigation" Grid.Row="1" IsBackButtonVisible="Collapsed" IsSettingsVisible="True"
+  <NavigationView x:Name="Navigation" Grid.Row="1" IsBackButtonVisible="Collapsed" IsSettingsVisible="True" FontFamily="{StaticResource AppFont}"
     PaneDisplayMode="Left" OpenPaneLength="240" IsPaneOpen="True" IsPaneToggleButtonVisible="False"
     IsTitleBarAutoPaddingEnabled="False" SelectionChanged="Navigate">
    <Grid>
