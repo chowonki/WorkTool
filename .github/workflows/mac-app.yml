@@ -1,0 +1,38 @@
+name: Mac app
+# Mac 세션이 꺼져 있을 때 쓰는 Mac 앱 빌드예요. 결과: WorkTool-macOS 아티팩트(WorkTool-macOS.zip)
+on:
+  push:
+    branches: [main]
+    paths: ['mac/**', 'dispatch.html', 'transfer.html', '.github/workflows/mac-app.yml']
+  pull_request:
+    paths: ['mac/**', 'dispatch.html', 'transfer.html', '.github/workflows/mac-app.yml']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '앱 버전 (비우면 build-app.sh 기본값)'
+        required: false
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check rules
+        working-directory: mac
+        run: |
+          python3 scripts/sync-rules.py ..
+          git diff --exit-code -- Sources/WorkToolCore/Resources/js || { echo "::error::mac 규칙 JS가 웹과 달라요. python3 mac/scripts/sync-rules.py .. 후 커밋해 주세요."; exit 1; }
+          swift run -c release worktool-check ..
+      - name: Build app
+        working-directory: mac
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          [ -n "$VERSION" ] || unset VERSION
+          ./scripts/build-app.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WorkTool-macOS
+          path: mac/dist/WorkTool-macOS.zip
+          if-no-files-found: error
