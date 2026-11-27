@@ -29,6 +29,7 @@ class Tone {
   static Color warn(BuildContext c) => _dark(c) ? const Color(0xffe8a33d) : const Color(0xffa65a10);
   static Color bad(BuildContext c) => _dark(c) ? const Color(0xffef6b6b) : const Color(0xffb3261e);
   static Color info(BuildContext c) => _dark(c) ? const Color(0xff7aa7ff) : const Color(0xff1d4fa8);
+  static Color plate(BuildContext c) => _dark(c) ? const Color(0xff9aa3ff) : indigo;
   static Color muted(BuildContext c) => FluentTheme.of(c).resources.textFillColorSecondary;
   static bool _dark(BuildContext c) => FluentTheme.of(c).brightness == Brightness.dark;
 

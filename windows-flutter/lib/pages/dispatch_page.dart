@@ -272,7 +272,7 @@ class _DispatchPageState extends State<DispatchPage> {
           cell(38, Checkbox(checked: picked, onChanged: (_) => m.toggleSelect(r.id))),
           cell(138, scheduleCell()),
           cell(100, Row(children: [
-            Flexible(child: _copyable(context, r.plate, style: TextStyle(fontWeight: FontWeight.w700, color: done ? Tone.muted(context) : Tone.indigo))),
+            Flexible(child: _copyable(context, r.plate, style: TextStyle(fontWeight: FontWeight.w700, color: done ? Tone.muted(context) : Tone.plate(context)))),
             if (m.copied.contains(r.plate))
               Padding(padding: const EdgeInsets.only(left: 4), child: Tooltip(message: '오늘 복사함', child: Icon(FluentIcons.copy, size: 11, color: Tone.muted(context)))),
           ])),
