@@ -395,32 +395,40 @@ class _TransferPageState extends State<TransferPage> {
       Expanded(
         child: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 24), children: [
           SectionTitle('이체파일 미리보기', FluentIcons.table, Tone.green, trailing: Text('${c.all}건 · ${won(c.sum)}원', style: TextStyle(color: Tone.ok(context), fontWeight: FontWeight.w700))),
-          Container(
-            decoration: BoxDecoration(border: Border.all(color: res.cardStrokeColorDefault), borderRadius: BorderRadius.circular(6)),
-            child: Column(children: [
-              for (var i = 0; i < fileRows.length; i++)
-                Container(
-                  color: i == 0 ? res.subtleFillColorSecondary : null,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Row(children: [
-                    for (var k = 0; k < fileRows[i].length; k++)
-                      Expanded(
-                        flex: const [3, 4, 3, 3, 3, 2][k],
-                        child: Text(
-                          i > 0 && k == 2 && fileRows[i][k] is num ? won(fileRows[i][k] as num) : '${fileRows[i][k] ?? ''}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: k == 2 ? TextAlign.right : TextAlign.left,
-                          style: TextStyle(fontWeight: i == 0 ? FontWeight.w600 : null, fontSize: 12.5),
-                        ),
-                      ),
-                  ]),
-                ),
-            ]),
+          Scrollbar(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Container(
+                decoration: BoxDecoration(border: Border.all(color: res.cardStrokeColorDefault), borderRadius: BorderRadius.circular(6)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  for (var i = 0; i < fileRows.length; i++)
+                    Container(
+                      color: i == 0 ? res.subtleFillColorSecondary : null,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: Row(children: [
+                        for (var k = 0; k < fileRows[i].length; k++)
+                          SizedBox(
+                            width: const [90.0, 160.0, 120.0, 140.0, 140.0, 80.0][k],
+                            child: Padding(
+                              padding: EdgeInsets.only(right: k == 2 ? 16 : 8),
+                              child: Text(
+                                i > 0 && k == 2 && fileRows[i][k] is num ? won(fileRows[i][k] as num) : '${fileRows[i][k] ?? ''}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: k == 2 ? TextAlign.right : TextAlign.left,
+                                style: TextStyle(fontWeight: i == 0 ? FontWeight.w600 : null, fontSize: 12.5),
+                              ),
+                            ),
+                          ),
+                      ]),
+                    ),
+                ]),
+              ),
+            ),
           ),
         ]),
       ),
-      SidePanel(width: 380, children: [
+      SidePanel(width: 340, children: [
         SectionTitle('다운로드', FluentIcons.download, Tone.green),
         if (c.bad > 0)
           Text('오류 ${c.bad}건이 남아 있어요. 2단계에서 고친 뒤 받을 수 있어요.', style: TextStyle(color: Tone.bad(context), fontWeight: FontWeight.w600))

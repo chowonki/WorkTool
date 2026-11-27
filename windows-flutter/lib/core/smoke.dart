@@ -48,7 +48,7 @@ Future<int> runSmokeTest(String outDir, String repo) async {
       final r = await timed('암호 파일', () => rules.readVendorFile(d, 'encrypted.xlsx', 'fixture-password'));
       expect(((r['records'] as List?)?.first as Map?)?['plate'] == '123가4567', '암호 파일 읽기');
       try {
-        await rules.readVendorFile(d, 'encrypted.xlsx', 'wrong');
+        await timed('틀린 암호', () => rules.readVendorFile(d, 'encrypted.xlsx', 'wrong'));
         expect(false, '틀린 암호 거부');
       } catch (e) {
         expect('$e'.contains('암호'), '틀린 암호 거부: $e');

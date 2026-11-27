@@ -21,13 +21,26 @@ class Rules {
   static const dispatchFilters = ['all', 'review', 'confirmed', 'progress', 'missing', 'jeju', 'carrier', 'slack', 'slack-replies'];
 
   static Future<Rules> load() async {
-    // Windows의 QuickJS는 u 플래그 정규식 안의 `\-`를 받지 않아요. 같은 뜻인 `\x2d`로 바꿔 불러와요 (문자열 안에만 있어요).
-    final excel = (await rootBundle.loadString('assets/js/excel.js')).replaceAll(r'\\-', r'\\x2d');
+    final excel = _patchExcel(await rootBundle.loadString('assets/js/excel.js'));
     final dispatch = await rootBundle.loadString('assets/js/dispatch.js');
     final transfer = await rootBundle.loadString('assets/js/transfer.js');
     final engine = JsEngine([('dispatch.js', dispatch), ('transfer.js', transfer)]);
     final worker = await _Worker.start([('excel.js', excel), ('dispatch.js', dispatch), ('transfer.js', transfer)]);
     return shared = Rules._(engine, worker);
+  }
+
+  /// 엑셀 라이브러리를 엔진에 맞게 조금 고쳐 불러와요.
+  /// 1) 암호 풀 때 SHA-512·SHA-1 10만 번 반복을 C 함수(__nativeSpin)로 해요. 결과는 같고 훨씬 빨라요.
+  /// 2) u 플래그 정규식 문자열 안의 `\-`를 같은 뜻인 `\x2d`로 바꿔요 (QuickJS 계열이 `\-`를 거부할 때가 있어요).
+  static String _patchExcel(String js) {
+    js = js.replaceAll(r'\\-', r'\\x2d');
+    const loop = '''        for (let i = 0; i < spinCount; i++) {
+            const iterator = this._createUInt32LEBuffer(i);
+            key = this._hash(hashAlgorithm, iterator, key);
+        }''';
+    if (!js.contains(loop)) return js;
+    return js.replaceFirst(loop, '''        if (typeof __nativeSpin === "function" && /^sha-?(1|512)\$/i.test(String(hashAlgorithm))) key = Buffer.from(__nativeSpin(new Uint8Array(key), spinCount, /^sha-?1\$/i.test(String(hashAlgorithm))));
+        else $loop''');
   }
 
   // MARK: 탁송체크
