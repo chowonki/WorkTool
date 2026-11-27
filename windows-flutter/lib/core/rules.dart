@@ -33,7 +33,7 @@ class Rules {
   /// 1) 암호 풀 때 SHA-512·SHA-1 10만 번 반복을 C 함수(__nativeSpin)로 해요. 결과는 같고 훨씬 빨라요.
   /// 2) u 플래그 정규식 문자열 안의 `\-`를 같은 뜻인 `\x2d`로 바꿔요 (QuickJS 계열이 `\-`를 거부할 때가 있어요).
   static String _patchExcel(String js) {
-    js = js.replaceAll(r'\\-', r'\\x2d');
+    js = js.replaceAll('\r\n', '\n').replaceAll(r'\\-', r'\\x2d');
     const loop = '''        for (let i = 0; i < spinCount; i++) {
             const iterator = this._createUInt32LEBuffer(i);
             key = this._hash(hashAlgorithm, iterator, key);

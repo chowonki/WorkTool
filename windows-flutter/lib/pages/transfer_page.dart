@@ -195,8 +195,8 @@ class _TransferPageState extends State<TransferPage> {
 
   // MARK: 2단계
 
-  static const cols = [('', 40.0), ('#', 44.0), ('은행', 150.0), ('계좌번호', 170.0), ('입금액(원)', 130.0), ('차량번호', 116.0),
-    ('출금통장 메모', 150.0), ('입금통장 메모', 150.0), ('CMS', 90.0), ('상태', 120.0)];
+  static const cols = [('', 38.0), ('#', 34.0), ('은행', 132.0), ('계좌번호', 152.0), ('입금액(원)', 112.0), ('차량번호', 104.0),
+    ('출금통장 메모', 128.0), ('입금통장 메모', 128.0), ('CMS', 76.0), ('상태', 118.0)];
   static final tableWidth = cols.fold(0.0, (a, c) => a + c.$2) + 24;
 
   Widget _step2(BuildContext context) {
@@ -303,10 +303,10 @@ class _TransferPageState extends State<TransferPage> {
         ),
         child: Row(children: [
           const SizedBox(width: 16),
-          SizedBox(width: 40, child: Align(alignment: Alignment.centerLeft, child: Checkbox(checked: picked, onChanged: (_) => setState(() => picked ? m.selection.remove(r.id) : m.selection.add(r.id))))),
-          SizedBox(width: 44, child: Text('$idx', style: TextStyle(color: Tone.muted(context), fontSize: 12.5))),
+          SizedBox(width: 38, child: Align(alignment: Alignment.centerLeft, child: Checkbox(checked: picked, onChanged: (_) => setState(() => picked ? m.selection.remove(r.id) : m.selection.add(r.id))))),
+          SizedBox(width: 34, child: Text('$idx', style: TextStyle(color: Tone.muted(context), fontSize: 12.5))),
           SizedBox(
-            width: 150,
+            width: 132,
             child: Padding(
               padding: const EdgeInsets.only(right: 6),
               child: ComboBox<String>(
@@ -324,14 +324,14 @@ class _TransferPageState extends State<TransferPage> {
               ),
             ),
           ),
-          box('account', 170, bad: err('계좌')),
-          box('amount', 130, bad: err('금액') || err('1억'), right: true),
-          box('plate', 116, warn: check.reviews.any((e) => e.startsWith('차량번호'))),
-          box('outMemo', 150),
-          box('inMemo', 150),
-          box('cms', 90),
+          box('account', 152, bad: err('계좌')),
+          box('amount', 112, bad: err('금액') || err('1억'), right: true),
+          box('plate', 104, warn: check.reviews.any((e) => e.startsWith('차량번호'))),
+          box('outMemo', 128),
+          box('inMemo', 128),
+          box('cms', 76),
           SizedBox(
-            width: 120,
+            width: 118,
             child: Tooltip(
               message: [...check.errors, ...check.reviews].join('\n'),
               child: Row(children: [

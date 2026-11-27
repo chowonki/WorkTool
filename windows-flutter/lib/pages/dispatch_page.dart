@@ -19,11 +19,15 @@ class _DispatchPageState extends State<DispatchPage> {
   bool showPanel = true;
   bool dragging = false;
 
+  /// 열: (제목, 폭, 정렬 키). 메모 열(폭 0)은 남는 폭을 채워요 (최소 140).
   static const cols = [
-    ('', 40.0, ''), ('탁송일정', 150.0, 'schedule'), ('차량번호', 112.0, 'plate'), ('주유·충전(원)', 112.0, 'amount'),
-    ('탁송비용(원)', 108.0, 'fee'), ('부가세(원)', 88.0, 'vat'), ('조회 상태', 136.0, 'label'), ('업체', 84.0, 'vendor'), ('메모', 220.0, ''), ('완료', 52.0, ''),
+    ('', 38.0, ''), ('탁송일정', 138.0, 'schedule'), ('차량번호', 100.0, 'plate'), ('주유·충전', 96.0, 'amount'),
+    ('탁송비용', 92.0, 'fee'), ('부가세', 80.0, 'vat'), ('조회 상태', 124.0, 'label'), ('업체', 70.0, 'vendor'), ('메모', 0.0, ''), ('완료', 44.0, ''),
   ];
-  static final tableWidth = cols.fold(0.0, (a, c) => a + c.$2) + 16;
+  static const memoMin = 140.0;
+  static final fixedWidth = cols.fold(0.0, (a, c) => a + c.$2) + 16;
+  double memoWidth = memoMin;
+  double w(double width) => width == 0 ? memoWidth : width;
 
   Future<void> pickFiles() async {
     final files = await openFiles(acceptedTypeGroups: [const XTypeGroup(label: '업체 Excel', extensions: ['xlsx'])]);
@@ -158,7 +162,8 @@ class _DispatchPageState extends State<DispatchPage> {
     if (m.page >= pages) m.page = pages - 1;
     final shown = rows.skip(m.page * DispatchModel.pageSize).take(DispatchModel.pageSize).toList();
     return LayoutBuilder(builder: (context, box) {
-      final width = box.maxWidth > tableWidth ? box.maxWidth : tableWidth;
+      final width = box.maxWidth > fixedWidth + memoMin ? box.maxWidth : fixedWidth + memoMin;
+      memoWidth = width - fixedWidth;
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Expanded(
           child: Scrollbar(
@@ -190,9 +195,9 @@ class _DispatchPageState extends State<DispatchPage> {
       height: 38,
       child: Row(children: [
         const SizedBox(width: 8),
-        for (final (t, w, key) in cols)
+        for (final (t, cw, key) in cols)
           SizedBox(
-            width: w,
+            width: w(cw),
             child: t.isEmpty
                 ? Align(alignment: Alignment.centerLeft, child: Checkbox(
                     checked: allPicked,
@@ -264,20 +269,20 @@ class _DispatchPageState extends State<DispatchPage> {
         ),
         child: Row(children: [
           const SizedBox(width: 8),
-          cell(40, Checkbox(checked: picked, onChanged: (_) => m.toggleSelect(r.id))),
-          cell(150, scheduleCell()),
-          cell(112, Row(children: [
+          cell(38, Checkbox(checked: picked, onChanged: (_) => m.toggleSelect(r.id))),
+          cell(138, scheduleCell()),
+          cell(100, Row(children: [
             Flexible(child: _copyable(context, r.plate, style: TextStyle(fontWeight: FontWeight.w700, color: done ? Tone.muted(context) : Tone.indigo))),
             if (m.copied.contains(r.plate))
               Padding(padding: const EdgeInsets.only(left: 4), child: Tooltip(message: '오늘 복사함', child: Icon(FluentIcons.copy, size: 11, color: Tone.muted(context)))),
           ])),
-          cell(112, r.flag('slackPending') ? Text('확인 중', style: TextStyle(color: Tone.info(context))) : _copyable(context, numText(r.amount), style: money, right: true), right: true),
-          cell(108, feeCell(), right: true),
-          cell(88, _copyable(context, numText(r.vat), style: money, right: true), right: true),
-          cell(136, Pill(r.label.isEmpty ? '—' : r.label, fg, bg)),
-          cell(84, Text(r.vendor.isEmpty ? '—' : vendorName(r.vendor), style: TextStyle(color: Tone.muted(context), fontSize: 12.5))),
-          cell(220, Tooltip(message: r.notes, child: Text(r.notes, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: r.unresolved ? Tone.warn(context) : Tone.muted(context))))),
-          cell(52, Checkbox(checked: done, onChanged: (_) => m.toggleDone(r.plate))),
+          cell(96, r.flag('slackPending') ? Text('확인 중', style: TextStyle(color: Tone.info(context))) : _copyable(context, numText(r.amount), style: money, right: true), right: true),
+          cell(92, feeCell(), right: true),
+          cell(80, _copyable(context, numText(r.vat), style: money, right: true), right: true),
+          cell(124, Pill(r.label.isEmpty ? '—' : r.label, fg, bg)),
+          cell(70, Text(r.vendor.isEmpty ? '—' : vendorName(r.vendor), style: TextStyle(color: Tone.muted(context), fontSize: 12.5))),
+          cell(memoWidth, Tooltip(message: r.notes, child: Text(r.notes, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: r.unresolved ? Tone.warn(context) : Tone.muted(context))))),
+          cell(44, Checkbox(checked: done, onChanged: (_) => m.toggleDone(r.plate))),
         ]),
       ),
     );

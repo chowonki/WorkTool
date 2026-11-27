@@ -105,7 +105,7 @@ class SectionTitle extends StatelessWidget {
 
 /// 오른쪽 패널 틀
 class SidePanel extends StatelessWidget {
-  const SidePanel({super.key, required this.children, this.width = 340});
+  const SidePanel({super.key, required this.children, this.width = 320});
   final List<Widget> children;
   final double width;
   @override
