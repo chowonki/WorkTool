@@ -274,7 +274,7 @@ final class DispatchModel: ObservableObject {
         }
         UI.copy(text)
         copied.formUnion(plates)
-        toaster.show("\(rows.count)대 차량번호 복사 완료 · 중복 제거")
+        toaster.show(UI.copyPreview(text))
     }
 
     func copyCell(_ label: String, _ value: String) {

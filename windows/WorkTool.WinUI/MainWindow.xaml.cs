@@ -403,7 +403,15 @@ public sealed partial class MainWindow : Window
             return;
         }
         onCopy?.Invoke();
-        Notify("클립보드에 복사했어요.");
+        Notify(CopyPreview(value));
+    }
+    /// <summary>복사한 값을 그대로 보여줘요. 길면 앞 5줄 + "외 n줄"</summary>
+    private static string CopyPreview(string value)
+    {
+        var lines = value.Replace("\r\n", "\n").Split('\n').Select(line => line.TrimEnd()).Where(line => line.Length > 0).ToArray();
+        if (lines.Length == 0) return "복사했어요.";
+        var shown = string.Join(Environment.NewLine, lines.Take(5).Select(line => line.Length > 80 ? line[..80] + "…" : line));
+        return lines.Length > 5 ? $"{shown}{Environment.NewLine}외 {lines.Length - 5}줄 (총 {lines.Length}줄 복사)" : shown;
     }
 
     private FrameworkElement HelpPage()

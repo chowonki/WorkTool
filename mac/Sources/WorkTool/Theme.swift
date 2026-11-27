@@ -179,8 +179,9 @@ struct ToastOverlay: View {
             if let m = toaster.message {
                 Text(m).font(Theme.font(13, .medium))
                     .padding(.horizontal, 16).padding(.vertical, 9)
-                    .background(.regularMaterial, in: Capsule())
-                    .overlay(Capsule().strokeBorder(Color.primary.opacity(0.1)))
+                    .multilineTextAlignment(.center).frame(maxWidth: 520)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.primary.opacity(0.1)))
                     .shadow(color: .black.opacity(0.12), radius: 14, y: 6)
                     .padding(.bottom, 24)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -242,6 +243,15 @@ struct ToastOverlay: View {
     static func copy(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    /// 복사한 값을 그대로 보여줄 글. 길면 앞 5줄 + "외 n줄"
+    static func copyPreview(_ text: String) -> String {
+        let lines = text.replacingOccurrences(of: "\r\n", with: "\n").split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        guard !lines.isEmpty else { return "복사했어요." }
+        let shown = lines.prefix(5).map { $0.count > 80 ? String($0.prefix(80)) + "…" : $0 }.joined(separator: "\n")
+        return lines.count > 5 ? "\(shown)\n외 \(lines.count - 5)줄 (총 \(lines.count)줄 복사)" : shown
     }
 
     static func copyImage(_ png: Data) {

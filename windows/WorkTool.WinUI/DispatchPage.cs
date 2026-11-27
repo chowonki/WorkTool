@@ -390,7 +390,15 @@ public sealed partial class MainWindow
                     {
                         var password = new PasswordBox { Header = file.Name, PlaceholderText = "엑셀 암호" };
                         var dialog = Dialog("암호가 설정된 파일", password, "불러오기");
-                        if (await dialog.ShowAsync() != ContentDialogResult.Primary) continue;
+                        dialog.DefaultButton = ContentDialogButton.Primary;
+                        var entered = false;
+                        password.KeyDown += (_, e) =>
+                        {
+                            if (e.Key != VirtualKey.Enter) return;
+                            e.Handled = true; entered = true; dialog.Hide();
+                        };
+                        dialog.Opened += (_, _) => password.Focus(FocusState.Programmatic);
+                        if (await dialog.ShowAsync() != ContentDialogResult.Primary && !entered) continue;
                         var value = password.Password;
                         password.Password = "";
                         sheets = await Task.Run(() => Spreadsheets.Read(file.Path, value));
