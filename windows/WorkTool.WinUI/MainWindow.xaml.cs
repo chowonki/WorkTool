@@ -226,7 +226,7 @@ public sealed partial class MainWindow : Window
             var (circle, number, color) = stepMarks[i];
             circle.Background = done ? green.Tile : color.Tile;
             number.Text = done ? "\uE73E" : i.ToString();
-            number.FontFamily = done ? new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets") : new FontFamily("Segoe UI Variable Text");
+            number.FontFamily = done ? new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets") : (FontFamily)Application.Current.Resources["AppFont"];
         }
         navCounts["t:2"].Text = transfers.Count > 0 ? transfers.Count.ToString("N0") : "";
         if (currentNav.StartsWith("t:") && currentNav != "t:" + step) Select("t:" + step, activate: false);
@@ -500,7 +500,7 @@ public sealed partial class MainWindow : Window
         page.Children.Add(TitleText("설정"));
         page.Children.Add(Divider());
         page.Children.Add(Card(theme));
-        page.Children.Add(Card(Muted("WorkTool · Windows 네이티브\nWinUI 3 / 로컬 처리 · Mica · Segoe UI Variable", 13)));
+        page.Children.Add(Card(Muted("WorkTool · Windows 네이티브\nWinUI 3 / 로컬 처리 · Mica · Pretendard 글꼴 포함", 13)));
         return page;
     }
 }
