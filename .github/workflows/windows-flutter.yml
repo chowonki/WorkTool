@@ -1,0 +1,61 @@
+name: Windows Flutter
+# Flutter로 만든 Windows 앱을 빌드·검사하고 포터블 ZIP(WorkTool-Windows-x64.zip)을 만들어요.
+on:
+  push:
+    branches: [main, feature/flutter-windows]
+    paths: ['windows-flutter/**', 'dispatch.html', 'transfer.html', 'mac/scripts/**', '.github/workflows/windows-flutter.yml']
+  pull_request:
+    paths: ['windows-flutter/**', 'dispatch.html', 'transfer.html', 'mac/scripts/**', '.github/workflows/windows-flutter.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check rules match the web
+        shell: pwsh
+        run: |
+          python windows-flutter/tool/sync_rules.py
+          git diff --exit-code -- windows-flutter/assets
+          if ($LASTEXITCODE -ne 0) { Write-Error "windows-flutter/assets가 웹 규칙과 달라요. python3 windows-flutter/tool/sync_rules.py 후 커밋해 주세요."; exit 1 }
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.50.0
+          cache: true
+      - name: Build
+        working-directory: windows-flutter
+        shell: pwsh
+        run: |
+          flutter config --enable-windows-desktop --no-analytics
+          flutter pub get
+          flutter analyze --no-fatal-infos lib
+          flutter build windows --release
+      - name: Smoke test (가상 자료)
+        shell: pwsh
+        run: |
+          $exe = "windows-flutter/build/windows/x64/runner/Release/WorkTool.exe"
+          $out = "$PWD/flutter-smoke"
+          $p = Start-Process -FilePath $exe -ArgumentList "--smoke-test", "`"$out`"", "`"$PWD`"" -Wait -PassThru
+          Get-Content "$out/smoke-result.txt" -Encoding utf8
+          if ($p.ExitCode -ne 0) { Write-Error "smoke test 실패 ($($p.ExitCode))"; exit 1 }
+      - name: Portable ZIP
+        shell: pwsh
+        run: |
+          $src = "windows-flutter/build/windows/x64/runner/Release"
+          $dst = "windows-flutter/artifacts/WorkTool"
+          New-Item -ItemType Directory -Force $dst | Out-Null
+          Copy-Item "$src/*" $dst -Recurse
+          Copy-Item windows-flutter/assets/fonts/Pretendard-LICENSE.txt $dst
+          Compress-Archive -Path $dst -DestinationPath windows-flutter/artifacts/WorkTool-Windows-x64.zip -CompressionLevel Optimal
+          Get-ChildItem windows-flutter/artifacts/WorkTool-Windows-x64.zip | Format-Table Name, Length
+          Get-ChildItem $dst -Recurse -File | Sort-Object Length -Descending | Select-Object -First 12 | Format-Table Length, FullName
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WorkTool-Windows-x64-flutter
+          path: |
+            windows-flutter/artifacts/WorkTool-Windows-x64.zip
+            flutter-smoke/
+          if-no-files-found: error
