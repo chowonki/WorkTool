@@ -68,7 +68,7 @@ public sealed partial class MainWindow
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(vehicles, "차량목록");
         vehicleCount = Muted("0대 인식");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetLiveSetting(vehicleCount, Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Polite);
-        vehicles.TextChanged += (_, _) => { UpdateVehicleCount(); InvalidateDispatch(); };
+        vehicles.TextChanged += (_, _) => OnVehiclesChanged();
         fileSummary = Muted("여기에 .xlsx 파일을 끌어다 놓으세요");
         fileSummary.HorizontalAlignment = HorizontalAlignment.Center;
         fileSummary.Margin = new Thickness(0, 8, 0, 8);
@@ -433,6 +433,9 @@ public sealed partial class MainWindow
     private void QueryDispatch()
     {
         if (importingDispatch) { Notify("업체 파일을 읽는 중이에요."); return; }
+        // 조회 직전에도 빈 줄을 지우고 앞뒤 줄바꿈을 잘라요.
+        var tidy = RemoveBlankLines(vehicles.Text).Trim('\n');
+        if (tidy != NormalizeLines(vehicles.Text)) SetVehiclesQuietly(tidy, tidy.Length);
         try
         {
             var input = rules.ParseVehicles(vehicles.Text);
@@ -716,5 +719,69 @@ public sealed partial class MainWindow
         panel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         ((FontIcon)button.Icon).Glyph = visible ? "\uE8A0" : "\uE89F";
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, button.Label + (visible ? " 숨기기" : " 보이기"));
+    }
+}
+public sealed partial class MainWindow
+{
+    // 차량목록: 붙여넣기처럼 한 번에 2글자 이상 바뀌면 빈 줄(공백·탭만 있는 줄 포함)을 바로 지워요.
+    // 한 글자씩 칠 때(Enter 등)는 그대로 둬서 줄을 추가할 수 있어요. '정리' 단추(날짜·시간 맞추기)는 따로 있어요.
+    private string lastVehicleText = "";
+    private string? pendingVehicleText;
+
+    /// <summary>CRLF·CR을 LF로 (WinUI 입력칸은 줄바꿈을 CR로 돌려줘요)</summary>
+    private static string NormalizeLines(string text) => text.Replace("\r\n", "\n").Replace('\r', '\n');
+
+    /// <summary>빈 줄을 지워요. 원래 끝이 줄바꿈이면 마지막 줄바꿈 하나는 남겨요.</summary>
+    internal static string RemoveBlankLines(string text)
+    {
+        var normalized = NormalizeLines(text);
+        var kept = string.Join("\n", normalized.Split('\n').Where(line => line.Trim().Length > 0));
+        return kept.Length > 0 && normalized.EndsWith('\n') ? kept + "\n" : kept;
+    }
+
+    /// <summary>바뀐 글자 수 (앞뒤 같은 부분을 뺀 넣은·지운 글자 중 큰 쪽)</summary>
+    private static int ChangedCharacters(string before, string after)
+    {
+        var prefix = 0;
+        while (prefix < before.Length && prefix < after.Length && before[prefix] == after[prefix]) prefix++;
+        var suffix = 0;
+        while (suffix < before.Length - prefix && suffix < after.Length - prefix && before[^(suffix + 1)] == after[^(suffix + 1)]) suffix++;
+        return Math.Max(before.Length - prefix - suffix, after.Length - prefix - suffix);
+    }
+
+    private void OnVehiclesChanged()
+    {
+        var now = vehicles.Text;
+        // 프로그램이 정리해 넣은 글자면 조회 결과를 지우지 않아요.
+        if (pendingVehicleText is not null && NormalizeLines(now) == pendingVehicleText)
+        {
+            pendingVehicleText = null;
+            lastVehicleText = now;
+            UpdateVehicleCount();
+            return;
+        }
+        // 같은 글자로 다시 알려 오는 변경(정리해 넣은 뒤 늦게 오는 알림 등)은 무시해요.
+        if (NormalizeLines(now) == NormalizeLines(lastVehicleText)) { pendingVehicleText = null; return; }
+        var changed = ChangedCharacters(NormalizeLines(lastVehicleText), NormalizeLines(now));
+        lastVehicleText = now;
+        UpdateVehicleCount();
+        InvalidateDispatch();
+        if (changed < 2) return;
+        var cleaned = RemoveBlankLines(now);
+        if (cleaned == NormalizeLines(now)) return;
+        // 커서 위치 유지: 커서 앞부분에서 지워진 빈 줄만큼 당겨요.
+        var caret = Math.Clamp(vehicles.SelectionStart, 0, now.Length);
+        var before = RemoveBlankLines(now[..caret]);
+        if (caret > 0 && caret < now.Length && NormalizeLines(now[..caret]).EndsWith('\n') && !before.EndsWith('\n') && before.Length > 0) before += "\n";
+        SetVehiclesQuietly(cleaned, Math.Min(before.Length, cleaned.Length));
+    }
+
+    private void SetVehiclesQuietly(string text, int caret)
+    {
+        pendingVehicleText = text;
+        vehicles.Text = text;
+        lastVehicleText = vehicles.Text;
+        vehicles.SelectionStart = Math.Clamp(caret, 0, vehicles.Text.Length);
+        vehicles.SelectionLength = 0;
     }
 }

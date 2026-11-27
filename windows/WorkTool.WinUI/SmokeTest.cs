@@ -55,9 +55,23 @@ public sealed partial class MainWindow
             Assert(vehicleCount.Text == "2대 인식 · 중복 1줄 · 확인 필요 1줄", $"Vehicle input counts unique valid plates ({vehicleCount.Text})");
             await SetVehicleText("");
             Assert(vehicleCount.Text == "0대 인식", "Clearing vehicle input resets the count");
+            const string pasted = "\n\n12가3456\n\n  \n34나5678\r\n\r\n56다7890\n\n";
+            Assert(RemoveBlankLines(pasted) == "12가3456\n34나5678\n56다7890\n", "Blank-line cleanup keeps one trailing newline");
+            await SetVehicleText(pasted);
+            await Task.Delay(200);
+            Assert(NormalizeLines(vehicles.Text) == "12가3456\n34나5678\n56다7890\n", $"Pasting removes blank lines ({NormalizeLines(vehicles.Text).Replace("\n", "⏎")})");
+            await SetVehicleText(vehicles.Text + "\r");
+            await Task.Delay(200);
+            Assert(NormalizeLines(vehicles.Text) == "12가3456\n34나5678\n56다7890\n\n", "Typing a single Enter keeps the new empty line");
+            await SetVehicleText("");
             await SetVehicleText(await File.ReadAllTextAsync(Path.Combine(fixtures, "차량목록.txt")));
             foreach (var path in Directory.GetFiles(fixtures, "*.xlsx")) files.Add(rules.ReadSheets(Spreadsheets.Read(path), Path.GetFileName(path)));
+            await SetVehicleText(vehicles.Text + "\r\r");
             QueryDispatch(); Assert(results.Count > 0, "Native dispatch renders synthetic vendor files");
+            await Task.Delay(200);
+            var queried = NormalizeLines(vehicles.Text);
+            Assert(results.Count > 0 && !queried.Contains("\n\n") && !queried.StartsWith('\n') && !queried.EndsWith('\n'),
+                $"Lookup trims blank lines and edge newlines without clearing results (results={results.Count}, text={queried.Replace("\n", "⏎")})");
             Assert(dispatchEmpty.Visibility == Microsoft.UI.Xaml.Visibility.Collapsed && dispatchList.Children.Count > 0
                 && navCounts["d:all"].Text.Length > 0 && currentNav == "d:all", "Successful lookup fills the table and the navigation counts");
             await Screenshot("dispatch");
