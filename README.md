@@ -1,6 +1,6 @@
 # WorkTool
 
-Windows 네이티브 앱(WinUI 3 · Pretendard · 헤더 창 단추)은 [Windows 빌드 및 실행 안내](./windows/README.md)를 참고하세요.
+Windows 네이티브 앱(WinUI 3 · Fluent·Mica)은 [Windows 빌드 및 실행 안내](./windows/README.md), Mac 앱(SwiftUI · macOS 27 Golden Gate 스타일)은 [Mac 빌드 및 실행 안내](./mac/README.md)를 참고하세요. 두 앱 모두 웹과 같은 규칙을 기기 안에서 실행해요. 받기: [릴리스](https://github.com/chowonki/WorkTool/releases)
 
 탁송 차량 조회와 하나은행 다계좌이체 파일 생성을 위한 브라우저 기반 업무 도구예요. 로그인 없이 사용하며, 입력 내용과 첨부 파일은 브라우저에서 처리해요.
 
@@ -122,7 +122,9 @@ WorkTool/
 ├── tests/                # 자동 테스트
 ├── scripts/e2e-transfer.cjs  # 이체파일 브라우저 테스트
 ├── scripts/e2e-dispatch.cjs  # 탁송체크 조회·캡처 브라우저 테스트
-└── scripts/fixtures/     # 가상 업체 엑셀 (make-guide-fixtures.py로 생성)
+├── scripts/fixtures/     # 가상 업체 엑셀 (make-guide-fixtures.py로 생성)
+├── windows/              # Windows 앱 (WinUI 3)
+└── mac/                  # Mac 앱 (SwiftUI, 규칙은 JavaScriptCore로 실행)
 ```
 
 HTML·CSS·JavaScript로만 된 정적 웹 프로젝트예요. 빌드 과정이 없어요.
