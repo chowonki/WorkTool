@@ -41,6 +41,19 @@ jobs:
           $p = Start-Process -FilePath $exe -ArgumentList "--smoke-test", "`"$out`"", "`"$PWD`"" -Wait -PassThru
           Get-Content "$out/smoke-result.txt" -Encoding utf8
           if ($p.ExitCode -ne 0) { Write-Error "smoke test 실패 ($($p.ExitCode))"; exit 1 }
+      - name: Screenshots (가상 자료)
+        shell: pwsh
+        run: |
+          $exe = "windows-flutter/build/windows/x64/runner/Release/WorkTool.exe"
+          New-Item -ItemType Directory -Force flutter-smoke/screens | Out-Null
+          foreach ($t in @("dispatch:all", "dispatch:review", "transfer:2", "transfer:3")) {
+            $name = $t.Replace(":", "-")
+            $p = Start-Process -FilePath $exe -ArgumentList "--demo", "`"$PWD`"", $t, "--shot", "`"$PWD/flutter-smoke/screens/$name.png`"", "--light" -PassThru
+            if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Warning "$t 캡처 시간 초과" }
+          }
+          $p = Start-Process -FilePath $exe -ArgumentList "--demo", "`"$PWD`"", "dispatch:all", "--shot", "`"$PWD/flutter-smoke/screens/dispatch-dark.png`"", "--dark" -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill() }
+          Get-ChildItem flutter-smoke/screens | Format-Table Name, Length
       - name: Portable ZIP
         shell: pwsh
         run: |
@@ -48,6 +61,8 @@ jobs:
           $dst = "windows-flutter/artifacts/WorkTool"
           New-Item -ItemType Directory -Force $dst | Out-Null
           Copy-Item "$src/*" $dst -Recurse
+          New-Item -ItemType File -Force "$dst/portable.mode" | Out-Null
+          Remove-Item -Recurse -Force "$dst/Data" -ErrorAction SilentlyContinue
           Copy-Item windows-flutter/assets/fonts/Pretendard-LICENSE.txt $dst
           Compress-Archive -Path $dst -DestinationPath windows-flutter/artifacts/WorkTool-Windows-x64.zip -CompressionLevel Optimal
           Get-ChildItem windows-flutter/artifacts/WorkTool-Windows-x64.zip | Format-Table Name, Length

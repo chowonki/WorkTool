@@ -11,11 +11,13 @@ import '../core/util.dart';
 /// 대화상자·알림·저장·클립보드
 class Ui {
   static final navigatorKey = GlobalKey<NavigatorState>();
-  static BuildContext get _ctx => navigatorKey.currentState!.overlay!.context;
+  /// 화면(Shell) 안쪽 context. 알림(InfoBar)은 Overlay 아래 context가 필요해요.
+  static BuildContext? host;
+  static BuildContext get _ctx => host ?? navigatorKey.currentContext!;
 
   static void toast(String message, {bool error = false, String? title}) {
-    final ctx = navigatorKey.currentState?.overlay?.context;
-    if (ctx == null) return;
+    final ctx = host;
+    if (ctx == null || !ctx.mounted) return;
     displayInfoBar(ctx, duration: Duration(milliseconds: message.contains('\n') ? 4500 : 3000), builder: (context, close) => InfoBar(
           title: Text(title ?? (error ? '확인해 주세요' : '완료')),
           content: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 520), child: Text(message)),

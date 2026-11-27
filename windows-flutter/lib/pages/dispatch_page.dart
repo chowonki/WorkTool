@@ -194,7 +194,7 @@ class _DispatchPageState extends State<DispatchPage> {
           SizedBox(
             width: w,
             child: t.isEmpty
-                ? Checkbox(
+                ? Align(alignment: Alignment.centerLeft, child: Checkbox(
                     checked: allPicked,
                     onChanged: (v) => m.update(() {
                       if (v == true) {
@@ -203,7 +203,7 @@ class _DispatchPageState extends State<DispatchPage> {
                         m.selection.removeAll(shown.map((r) => r.id));
                       }
                     }),
-                  )
+                  ))
                 : key.isEmpty
                     ? Text(t, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5))
                     : GestureDetector(

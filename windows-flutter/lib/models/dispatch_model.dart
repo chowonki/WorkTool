@@ -147,7 +147,7 @@ class DispatchModel extends ChangeNotifier {
     final errors = <String>[], layout = <String>[];
     for (final path in paths) {
       final f = File(path);
-      final name = f.uri.pathSegments.isEmpty ? path : Uri.decodeComponent(f.uri.pathSegments.last);
+      final name = path.split(RegExp(r'[\\/]')).last;
       if (!name.toLowerCase().endsWith('.xlsx')) {
         errors.add('$name: .xlsx 형식만 지원해요. (.xls는 엑셀에서 .xlsx로 저장해 주세요)');
         continue;
