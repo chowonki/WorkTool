@@ -203,3 +203,26 @@ test('중첩 기록을 고르면 상태·업체·주유비·출발지 등 나머
  assert.equal(row.vendor,'한빛탁송');assert.equal(row.amount,10000);assert.equal(row.slackReviewed,false);
  assert.equal(JSON.parse(JSON.stringify(row)).records.length,3,'Windows 앱처럼 JSON으로 오가도 기록이 남아요');
 });
+
+test('차량목록에 붙여 넣은 날짜·시간을 탁송일정으로 써요',()=>{
+ // 업체 일정과 상관없이 입력값이 탁송일정이에요. 업체 일정과 다르면 메모로 알려요.
+ const single=C.match([{plate:'12서7567',date:'2026-11-03 09:30'}],[read('A',[{plate:'12서7567',fee:'50000',date:'2026-11-01'}])])[0];
+ assert.equal(single.schedule,'2026-11-03 09:30');assert.equal(single.scheduleFromInput,true);
+ assert.equal(single.dispatchFee,50000);assert.equal(single.scheduleMismatch,true);
+ assert.match(C.notes(single),/업체 일정과 다름/);
+ assert.equal(C.values(single)[0],'2026-11-03 09:30');
+ // 일정이 중첩이면 입력한 날짜와 같은 날의 기록을 골라 비용·업체를 채워요. 따로 고를 필요가 없어요.
+ const files=[read('A',[{plate:'12서7567',fee:'50000',date:'2026-11-01'}]),read('B',[{plate:'12서7567',fee:'60000',date:'2026-11-02'}])];
+ const picked=C.match([{plate:'12서7567',date:'2026-11-01 14:00'}],files)[0];
+ assert.equal(picked.schedule,'2026-11-01 14:00');assert.equal(picked.scheduleConflict,false);
+ assert.equal(picked.dispatchFee,50000);assert.equal(picked.vat,5000);assert.ok(!C.hasUnresolvedChoice(picked));
+ // 같은 날 기록이 없으면 일정은 입력값으로 두고, 비용이 다르니 비용만 고르게 해요.
+ const none=C.match([{plate:'12서7567',date:'2026-11-09 08:00'}],files)[0];
+ assert.equal(none.schedule,'2026-11-09 08:00');assert.equal(none.scheduleConflict,false);
+ assert.equal(none.feeConflict,true);assert.equal(none.dispatchFee,null);
+ assert.ok(C.useCandidate(none,'fee',none.feeCandidates.find(c=>c.value===60000).id));
+ assert.equal(none.dispatchFee,60000);assert.ok(!C.hasUnresolvedChoice(none));
+ // 날짜 없이 차량번호만 넣으면 예전처럼 업체 일정을 써요.
+ const plain=C.match([{plate:'12서7567',date:''}],files)[0];
+ assert.equal(plain.scheduleConflict,true);assert.equal(plain.scheduleFromInput,false);
+});

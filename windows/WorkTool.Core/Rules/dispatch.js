@@ -194,6 +194,22 @@ function recordView(selected,rentok){
   cInquiry:done&&selected.vendor==='C'&&carrierFlag!=='Y',
   sources:selected?`${selected.file} / ${selected.sheet} / ${selected.row}행`:''};
 }
+// 차량목록에 날짜·시간을 붙여 넣었으면 그 값을 탁송일정으로 써요(업체 파일의 일정 대신).
+// 업체 기록 중 같은 일정(없으면 같은 날)인 기록이 있으면 그 기록으로 비용·상태를 채우고, 없으면 일정만 입력값으로 바꿔요.
+function applyInputSchedule(result,date,feeDiffers){
+ const list=result.scheduleCandidates;
+ const hit=list.find(c=>c.value===date)??list.find(c=>String(c.value).slice(0,10)===date.slice(0,10));
+ if(hit&&result.scheduleConflict)useCandidate(result,'schedule',hit.id);
+ else if(!hit&&result.scheduleConflict){
+  // 일정이 중첩인데 입력한 날짜와 맞는 기록이 없으면, 일정은 입력값으로 두고 비용이 다를 때만 비용을 고르게 해요.
+  result.scheduleConflict=false;result.selectedScheduleId='';
+  result.feeConflict=feeDiffers;
+ }
+ result.schedule=date;result.scheduleFromInput=true;
+ result.scheduleMismatch=list.length>0&&!list.some(c=>c.value===date);
+ if(!result.scheduleConflict&&!result.feeConflict)result.records=undefined;
+ return result;
+}
 function hasUnresolvedChoice(row){return !!(row.scheduleConflict||row.feeConflict);}
 function match(input,files){
  const source=new Map(),counts=new Map();
@@ -214,11 +230,12 @@ function match(input,files){
   const feeConflict=!scheduleConflict&&feeDiffers;
   const chosenSchedule=scheduleConflict?null:scheduleCandidates[0]??null;
   const chosenFee=feeDiffers?null:feeCandidates[0]??null;
-  return {...v,...recordView(selected,rentok),
+  const result={...v,...recordView(selected,rentok),
    schedule:chosenSchedule?.value??'',selectedScheduleId:chosenSchedule?.id??'',scheduleCandidates,scheduleConflict,
    dispatchFee:chosenFee?.value??null,vat:chosenFee?Math.round((chosenFee.value*10)/100):null,selectedFeeId:chosenFee?.id??'',feeCandidates,feeConflict,
    inputDuplicate:counts.get(v.plate)>1,matchedCount:all.length,
-   records:scheduleConflict||feeConflict?all:undefined};
+   records:scheduleConflict||feeDiffers?all:undefined,scheduleFromInput:false,scheduleMismatch:false};
+  return v.date?applyInputSchedule(result,v.date,feeDiffers):result;
  });
 }
 function unique(rows){return [...new Map(rows.map(r=>[r.plate,r])).values()];}
@@ -270,7 +287,7 @@ function applySlackReplies(text,rows){
  }
  return {applied,issues};
 }
-const notes=r=>[r.inputDuplicate?'입력 중복':'',r.jeju?'제주 출발':'',r.carrier?'캐리어탁송':r.carrierType==='확인 필요'?'캐리어 여부 확인 필요':'',r.cInquiry?'렌톡 문의':'',r.scheduleConflict?'일정 중첩 · 선택 필요':'',r.feeConflict?'탁송비용 중첩 · 선택 필요':''].filter(Boolean).join(' · ');
+const notes=r=>[r.inputDuplicate?'입력 중복':'',r.jeju?'제주 출발':'',r.carrier?'캐리어탁송':r.carrierType==='확인 필요'?'캐리어 여부 확인 필요':'',r.cInquiry?'렌톡 문의':'',r.scheduleConflict?'일정 중첩 · 선택 필요':'',r.scheduleMismatch?'업체 일정과 다름':'',r.feeConflict?'탁송비용 중첩 · 선택 필요':''].filter(Boolean).join(' · ');
 const headers=['탁송일정','차량번호','주유비용/충전비용(원)','탁송비용(원)','부가세(원)','비용 구분','조회 상태','입력 일시','업체','탁송 구분','출발지','메모','원본 위치'];
 const values=r=>[r.schedule,r.plate,r.slackPending?slackPending:r.amount,r.dispatchFee,r.vat,r.meaning,statusLabel(r),r.date,r.vendor,r.carrierType,r.origin,notes(r),r.sources];
 function textExport(rows){return '\ufeff'+[headers,...unique(rows).map(values)].map(row=>row.map(v=>String(v??'').replace(/[\t\r\n]/g,' ')).join('\t')).join('\r\n');}
