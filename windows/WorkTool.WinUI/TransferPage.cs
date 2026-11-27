@@ -154,7 +154,7 @@ public sealed partial class MainWindow
         var commentHead = Columns([0, 0], ColorHeading("송금 코멘트", purple, "\uE8BD"), copyAll); commentHead.Padding = new Thickness(0);
         copyAll.HorizontalAlignment = HorizontalAlignment.Right;
         var notReal = Text("이체파일 생성은 실제 송금이 아니에요. 은행에 올리기 전 받는 분·계좌번호·금액을 다시 확인해 주세요.", 12);
-        notReal.Foreground = warningInk;
+        notReal.Foreground = orange.Solid;
         ackSection = Stack(PanelHeading("검토 확인"), acknowledge);
         ((StackPanel)ackSection).Spacing = 6;
         transferPanel3 = PanelSections(
@@ -309,7 +309,7 @@ public sealed partial class MainWindow
             {
                 var siblings = transfers.Where(x => x.Text("splitGroup") == group).ToList();
                 var split = Text($"분할 {siblings.IndexOf(row) + 1}/{siblings.Count}", 11);
-                split.Foreground = warningInk;
+                split.Foreground = orange.Solid;
                 split.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
                 number.Children.Add(split);
             }
@@ -422,9 +422,9 @@ public sealed partial class MainWindow
             dot.VerticalAlignment = VerticalAlignment.Top;
             detailIssues.Children.Add(dot);
         }
-        foreach (var e in check["errors"]!.AsArray()) Add(e!.ToString(), dangerInk);
-        foreach (var r in check["reviews"]!.AsArray()) Add(r!.ToString(), warningInk);
-        if (detailIssues.Children.Count == 0) Add("확인할 사항이 없어요.", successInk);
+        foreach (var e in check["errors"]!.AsArray()) Add(e!.ToString(), red.Solid);
+        foreach (var r in check["reviews"]!.AsArray()) Add(r!.ToString(), orange.Solid);
+        if (detailIssues.Children.Count == 0) Add("확인할 사항이 없어요.", green.Solid);
     }
 
     public void Step(int n)
@@ -452,7 +452,7 @@ public sealed partial class MainWindow
         summary3.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
         {
             Text = "● " + (lastBad > 0 ? $"오류 {lastBad}건" : lastWarn > 0 ? $"검토 필요 {lastWarn}건" : "오류 없음"),
-            Foreground = lastBad > 0 ? dangerInk : lastWarn > 0 ? warningInk : successInk
+            Foreground = lastBad > 0 ? red.Solid : lastWarn > 0 ? orange.Solid : green.Solid
         });
         if (transfers.Count == 0) { var empty = Muted("이체 내역을 추가하면 여기에 표시돼요.", 13); empty.Margin = new Thickness(12, 12, 0, 0); previewRows.Children.Add(empty); }
         var i = 0;

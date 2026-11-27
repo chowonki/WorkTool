@@ -43,13 +43,6 @@ public sealed partial class MainWindow
     private readonly Swatch gray = new(0x6B6B6B, 0xA8A8A8);
     private Swatch[] Swatches => [green, accent, teal, purple, pink, indigo, brown, blue, orange, yellow, red, gray];
 
-    // 예전 이름 (상태 글자색)
-    private SolidColorBrush successInk => green.Solid;
-    private SolidColorBrush warningInk => orange.Solid;
-    private SolidColorBrush dangerInk => red.Solid;
-    private SolidColorBrush infoInk => blue.Solid;
-    private SolidColorBrush accentInk => accent.Solid;
-
     private void ObserveSystemColors()
     {
         var queue = DispatcherQueue;
@@ -133,7 +126,7 @@ public sealed partial class MainWindow
     }
 
     /// <summary>조회 상태 색: 초록 확인 · 주황 미조회/검토/확인 중 · 노랑 진행 중 · 빨강 비용·미완료 · 보라 슬랙 문의 · 갈색 캐리어</summary>
-    private Swatch DispatchStatusSwatch(JsonNodeView row)
+    private Swatch DispatchStatusSwatch(StatusKey row)
     {
         if (row.SlackPending) return orange;
         return row.Status switch
@@ -148,7 +141,7 @@ public sealed partial class MainWindow
         };
     }
 
-    private readonly record struct JsonNodeView(string Status, string Label, bool SlackPending);
+    private readonly record struct StatusKey(string Status, string Label, bool SlackPending);
 
     /// <summary>색 알약: 배경은 상태색 14%, 점·글자는 상태색 (12px semibold)</summary>
     private static Border Pill(TextBlock text, Ellipse dot)

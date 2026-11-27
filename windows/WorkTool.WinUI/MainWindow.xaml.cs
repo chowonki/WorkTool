@@ -163,7 +163,7 @@ public sealed partial class MainWindow : Window
             try { Navigation.SelectedItem = item; } finally { syncingNav = false; }
             return;
         }
-        if (Navigation.SelectedItem == item) Activate(key);
+        if (ReferenceEquals(Navigation.SelectedItem, item)) Activate(key);
         else Navigation.SelectedItem = item;
     }
 
@@ -285,19 +285,6 @@ public sealed partial class MainWindow : Window
         return b;
     }
     private AppBarButton Command(string label, string glyph, Action action, Swatch? color = null) => Command(label, glyph, () => { action(); return Task.CompletedTask; }, color);
-    private static CommandBar CommandBar(params ICommandBarElement[] commands)
-    {
-        var bar = new CommandBar
-        {
-            DefaultLabelPosition = CommandBarDefaultLabelPosition.Right, Background = new SolidColorBrush(Colors.Transparent),
-            HorizontalAlignment = HorizontalAlignment.Left, IsDynamicOverflowEnabled = true, OverflowButtonVisibility = CommandBarOverflowButtonVisibility.Auto
-        };
-        foreach (var command in commands)
-        {
-            if (command is AppBarButton or AppBarToggleButton or AppBarSeparator) bar.PrimaryCommands.Add(command);
-        }
-        return bar;
-    }
     private static ScrollViewer Scroll(UIElement content) => new() { Content = content, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     private void Notify(string message, bool error = false)
     {
@@ -366,8 +353,8 @@ public sealed partial class MainWindow : Window
         page.Children.Add(Tool("\uE8C7", blue, "하나은행 이체파일", "Slack 요청을 붙여넣고, 계좌와 금액을 검토한 뒤 다계좌이체 Excel 파일을 만들어요.",
             ["이체 요청 입력: 스레드를 붙여넣고 추출해요.", "확인·수정: 오류(빨강)와 검토 필요(주황)를 정리해요.", "다운로드: 미리보기를 확인하고 파일을 받아요."], "이체파일 만들기", "transfer"));
         var warn = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 16, 0, 0) };
-        warn.Children.Add(new FontIcon { Glyph = "\uE7BA", FontSize = 14, Foreground = warningInk });
-        var warnText = Text("은행에 올리기 전에는 금액과 계좌를 원문과 대조해 주세요. 파일 생성은 실제 송금을 실행하지 않아요.", 13); warnText.Foreground = warningInk;
+        warn.Children.Add(new FontIcon { Glyph = "\uE7BA", FontSize = 14, Foreground = orange.Solid });
+        var warnText = Text("은행에 올리기 전에는 금액과 계좌를 원문과 대조해 주세요. 파일 생성은 실제 송금을 실행하지 않아요.", 13); warnText.Foreground = orange.Solid;
         warn.Children.Add(warnText);
         page.Children.Add(warn);
         return new ScrollViewer { Content = page, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };

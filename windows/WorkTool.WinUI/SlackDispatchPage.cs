@@ -104,7 +104,7 @@ public sealed partial class MainWindow
         report.AddRange(result.Issues.Take(8));
         if (result.Issues.Count > 8) report.Add($"외 {result.Issues.Count - 8:N0}건");
         slackReplyReport.Text = string.Join(Environment.NewLine, report);
-        slackReplyReport.Foreground = result.Issues.Count > 0 ? warningInk : successInk;
+        slackReplyReport.Foreground = result.Issues.Count > 0 ? orange.Solid : green.Solid;
         slackReplyReport.Visibility = Visibility.Visible;
         RecountDispatch();
         RefreshSlackDispatchList();

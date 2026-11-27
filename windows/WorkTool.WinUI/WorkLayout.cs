@@ -7,8 +7,6 @@ namespace WorkTool.WinUI;
 
 public sealed partial class MainWindow
 {
-    private static Brush ThemeBrush(string key) => (Brush)Application.Current.Resources[key];
-
     private static Grid Columns(double[] widths, params FrameworkElement[] cells)
     {
         var grid = new Grid { ColumnSpacing = 12, Padding = new Thickness(12, 6, 12, 6) };
@@ -50,9 +48,6 @@ public sealed partial class MainWindow
         return row;
     }
 
-    private static Panel WrapActions(params UIElement[] controls)
-        => WrapControls(center: false, controls);
-
     private static Panel WrapControls(bool center, params UIElement[] controls)
     {
         var panel = new WorkWrapPanel { CenterVertically = center };
@@ -80,26 +75,6 @@ public sealed partial class MainWindow
         VerticalScrollMode = ScrollMode.Disabled,
         VerticalScrollBarVisibility = ScrollBarVisibility.Disabled
     };
-
-    private static Grid SplitLayout(FrameworkElement first, FrameworkElement second, double breakpoint)
-    {
-        var grid = new Grid { RowSpacing = 10, ColumnSpacing = 16 };
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0) });
-        Grid.SetRow(second, 1);
-        grid.Children.Add(first);
-        grid.Children.Add(second);
-        grid.SizeChanged += (_, args) =>
-        {
-            var wide = args.NewSize.Width >= breakpoint;
-            Grid.SetRow(second, wide ? 0 : 1);
-            Grid.SetColumn(second, wide ? 1 : 0);
-            grid.ColumnDefinitions[1].Width = new GridLength(wide ? 1 : 0, GridUnitType.Star);
-        };
-        return grid;
-    }
 }
 
 // Keep controls together and wrap whole fields when the window gets narrower.

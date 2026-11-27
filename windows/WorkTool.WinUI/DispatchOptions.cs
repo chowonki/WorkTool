@@ -129,7 +129,7 @@ public sealed partial class MainWindow
             if (warnings.Length > 0)
             {
                 var warning = Text($"⚠ 양식 확인 필요 · {warnings.Length}건", 12);
-                warning.Foreground = warningInk;
+                warning.Foreground = orange.Solid;
                 ToolTipService.SetToolTip(warning, string.Join(Environment.NewLine, warnings));
                 info.Children.Add(warning);
             }

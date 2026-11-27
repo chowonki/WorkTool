@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Text.Json.Nodes;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Ellipse = Microsoft.UI.Xaml.Shapes.Ellipse;
 using Windows.ApplicationModel.DataTransfer;
@@ -69,6 +68,15 @@ public sealed partial class MainWindow
         vehicleCount = Muted("0대 인식");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetLiveSetting(vehicleCount, Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Polite);
         vehicles.TextChanged += (_, _) => OnVehiclesChanged();
+        // 여러 줄 입력칸이 Ctrl+Enter를 줄바꿈으로 먹으면 조회 뒤 결과가 지워져요. 여기서 먼저 처리해요.
+        vehicles.PreviewKeyDown += (_, args) =>
+        {
+            if (args.Key != VirtualKey.Enter) return;
+            var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+            if (!ctrl) return;
+            args.Handled = true;
+            QueryDispatch();
+        };
         fileSummary = Muted("여기에 .xlsx 파일을 끌어다 놓으세요");
         fileSummary.HorizontalAlignment = HorizontalAlignment.Center;
         fileSummary.Margin = new Thickness(0, 8, 0, 8);
@@ -305,7 +313,7 @@ public sealed partial class MainWindow
     private void ShowSlackPanel(bool slack)
     {
         if (slack && results.Count == 0) { Notify("먼저 차량 조회를 해 주세요.", true); return; }
-        SetPanelVisible(dispatchPanelToggle, dispatchPanel, true);
+        if (slack) SetPanelVisible(dispatchPanelToggle, dispatchPanel, true);
         dispatchInputPanel.Visibility = slack ? Visibility.Collapsed : Visibility.Visible;
         slackDispatchStage.Visibility = slack ? Visibility.Visible : Visibility.Collapsed;
         if (slack) RefreshSlackDispatchList();
@@ -328,6 +336,8 @@ public sealed partial class MainWindow
     private void RecountDispatch()
     {
         dispatchCounts.Clear();
+        // '슬랙 회신 반영' 항목이 사라지면 그 보기에 머물지 않게 '전체'로 돌려요.
+        if (dispatchFilter == "slack-replies" && !results.Any(row => row?.Flag("slackReviewed") == true)) { dispatchFilter = "all"; dispatchPage = 0; }
         if (results.Count > 0)
             foreach (var (key, _) in DispatchViews)
                 dispatchCounts[key] = rules.Filter(results, key).Select(row => row.Text("plate")).Distinct().Count();
@@ -509,7 +519,7 @@ public sealed partial class MainWindow
                     plateButton.Foreground = completed.Contains(plate) ? green.Solid : copiedDispatch.Contains(plate) ? blue.Solid : indigo.Solid;
                 workStatus.Text = completed.Contains(plate) ? (copiedDispatch.Contains(plate) ? "완료 · 복사함" : "완료")
                     : copiedDispatch.Contains(plate) ? "복사함" : "";
-                workStatus.Foreground = completed.Contains(plate) ? successInk : infoInk;
+                workStatus.Foreground = completed.Contains(plate) ? green.Solid : blue.Solid;
             }
             done.Checked += (_, _) => { completed.Add(plate); SaveWorkMarks(); UpdateWorkStatus(); };
             done.Unchecked += (_, _) => { completed.Remove(plate); SaveWorkMarks(); UpdateWorkStatus(); };
@@ -539,7 +549,7 @@ public sealed partial class MainWindow
             var statusText = Text(statusLabel, 13);
             statusText.TextWrapping = TextWrapping.WrapWholeWords;
             var pill = Pill(statusText, new Ellipse());
-            TintPill(pill, DispatchStatusSwatch(new JsonNodeView(row.Text("status"), statusLabel, row!.Flag("slackPending"))));
+            TintPill(pill, DispatchStatusSwatch(new StatusKey(row.Text("status"), statusLabel, row!.Flag("slackPending"))));
             var status = Stack(pill);
             status.Spacing = 2;
             if (row.Flag("slackReviewed")) status.Children.Add(Muted("슬랙봇 회신", 11));
@@ -548,7 +558,7 @@ public sealed partial class MainWindow
             if (needsChoice)
             {
                 var flagged = Text("일정·비용 선택 필요", 11);
-                flagged.Foreground = warningInk;
+                flagged.Foreground = orange.Solid;
                 status.Children.Add(flagged);
             }
             var details = new Button { Content = needsChoice ? "선택" : "보기", Flyout = new Flyout { Content = content },
@@ -771,9 +781,7 @@ public sealed partial class MainWindow
         if (cleaned == NormalizeLines(now)) return;
         // 커서 위치 유지: 커서 앞부분에서 지워진 빈 줄만큼 당겨요.
         var caret = Math.Clamp(vehicles.SelectionStart, 0, now.Length);
-        var before = RemoveBlankLines(now[..caret]);
-        if (caret > 0 && caret < now.Length && NormalizeLines(now[..caret]).EndsWith('\n') && !before.EndsWith('\n') && before.Length > 0) before += "\n";
-        SetVehiclesQuietly(cleaned, Math.Min(before.Length, cleaned.Length));
+        SetVehiclesQuietly(cleaned, Math.Min(RemoveBlankLines(now[..caret]).Length, cleaned.Length));
     }
 
     private void SetVehiclesQuietly(string text, int caret)

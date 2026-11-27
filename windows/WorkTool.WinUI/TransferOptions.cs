@@ -29,7 +29,6 @@ public sealed partial class MainWindow
     private static readonly double[] DefaultTransferWidths = [155, 190, 205, 146, 125, 180, 180, 140];
     private readonly double[] transferWidths = (double[])DefaultTransferWidths.Clone();
 
-    private double TransferWidth(string key) => transferWidths[Array.FindIndex(TransferFields, field => field.Key == key)];
     private static string TransferWidthsFile => LocalState.DataFile("transfer-columns.json");
 
     private void LoadTransferWidths()

@@ -135,6 +135,9 @@ public sealed partial class MainWindow
             Go("transfer"); Step(2);
             await Screenshot("transfer-step2-dark");
             Go("dispatch");
+            await SetVehicleText(vehicles.Text + "\r12가3456");
+            Assert(results.Count == 0 && dispatchFilter == "all" && navItems["d:slack-replies"].Visibility == Microsoft.UI.Xaml.Visibility.Collapsed,
+                "Clearing results leaves the hidden 슬랙 회신 반영 view");
             Root.RequestedTheme = Microsoft.UI.Xaml.ElementTheme.Default;
             await File.WriteAllTextAsync(Path.Combine(smokeDirectory, "smoke-result.json"), JsonSerializer.Serialize(new { passed = true, checks }, new JsonSerializerOptions { WriteIndented = true }));
             Notify($"화면 검증 {checks.Count}개를 통과했어요.");
