@@ -45,17 +45,17 @@ public sealed partial class MainWindow
         ToolTipService.SetToolTip(back, "입력으로 돌아가기");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(back, "입력으로 돌아가기");
         back.Click += (_, _) => ShowSlackPanel(false);
-        var title = Text("슬랙봇 회신", 20); title.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+        var title = ColorHeading("슬랙봇 회신", purple, "\uE8BD", 20, 22);
         var head = Bar(back, title); head.VerticalAlignment = VerticalAlignment.Center;
         var apply = Button("확인 내용 반영", ApplySlackReplies, true);
         apply.HorizontalAlignment = HorizontalAlignment.Stretch;
         var copyOutstanding = new HyperlinkButton { Content = "미확인 차량번호 복사", Padding = new Thickness(0, 4, 0, 4) };
         copyOutstanding.Click += (_, _) => CopyOutstandingSlackNumbers();
-        var entry = Stack(PanelHeading("회신 붙여넣기"),
+        var entry = Stack(ColorHeading("회신 붙여넣기", purple, "\uE77F"),
             Muted("한 줄에 ‘차량번호 - 값’ 형식이에요. 금액은 10원 단위로 반올림하고, X는 0원, 확인 중은 그대로 반영돼요.", 12),
             slackReplies, apply, showSlackResults, slackReplyReport);
         entry.Spacing = 8;
-        var targets = Stack(PanelHeading("확인 대상"), slackDispatchSummary, copyOutstanding, slackDispatchList, Bar(previousSlackPage, slackPageLabel, nextSlackPage));
+        var targets = Stack(ColorHeading("확인 대상", pink, "\uE8FD"), slackDispatchSummary, copyOutstanding, slackDispatchList, Bar(previousSlackPage, slackPageLabel, nextSlackPage));
         targets.Spacing = 6;
         var sep = Divider(); sep.Margin = new Thickness(-20, 6, -20, 6);
         var body = Stack(head, entry, sep, targets);

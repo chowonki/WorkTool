@@ -33,7 +33,7 @@ public sealed partial class MainWindow
     private int lastBad, lastWarn;
     private string savedSignature = "", savedThread = "", acknowledgedSignature = "";
 
-    private sealed record TransferRowView(FrameworkElement Card, CheckBox Selection, TextBlock Status, Ellipse Dot, TextBlock Why, JsonNode Row);
+    private sealed record TransferRowView(FrameworkElement Card, CheckBox Selection, TextBlock Status, Border Pill, TextBlock Why, JsonNode Row);
 
     private FrameworkElement TransferPage()
     {
@@ -59,15 +59,15 @@ public sealed partial class MainWindow
         {
             var bar = new CommandBar { DefaultLabelPosition = CommandBarDefaultLabelPosition.Right, Background = transparent, HorizontalAlignment = HorizontalAlignment.Left, IsDynamicOverflowEnabled = true };
             foreach (var command in commands) bar.PrimaryCommands.Add(command);
-            bar.SecondaryCommands.Add(Command("처음부터", "\uE777", ResetTransfers));
+            bar.SecondaryCommands.Add(Command("처음부터", "\uE777", ResetTransfers, purple));
             bar.SecondaryCommands.Add(Command("단축키", "\uE765", ShowTransferShortcuts));
             return bar;
         }
-        transferCommands1 = Bar3(Command("입력칸 추가", "\uE710", () => AddThreadInput().Focus(FocusState.Programmatic)));
-        transferCommands2 = Bar3(Command("행 추가", "\uE710", AddTransfer), Command("선택 삭제", "\uE74D", DeleteSelectedTransfers),
+        transferCommands1 = Bar3(Command("입력칸 추가", "\uE710", () => AddThreadInput().Focus(FocusState.Programmatic), green));
+        transferCommands2 = Bar3(Command("행 추가", "\uE710", AddTransfer, green), Command("선택 삭제", "\uE74D", DeleteSelectedTransfers, red),
             Command("표시 내역 선택", "\uE762", SelectVisibleTransfers), Command("1억 초과 분할", "\uE8C6", SplitTransfers),
             Command("필터 지우기", "\uE894", ClearTransferFilters), Command("열 너비", "\uE9A6", EditTransferWidths));
-        transferCommands3 = Bar3(Command("2단계에서 고치기", "\uE70F", () => Step(2)), Command("코멘트 목록", "\uE8BD", ShowTransferComments));
+        transferCommands3 = Bar3(Command("2단계에서 고치기", "\uE70F", () => Step(2), orange), Command("코멘트 목록", "\uE8BD", ShowTransferComments));
         extractButton = Button("이체정보 추출하기", ExtractTransfer, true);
         nextStepButton = Button("다운로드 단계로 →", () => Step(3), true);
         downloadCommand = Button("이체파일 다운로드", () => { }, true);
@@ -137,27 +137,28 @@ public sealed partial class MainWindow
         // ── 오른쪽 정보 패널 ──
         cmsOnExtract = Input("CMS코드 (선택)", "비워 둬도 돼요");
         transferPanel1 = PanelSections(
-            Stack(PanelHeading("CMS코드"), Muted("추출하는 모든 건에 같은 코드를 넣어요.", 12), cmsOnExtract),
-            Stack(PanelHeading("추출 안내"), Muted("1. Slack 이체 요청 스레드를 그대로 붙여넣어요.\n2. 스레드가 여러 개면 ‘입력칸 추가’로 나눠 넣어요.\n3. 이체정보 추출하기(Ctrl+Enter)를 누르면 은행·계좌번호·금액·차량번호를 뽑아 2단계로 가요.\n\n넣은 내용은 이 앱 안에서만 처리하고 서버로 보내지 않아요.", 13)));
-        detailTitle = PanelHeading("선택한 건 원문");
+            Stack(ColorHeading("추출 설정", blue, "\uE713", 16, 20), ColorHeading("CMS코드", indigo, "\uE8EC"), Muted("추출하는 모든 건에 같은 코드를 넣어요.", 12), cmsOnExtract),
+            Stack(ColorHeading("이렇게 추출해요", purple, "\uE946"), Muted("1. Slack 이체 요청 스레드를 그대로 붙여넣어요.\n2. 스레드가 여러 개면 ‘입력칸 추가’로 나눠 넣어요.\n3. 이체정보 추출하기(Ctrl+Enter)를 누르면 은행·계좌번호·금액·차량번호를 뽑아 2단계로 가요.\n\n넣은 내용은 이 앱 안에서만 처리하고 서버로 보내지 않아요.", 13)));
+        var detailHeading = ColorHeading("선택한 건 원문", blue, "\uE8A5");
+        detailTitle = (TextBlock)detailHeading.Children[1];
         detailSource = new TextBlock { Text = "표에서 줄을 누르면 Slack 원문이 여기에 보여요.", TextWrapping = TextWrapping.Wrap, FontSize = 12, Foreground = mutedInk,
             FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["MonoFont"], IsTextSelectionEnabled = true };
         detailIssues = new StackPanel { Spacing = 4 };
         transferPanel2 = PanelSections(
-            Stack(detailTitle, new ScrollViewer { Content = detailSource, MaxHeight = 200, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }),
-            Stack(PanelHeading("확인 사항"), detailIssues),
-            Stack(PanelHeading("통장 메모·CMS 일괄 입력"), MemoControls()));
+            Stack(detailHeading, new ScrollViewer { Content = detailSource, MaxHeight = 200, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }),
+            Stack(ColorHeading("확인 사항", orange, "\uE7BA"), detailIssues),
+            Stack(ColorHeading("통장 메모·CMS 일괄 입력", teal, "\uE70F"), MemoControls()));
         var copyAll = new HyperlinkButton { Content = "모두 복사", Padding = new Thickness(0) };
         copyAll.Click += (_, _) => Copy(rules.Comments(transfers));
         ToolTipService.SetToolTip(copyAll, "Alt+Shift+C");
-        var commentHead = Columns([0, 0], PanelHeading("송금 코멘트"), copyAll); commentHead.Padding = new Thickness(0);
+        var commentHead = Columns([0, 0], ColorHeading("송금 코멘트", purple, "\uE8BD"), copyAll); commentHead.Padding = new Thickness(0);
         copyAll.HorizontalAlignment = HorizontalAlignment.Right;
         var notReal = Text("이체파일 생성은 실제 송금이 아니에요. 은행에 올리기 전 받는 분·계좌번호·금액을 다시 확인해 주세요.", 12);
         notReal.Foreground = warningInk;
         ackSection = Stack(PanelHeading("검토 확인"), acknowledge);
         ((StackPanel)ackSection).Spacing = 6;
         transferPanel3 = PanelSections(
-            Stack(ackSection, download, Muted("하나은행 기업뱅킹 [다계좌이체] 업로드용 .xlsx", 12), notReal),
+            Stack(ColorHeading("이체파일 받기", green, "\uE896"), ackSection, download, Muted("하나은행 기업뱅킹 [다계좌이체] 업로드용 .xlsx", 12), notReal),
             Stack(commentHead, Muted("송금을 마친 뒤 Slack에 남길 문구예요.", 12), commentList));
         var panelHost = new Grid();
         panelHost.Children.Add(transferPanel1); panelHost.Children.Add(transferPanel2); panelHost.Children.Add(transferPanel3);
@@ -312,11 +313,11 @@ public sealed partial class MainWindow
                 split.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
                 number.Children.Add(split);
             }
-            var statusText = Text("", 13);
-            var dot = new Ellipse();
+            var statusText = Text("", 12);
+            var pill = Pill(statusText, new Ellipse());
             var why = Muted("", 11);
             why.MaxWidth = 140;
-            var status = Stack(DotLabel(statusText, dot), why);
+            var status = Stack(pill, why);
             status.Spacing = 1;
             var bank = new ComboBox { ItemsSource = banks, SelectedItem = row.Text("bank"), HorizontalAlignment = HorizontalAlignment.Stretch, MinWidth = 0 };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(bank, "입금은행");
@@ -340,7 +341,7 @@ public sealed partial class MainWindow
             // 줄을 누르거나 칸에 들어가면 오른쪽 패널에 원문·확인 사항을 보여 줘요.
             line.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler((_, _) => ShowTransferDetail(row!)), true);
             line.GotFocus += (_, _) => ShowTransferDetail(row!);
-            transferViews.Add(new TransferRowView(line, pick, statusText, dot, why, row!));
+            transferViews.Add(new TransferRowView(line, pick, statusText, pill, why, row!));
             transferList.Children.Add(line);
         }
         if (transfers.Count == 0)
@@ -382,7 +383,7 @@ public sealed partial class MainWindow
             : $"{transfers.Count:N0}건 · 합계 {total:N0}원 · 오류 {bad}건 · 검토 {warn}건" + (transfers.Count > 100 ? " · 한 파일에 100건까지 가능해요." : "");
         transferSum.Inlines.Clear();
         transferSum.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = "총 입금액 ", Foreground = mutedInk });
-        transferSum.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = $"{total:N0}원", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        transferSum.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = $"{total:N0}원", FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = accent.Solid });
         UpdateTransferSeg(transfers.Count, transfers.Count - bad - warn, warn, bad);
         for (var i = 0; i < checks.Count && i < transferViews.Count; i++)
         {
@@ -390,7 +391,7 @@ public sealed partial class MainWindow
             var state = checks[i].Text("state");
             view.Card.Visibility = ShowTransfer(transfers[i], state) ? Visibility.Visible : Visibility.Collapsed;
             view.Status.Text = state switch { "bad" => "오류", "warn" => "검토 필요", _ => "정상" };
-            view.Dot.Fill = state switch { "bad" => dangerInk, "warn" => warningInk, _ => successInk };
+            TintPill(view.Pill, state switch { "bad" => red, "warn" => orange, _ => green });
             view.Why.Text = string.Join(" · ", checks[i]!["errors"]!.AsArray().Concat(checks[i]!["reviews"]!.AsArray()).Select(x => x!.ToString()));
             view.Why.Visibility = view.Why.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         }

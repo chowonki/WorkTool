@@ -133,7 +133,9 @@ public sealed partial class MainWindow
                 ToolTipService.SetToolTip(warning, string.Join(Environment.NewLine, warnings));
                 info.Children.Add(warning);
             }
-            var icon = new FontIcon { Glyph = "\uE9F9", FontSize = 16, Foreground = successInk, VerticalAlignment = VerticalAlignment.Center };
+            // 파일 아이콘: 24px 색 타일 (녹색·파랑·purple·주황 순환)
+            Swatch[] fileColors = [green, blue, purple, orange];
+            var icon = Tile(fileColors[dispatchFiles.Children.Count % 4], "\uE9F9", 24, 13, 6);
             var line = Columns([24, 0, 32], icon, info, remove);
             line.Padding = new Thickness(0, 6, 0, 6);
             line.ColumnSpacing = 8;

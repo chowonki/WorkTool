@@ -17,6 +17,7 @@ public sealed partial class MainWindow
             var scale = Root.XamlRoot?.RasterizationScale ?? 1;
             AppWindow.Resize(new Windows.Graphics.SizeInt32((int)(1440 * scale), (int)(900 * scale)));
             await Task.Delay(400);
+            await Screenshot("home");
             Go("transfer");
             threadBoxes[0].Text = "123가4567\r국민은행\r001234567890\r3만5천원";
             ExtractTransfer();

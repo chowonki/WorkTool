@@ -90,9 +90,9 @@ public sealed partial class MainWindow
         var input = new Grid { Padding = new Thickness(20, 20, 20, 0), RowSpacing = 6 };
         foreach (var h in new[] { GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto, GridLength.Auto, GridLength.Auto, GridLength.Auto })
             input.RowDefinitions.Add(new RowDefinition { Height = h, MinHeight = h.IsStar ? 160 : 0 });
-        var title = Text("입력", 20); title.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold; title.Margin = new Thickness(0, 0, 0, 8);
+        var title = ColorHeading("입력", accent, "\uE70F", 20, 22); title.Margin = new Thickness(0, 0, 0, 8);
         input.Children.Add(title);
-        var listHead = Columns([0, 0], PanelHeading("차량목록"), clean); listHead.Padding = new Thickness(0);
+        var listHead = Columns([0, 0], ColorHeading("차량목록", accent, "\uE804"), clean); listHead.Padding = new Thickness(0);
         clean.HorizontalAlignment = HorizontalAlignment.Right;
         Place(input, listHead, 1);
         Place(input, vehicles, 2);
@@ -102,7 +102,7 @@ public sealed partial class MainWindow
         var filesHead = new Grid();
         filesHead.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         filesHead.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var filesTitle = PanelHeading("업체 파일"); filesTitle.VerticalAlignment = VerticalAlignment.Center;
+        var filesTitle = ColorHeading("업체 파일", blue, "\uE8B7"); filesTitle.VerticalAlignment = VerticalAlignment.Center;
         filesHead.Children.Add(filesTitle);
         var fileLinks = Bar(pick, clearFiles); fileLinks.Spacing = 4;
         Place(filesHead, fileLinks, 0, 1);
@@ -161,19 +161,19 @@ public sealed partial class MainWindow
             }
             return menu;
         }
-        var capture = new AppBarButton { Label = "캡처", Icon = new FontIcon { Glyph = "\uE722" },
+        var capture = new AppBarButton { Label = "캡처", Icon = new FontIcon { Glyph = "\uE722", Foreground = indigo.Solid },
             Flyout = Menu(("클립보드에 복사", () => CaptureDispatch(true)), ("PNG 저장", () => CaptureDispatch(false))) };
-        var save = new AppBarButton { Label = "저장", Icon = new FontIcon { Glyph = "\uE74E" },
+        var save = new AppBarButton { Label = "저장", Icon = new FontIcon { Glyph = "\uE74E", Foreground = blue.Solid },
             Flyout = Menu(("Excel 저장", () => ExportDispatch(".xlsx")), ("PDF 저장", () => CaptureDispatch(false, true)), ("TXT 저장", () => ExportDispatch(".txt"))) };
         var commands = new CommandBar
         {
             DefaultLabelPosition = CommandBarDefaultLabelPosition.Right, Background = transparent, HorizontalAlignment = HorizontalAlignment.Left,
             IsDynamicOverflowEnabled = true, VerticalAlignment = VerticalAlignment.Center
         };
-        commands.PrimaryCommands.Add(Command("차량번호 복사", "\uE8C8", CopyDispatchNumbers));
+        commands.PrimaryCommands.Add(Command("차량번호 복사", "\uE8C8", CopyDispatchNumbers, teal));
         commands.PrimaryCommands.Add(capture);
         commands.PrimaryCommands.Add(save);
-        commands.PrimaryCommands.Add(Command("슬랙봇 회신", "\uE8BD", () => ShowSlackPanel(true)));
+        commands.PrimaryCommands.Add(Command("슬랙봇 회신", "\uE8BD", () => ShowSlackPanel(true), purple));
         commands.SecondaryCommands.Add(Command("보이는 차량 모두 체크", "\uE762", () =>
         {
             foreach (var row in VisibleResults()) selected.Add(row.Text("id"));
@@ -184,7 +184,7 @@ public sealed partial class MainWindow
         commands.SecondaryCommands.Add(Command("필터·정렬", "\uE71C", EditDispatchFilters));
         commands.SecondaryCommands.Add(Command("열 너비", "\uE9A6", EditDispatchWidths));
         commands.SecondaryCommands.Add(new AppBarSeparator());
-        commands.SecondaryCommands.Add(Command("전체 초기화", "\uE74D", ResetDispatch));
+        commands.SecondaryCommands.Add(Command("전체 초기화", "\uE74D", ResetDispatch, red));
 
         scope = new ComboBox { Width = 160, ItemsSource = new[] { "현재 표시 목록", "전체 조회 결과", "금액 확인 차량" }, SelectedIndex = 0, VerticalAlignment = VerticalAlignment.Center };
         ToolTipService.SetToolTip(scope, "복사·캡처·저장 범위 (체크한 차량이 있으면 그 차량만)");
@@ -499,8 +499,11 @@ public sealed partial class MainWindow
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(done, row.Text("plate") + " 완료");
             var workStatus = Text("", 11);
             workStatus.MinHeight = 14;
+            Control? plateButton = null;
             void UpdateWorkStatus()
             {
+                if (plateButton is not null)
+                    plateButton.Foreground = completed.Contains(plate) ? green.Solid : copiedDispatch.Contains(plate) ? blue.Solid : indigo.Solid;
                 workStatus.Text = completed.Contains(plate) ? (copiedDispatch.Contains(plate) ? "완료 · 복사함" : "완료")
                     : copiedDispatch.Contains(plate) ? "복사함" : "";
                 workStatus.Foreground = completed.Contains(plate) ? successInk : infoInk;
@@ -532,7 +535,9 @@ public sealed partial class MainWindow
             var statusLabel = rules.Status(row!);
             var statusText = Text(statusLabel, 13);
             statusText.TextWrapping = TextWrapping.WrapWholeWords;
-            var status = Stack(DotLabel(statusText, new Ellipse { Fill = DispatchStatusInk(new JsonNodeView(row.Text("status"), statusLabel, row!.Flag("slackPending"))) }));
+            var pill = Pill(statusText, new Ellipse());
+            TintPill(pill, DispatchStatusSwatch(new JsonNodeView(row.Text("status"), statusLabel, row!.Flag("slackPending"))));
+            var status = Stack(pill);
             status.Spacing = 2;
             if (row.Flag("slackReviewed")) status.Children.Add(Muted("슬랙봇 회신", 11));
             content.MaxWidth = 420;
@@ -549,7 +554,11 @@ public sealed partial class MainWindow
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(details, row.Text("plate") + " 상세");
             void MarkCopied() { copiedDispatch.Add(plate); SaveWorkMarks(); UpdateWorkStatus(); }
             UpdateWorkStatus();
-            var plateLink = Bar(check, CopyCell("차량번호", plate, plate, onCopy: MarkCopied));
+            var plateCell0 = CopyCell("차량번호", plate, plate, onCopy: MarkCopied);
+            plateButton = plateCell0 as Control;
+            if (plateButton is not null) plateButton.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+            UpdateWorkStatus();
+            var plateLink = Bar(check, plateCell0);
             plateLink.VerticalAlignment = VerticalAlignment.Center;
             check.VerticalAlignment = VerticalAlignment.Center;
             workStatus.VerticalAlignment = VerticalAlignment.Bottom;

@@ -19,7 +19,7 @@ public sealed partial class MainWindow : Window
     private readonly Dictionary<string, FrameworkElement> pages = new();
     private readonly Dictionary<string, NavigationViewItem> navItems = new();
     private readonly Dictionary<string, TextBlock> navCounts = new();
-    private readonly Dictionary<int, FontIcon> stepMarks = new();
+    private readonly Dictionary<int, (Border Circle, TextBlock Number, Swatch Color)> stepMarks = new();
     private string currentNav = "";
     private bool syncingNav;
     private bool allowClose;
@@ -73,48 +73,78 @@ public sealed partial class MainWindow : Window
     private void BuildNavigation()
     {
         var items = Navigation.MenuItems;
-        items.Add(NavItem("home", "홈", new SymbolIcon(Symbol.Home)));
+        // 최상위 항목: 시스템 설정처럼 20px 색 타일 위 흰 아이콘
+        items.Add(NavItem("home", "홈", lead: Tile(indigo, "\uE80F")));
         items.Add(new NavigationViewItemHeader { Content = "업무 도구" });
-        var dispatch = NavItem("dispatch", "탁송체크", new FontIcon { Glyph = "\uE804" });
+        var dispatch = NavItem("dispatch", "탁송체크", lead: Tile(accent, "\uE804"));
         dispatch.IsExpanded = true;
-        foreach (var (key, label) in DispatchViews) dispatch.MenuItems.Add(NavItem("d:" + key, label, null, count: true));
+        // 탁송체크 보기: 색 아이콘
+        var viewIcons = new Dictionary<string, (string Glyph, Swatch Color)>
+        {
+            ["all"] = ("\uE8FD", teal), ["review"] = ("\uE7BA", orange), ["confirmed"] = ("\uEC61", green), ["progress"] = ("\uE916", yellow),
+            ["missing"] = ("\uEB90", red), ["jeju"] = ("\uE709", blue), ["carrier"] = ("\uE806", brown), ["slack"] = ("\uE8BD", purple),
+            ["slack-replies"] = ("\uE8F2", pink),
+        };
+        foreach (var (key, label) in DispatchViews)
+        {
+            var (glyph, color) = viewIcons[key];
+            dispatch.MenuItems.Add(NavItem("d:" + key, label, new FontIcon { Glyph = glyph, Foreground = color.Solid }, count: true));
+        }
         navItems["d:slack-replies"].Visibility = Visibility.Collapsed;
         items.Add(dispatch);
-        var transfer = NavItem("transfer", "하나은행 이체파일", new FontIcon { Glyph = "\uE8C7" });
+        var transfer = NavItem("transfer", "하나은행 이체파일", lead: Tile(blue, "\uE8C7"));
         transfer.IsExpanded = true;
+        // 이체 단계: 채운 숫자 원 (파랑·indigo·purple), 끝난 단계는 초록 ✓
+        Swatch[] stepColors = [blue, indigo, purple];
         for (var i = 1; i <= 3; i++)
         {
-            var mark = new FontIcon { Glyph = i.ToString(), FontFamily = new FontFamily("Segoe UI Variable Text"), FontSize = 13 };
-            stepMarks[i] = mark;
-            transfer.MenuItems.Add(NavItem("t:" + i, TransferStepNames[i - 1], mark, count: i == 2));
+            var number = new TextBlock { Text = i.ToString(), FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = onTile, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            var circle = new Border { Width = 20, Height = 20, CornerRadius = new CornerRadius(10), Background = stepColors[i - 1].Tile, Child = number, VerticalAlignment = VerticalAlignment.Center };
+            stepMarks[i] = (circle, number, stepColors[i - 1]);
+            transfer.MenuItems.Add(NavItem("t:" + i, TransferStepNames[i - 1], count: i == 2, lead: circle));
         }
         items.Add(transfer);
         items.Add(new NavigationViewItemHeader { Content = "도움말" });
-        items.Add(NavItem("help", "사용법", new SymbolIcon(Symbol.Help)));
-        items.Add(NavItem("changelog", "변경 이력", new FontIcon { Glyph = "\uE81C" }));
+        items.Add(NavItem("help", "사용법", lead: Tile(orange, "\uE897")));
+        items.Add(NavItem("changelog", "변경 이력", lead: Tile(purple, "\uE81C")));
+        Navigation.Loaded += (_, _) =>
+        {
+            if (Navigation.SettingsItem is not NavigationViewItem settings) return;
+            settings.Icon = null;
+            settings.Content = NavContent("설정", Tile(gray, "\uE713"), null);
+        };
     }
 
-    private NavigationViewItem NavItem(string key, string label, IconElement? icon, bool count = false)
+    private NavigationViewItem NavItem(string key, string label, IconElement? icon = null, bool count = false, UIElement? lead = null)
     {
         var item = new NavigationViewItem { Tag = key, Icon = icon, HorizontalContentAlignment = HorizontalAlignment.Stretch };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, label);
+        TextBlock? number = null;
         if (count)
         {
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            var number = new TextBlock { FontSize = 12, Foreground = mutedInk, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 4, 0) };
-            Grid.SetColumn(number, 1);
-            grid.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis });
-            grid.Children.Add(number);
+            number = new TextBlock { FontSize = 12, Foreground = mutedInk, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 4, 0) };
             navCounts[key] = number;
-            item.Content = grid;
         }
-        else item.Content = label;
+        item.Content = NavContent(label, lead, number);
         navItems[key] = item;
         return item;
     }
 
+    /// <summary>항목 안쪽: [색 타일][이름][오른쪽 숫자]</summary>
+    private static Grid NavContent(string label, UIElement? lead, TextBlock? number)
+    {
+        var grid = new Grid { ColumnSpacing = 12 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        if (lead is FrameworkElement element) grid.Children.Add(element);
+        else grid.ColumnSpacing = 0;
+        var text = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        Grid.SetColumn(text, 1);
+        grid.Children.Add(text);
+        if (number is not null) { Grid.SetColumn(number, 2); grid.Children.Add(number); }
+        return grid;
+    }
     private void Navigate(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         if (syncingNav || PageHost is null) return;
@@ -193,9 +223,10 @@ public sealed partial class MainWindow : Window
         for (var i = 1; i <= 3; i++)
         {
             var done = Done(i);
-            stepMarks[i].Glyph = done ? "\uE73E" : i.ToString();
-            stepMarks[i].FontFamily = done ? new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets") : new FontFamily("Segoe UI Variable Text");
-            stepMarks[i].Foreground = done ? accentInk : mutedInk;
+            var (circle, number, color) = stepMarks[i];
+            circle.Background = done ? green.Tile : color.Tile;
+            number.Text = done ? "\uE73E" : i.ToString();
+            number.FontFamily = done ? new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets") : new FontFamily("Segoe UI Variable Text");
         }
         navCounts["t:2"].Text = transfers.Count > 0 ? transfers.Count.ToString("N0") : "";
         if (currentNav.StartsWith("t:") && currentNav != "t:" + step) Select("t:" + step, activate: false);
@@ -242,9 +273,10 @@ public sealed partial class MainWindow : Window
         return b;
     }
     /// <summary>CommandBar 단추 (아이콘 + 글자, 배경 없음)</summary>
-    private AppBarButton Command(string label, string glyph, Func<Task> action)
+    private AppBarButton Command(string label, string glyph, Func<Task> action, Swatch? color = null)
     {
-        var b = new AppBarButton { Label = label, Icon = new FontIcon { Glyph = glyph } };
+        // 아이콘만 색을 입히고 글자는 기본색이에요.
+        var b = new AppBarButton { Label = label, Icon = color is null ? new FontIcon { Glyph = glyph } : new FontIcon { Glyph = glyph, Foreground = color.Solid } };
         b.Click += async (_, _) =>
         {
             try { await action(); }
@@ -252,7 +284,7 @@ public sealed partial class MainWindow : Window
         };
         return b;
     }
-    private AppBarButton Command(string label, string glyph, Action action) => Command(label, glyph, () => { action(); return Task.CompletedTask; });
+    private AppBarButton Command(string label, string glyph, Action action, Swatch? color = null) => Command(label, glyph, () => { action(); return Task.CompletedTask; }, color);
     private static CommandBar CommandBar(params ICommandBarElement[] commands)
     {
         var bar = new CommandBar
@@ -304,29 +336,34 @@ public sealed partial class MainWindow : Window
     // ───────────── 홈 · 사용법 · 변경 이력 · 설정 (카드 없이 구분선 목록) ─────────────
     private FrameworkElement HomePage()
     {
-        FrameworkElement Tool(string glyph, string title, string description, string[] steps, string action, string route)
+        FrameworkElement Tool(string glyph, Swatch color, string title, string description, string[] steps, string action, string route)
         {
             var grid = new Grid { ColumnSpacing = 16 };
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.Children.Add(new FontIcon { Glyph = glyph, FontSize = 22, Foreground = accentInk, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 0, 0) });
+            { var tile = Tile(color, glyph, 40, 20, 9); tile.VerticalAlignment = VerticalAlignment.Top; grid.Children.Add(tile); }
             var heading = Text(title, 18); heading.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
             var body = Stack(heading, Muted(description, 14), Muted(string.Join("\n", steps.Select((s, i) => $"{i + 1}. {s}")), 13));
             body.Spacing = 6;
             Grid.SetColumn(body, 1); grid.Children.Add(body);
             var go = Button(action, () => Go(route), true); go.VerticalAlignment = VerticalAlignment.Top;
+            TintAccentButton(go, color);
             Grid.SetColumn(go, 2); grid.Children.Add(go);
             return Card(grid);
         }
         var page = new StackPanel { Spacing = 0, Padding = new Thickness(32, 24, 32, 32), MaxWidth = 980, HorizontalAlignment = HorizontalAlignment.Left };
-        page.Children.Add(TitleText("홈"));
+        // "업무 도구": 녹색 → teal → 파랑 가로 그라데이션 글자
+        var heading = TitleText("업무 도구");
+        heading.FontSize = 28;
+        heading.Foreground = headingGradient;
+        page.Children.Add(heading);
         var lead = Muted("파일과 입력 내용은 이 기기 안에서만 처리해요. 로그인 없이 바로 시작하세요.", 14); lead.Margin = new Thickness(0, 4, 0, 16);
         page.Children.Add(lead);
         page.Children.Add(Divider());
-        page.Children.Add(Tool("\uE804", "탁송체크", "한빛탁송 · 오픈마일 · 렌톡 엑셀을 대조하고 주유비용과 탁송 상태를 정리해요.",
+        page.Children.Add(Tool("\uE804", accent, "탁송체크", "한빛탁송 · 오픈마일 · 렌톡 엑셀을 대조하고 주유비용과 탁송 상태를 정리해요.",
             ["차량목록을 붙여넣어요.", "업체 Excel 파일을 끌어다 놓아요. 암호 파일도 돼요.", "차량 조회하기를 누르고 결과를 복사·저장해요."], "탁송체크 열기", "dispatch"));
-        page.Children.Add(Tool("\uE8C7", "하나은행 이체파일", "Slack 요청을 붙여넣고, 계좌와 금액을 검토한 뒤 다계좌이체 Excel 파일을 만들어요.",
+        page.Children.Add(Tool("\uE8C7", blue, "하나은행 이체파일", "Slack 요청을 붙여넣고, 계좌와 금액을 검토한 뒤 다계좌이체 Excel 파일을 만들어요.",
             ["이체 요청 입력: 스레드를 붙여넣고 추출해요.", "확인·수정: 오류(빨강)와 검토 필요(주황)를 정리해요.", "다운로드: 미리보기를 확인하고 파일을 받아요."], "이체파일 만들기", "transfer"));
         var warn = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 16, 0, 0) };
         warn.Children.Add(new FontIcon { Glyph = "\uE7BA", FontSize = 14, Foreground = warningInk });
