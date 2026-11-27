@@ -93,7 +93,7 @@ BEGIN
             VALUE "FileDescription", "WorkTool" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "WorkTool" "\0"
-            VALUE "LegalCopyright", "WorkTool · Pretendard (SIL OFL 1.1)" "\0"
+            VALUE "LegalCopyright", "WorkTool - Pretendard (SIL OFL 1.1)" "\0"
             VALUE "OriginalFilename", "WorkTool.exe" "\0"
             VALUE "ProductName", "WorkTool" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

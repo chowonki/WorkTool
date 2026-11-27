@@ -28,6 +28,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1440, 900);
   if (!window.Create(L"WorkTool", origin, size)) {
+    ::MessageBoxW(nullptr, L"WorkTool 화면을 만들지 못했어요.\n압축을 푼 폴더 전체(data 폴더와 DLL 파일 포함)가 그대로 있는지 확인해 주세요.",
+                  L"WorkTool", MB_OK | MB_ICONERROR);
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

@@ -36,6 +36,8 @@ target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
 # 규칙 엔진이 화면 스레드에서도 돌아서 스택을 8MB로 넉넉히 잡아요.
 target_link_options(${BINARY_NAME} PRIVATE "/STACK:8388608")
+# 소스의 한글 문자열(오류 안내)을 UTF-8로 읽어요.
+target_compile_options(${BINARY_NAME} PRIVATE /utf-8)
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.

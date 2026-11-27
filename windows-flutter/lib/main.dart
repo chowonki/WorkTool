@@ -25,26 +25,51 @@ Future<void> main(List<String> args) async {
   if (args.length >= 3 && args[0] == '--smoke-test') {
     exit(await runSmokeTest(args[1], args[2]));
   }
-  await Store.load();
+  Object? failure;
+  // 시작 중 어떤 오류가 나도 창은 띄우고 이유를 보여 줘요 (오류 기록: startup-error.txt).
+  try {
+    await Store.load();
+  } catch (e, st) {
+    failure = e;
+    _log('Store.load', e, st);
+  }
   if (Platform.isWindows) {
     try {
       await acrylic.Window.initialize();
-    } catch (_) {}
+    } catch (e, st) {
+      _log('Window.initialize', e, st);
+    }
   }
-  Object? failure;
   try {
     await Rules.load();
-  } catch (e) {
-    failure = e;
+  } catch (e, st) {
+    failure ??= e;
+    _log('Rules.load', e, st);
   }
-  final demo = args.indexOf('--demo');
-  if (demo >= 0 && demo + 1 < args.length) Shell.demo = (args[demo + 1], demo + 2 < args.length ? args[demo + 2] : 'dispatch');
-  final shot = args.indexOf('--shot');
-  if (shot >= 0 && shot + 1 < args.length) WorkToolApp.shot = args[shot + 1];
-  final dark = args.contains('--dark');
-  if (dark) Store.shared['appearance'] = 'dark';
-  if (args.contains('--light')) Store.shared['appearance'] = 'light';
+  try {
+    final demo = args.indexOf('--demo');
+    if (demo >= 0 && demo + 1 < args.length) Shell.demo = (args[demo + 1], demo + 2 < args.length ? args[demo + 2] : 'dispatch');
+    final shot = args.indexOf('--shot');
+    if (shot >= 0 && shot + 1 < args.length) WorkToolApp.shot = args[shot + 1];
+    if (args.contains('--dark')) Store.shared['appearance'] = 'dark';
+    if (args.contains('--light')) Store.shared['appearance'] = 'light';
+  } catch (_) {}
+  FlutterError.onError = (d) {
+    FlutterError.presentError(d);
+    _log('FlutterError', d.exception, d.stack);
+  };
   runApp(WorkToolApp(failure: failure));
+}
+
+/// 시작 오류를 실행 폴더(안 되면 임시 폴더)의 startup-error.txt에 남겨요.
+void _log(String where, Object e, StackTrace? st) {
+  final text = '[${DateTime.now()}] $where: $e\n$st\n';
+  for (final dir in [File(Platform.resolvedExecutable).parent.path, Directory.systemTemp.path]) {
+    try {
+      File('$dir${Platform.pathSeparator}startup-error.txt').writeAsStringSync(text, mode: FileMode.append);
+      return;
+    } catch (_) {}
+  }
 }
 
 class WorkToolApp extends StatefulWidget {

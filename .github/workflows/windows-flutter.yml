@@ -33,6 +33,20 @@ jobs:
           flutter pub get
           flutter analyze --no-fatal-infos lib
           flutter build windows --release
+      - name: Check bundled DLLs (런타임 없는 PC에서도 실행)
+        shell: pwsh
+        run: |
+          $dir = "windows-flutter/build/windows/x64/runner/Release"
+          Get-ChildItem $dir -Filter *.dll | Format-Table Name, Length
+          foreach ($need in @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
+            if (-not (Test-Path "$dir/$need")) { Write-Error "$need 가 앱 폴더에 없어요"; exit 1 }
+          }
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe | Where-Object { $_.FullName -match 'Hostx64\\x64' } | Select-Object -First 1
+          foreach ($f in @("WorkTool.exe", "flutter_windows.dll", "worktool_js.dll")) {
+            Write-Host "== $f"
+            & $dumpbin.FullName /dependents "$dir/$f" | Select-String "\.dll" | ForEach-Object { $_.Line.Trim() }
+          }
       - name: Smoke test (가상 자료)
         shell: pwsh
         run: |

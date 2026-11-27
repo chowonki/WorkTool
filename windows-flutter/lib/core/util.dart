@@ -59,18 +59,26 @@ class Store {
   final Map<String, dynamic> _data;
 
   static Future<Store> load() async {
-    Directory dir;
-    final exeDir = File(Platform.resolvedExecutable).parent;
-    final portable = Directory('${exeDir.path}${Platform.pathSeparator}Data');
-    if (Platform.isWindows && (File('${exeDir.path}${Platform.pathSeparator}portable.mode').existsSync() || portable.existsSync())) {
-      dir = portable;
-    } else {
-      dir = await getApplicationSupportDirectory();
-    }
+    Directory dir = Directory.systemTemp;
     try {
-      dir.createSync(recursive: true);
+      final exeDir = File(Platform.resolvedExecutable).parent;
+      final portable = Directory('${exeDir.path}${Platform.pathSeparator}Data');
+      if (Platform.isWindows && (File('${exeDir.path}${Platform.pathSeparator}portable.mode').existsSync() || portable.existsSync())) {
+        dir = portable;
+        dir.createSync(recursive: true);
+        // 쓰기 되는지 확인 (Program Files처럼 막힌 곳이면 사용자 폴더를 써요)
+        File('${dir.path}${Platform.pathSeparator}.write-test').writeAsStringSync('ok');
+      } else {
+        dir = await getApplicationSupportDirectory();
+        dir.createSync(recursive: true);
+      }
     } catch (_) {
-      dir = await getApplicationSupportDirectory();
+      try {
+        dir = await getApplicationSupportDirectory();
+        dir.createSync(recursive: true);
+      } catch (_) {
+        dir = Directory.systemTemp;
+      }
     }
     final file = File('${dir.path}${Platform.pathSeparator}worktool-state.json');
     Map<String, dynamic> data = {};
