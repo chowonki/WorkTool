@@ -4,6 +4,12 @@ WorkTool의 사용자에게 영향을 주는 주요 변경사항이에요. 날�
 
 [웹에서 보기](./changelog.html) · [사용방법 및 프로젝트 소개](./README.md) · [전체 커밋 이력](https://github.com/chowonki/WorkTool/commits/main/)
 
+## 2026-11-27 · Windows 앱 Flutter로 바꿈 · v0.4.0
+
+- Windows 앱: Flutter로 새로 만들었어요. 압축 파일이 약 73MB에서 약 18MB로 줄었어요. 화면과 기능(탁송체크·이체파일)은 같고, 규칙은 웹과 같은 것을 그대로 써요.
+- Windows 앱: 압축을 풀면 `WorkTool` 폴더 안에 `WorkTool.exe`(실행), `App`(프로그램), `Data`(설정·오늘 기록)가 있어요. `WorkTool.exe`를 실행하면 돼요.
+- Windows 앱: 업체 파일은 웹·Mac과 같이 `.xlsx`만 받아요.
+
 ## 2026-11-27 · 암호 엑셀 Enter · 복사 알림 · v0.3.2
 
 - Windows 앱: 암호가 걸린 엑셀은 암호 창이 열리면 바로 암호 칸에 커서가 가고, Enter를 누르면 첨부돼요. 전에는 ‘취소’가 기본이라 Enter가 취소로 눌렸어요.

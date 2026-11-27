@@ -1,0 +1,91 @@
+name: Windows Flutter
+# Flutter로 만든 Windows 앱을 빌드·검사하고 포터블 ZIP(WorkTool-Windows-x64.zip)을 만들어요.
+on:
+  push:
+    branches: [main, feature/flutter-windows]
+    paths: ['windows-flutter/**', 'dispatch.html', 'transfer.html', 'mac/scripts/**', '.github/workflows/windows-flutter.yml']
+  pull_request:
+    paths: ['windows-flutter/**', 'dispatch.html', 'transfer.html', 'mac/scripts/**', '.github/workflows/windows-flutter.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check rules match the web
+        shell: pwsh
+        run: |
+          python windows-flutter/tool/sync_rules.py
+          git diff --exit-code -- windows-flutter/assets
+          if ($LASTEXITCODE -ne 0) { Write-Error "windows-flutter/assets가 웹 규칙과 달라요. python3 windows-flutter/tool/sync_rules.py 후 커밋해 주세요."; exit 1 }
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.50.0
+          cache: true
+      - name: Build
+        working-directory: windows-flutter
+        shell: pwsh
+        run: |
+          flutter config --enable-windows-desktop --no-analytics
+          flutter pub get
+          flutter analyze --no-fatal-infos lib
+          flutter build windows --release
+      - name: Check bundled DLLs (런타임 없는 PC에서도 실행)
+        shell: pwsh
+        run: |
+          $dir = "windows-flutter/build/windows/x64/runner/Release"
+          Get-ChildItem $dir -Filter *.dll | Format-Table Name, Length
+          foreach ($need in @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
+            if (-not (Test-Path "$dir/$need")) { Write-Error "$need 가 앱 폴더에 없어요"; exit 1 }
+          }
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe | Where-Object { $_.FullName -match 'Hostx64\\x64' } | Select-Object -First 1
+          foreach ($f in @("WorkTool.exe", "flutter_windows.dll", "worktool_js.dll")) {
+            Write-Host "== $f"
+            & $dumpbin.FullName /dependents "$dir/$f" | Select-String "\.dll" | ForEach-Object { $_.Line.Trim() }
+          }
+      - name: Smoke test (가상 자료)
+        shell: pwsh
+        run: |
+          $exe = "windows-flutter/build/windows/x64/runner/Release/WorkTool.exe"
+          $out = "$PWD/flutter-smoke"
+          $p = Start-Process -FilePath $exe -ArgumentList "--smoke-test", "`"$out`"", "`"$PWD`"" -Wait -PassThru
+          Get-Content "$out/smoke-result.txt" -Encoding utf8
+          if ($p.ExitCode -ne 0) { Write-Error "smoke test 실패 ($($p.ExitCode))"; exit 1 }
+      - name: Screenshots (가상 자료)
+        shell: pwsh
+        run: |
+          $exe = "windows-flutter/build/windows/x64/runner/Release/WorkTool.exe"
+          New-Item -ItemType Directory -Force flutter-smoke/screens | Out-Null
+          foreach ($t in @("dispatch:all", "dispatch:review", "transfer:2", "transfer:3")) {
+            $name = $t.Replace(":", "-")
+            $p = Start-Process -FilePath $exe -ArgumentList "--demo", "`"$PWD`"", $t, "--shot", "`"$PWD/flutter-smoke/screens/$name.png`"", "--light" -PassThru
+            if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Warning "$t 캡처 시간 초과" }
+          }
+          $p = Start-Process -FilePath $exe -ArgumentList "--demo", "`"$PWD`"", "dispatch:all", "--shot", "`"$PWD/flutter-smoke/screens/dispatch-dark.png`"", "--dark" -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill() }
+          Get-ChildItem flutter-smoke/screens | Format-Table Name, Length
+      - name: Portable ZIP
+        shell: pwsh
+        run: |
+          # WorkTool\WorkTool.exe(시작 프로그램) · App\(앱 파일) · Data\(설정) 구조로 묶어요.
+          ./windows-flutter/tool/package.ps1
+          # ZIP을 새 폴더에 풀어서 맨 위 시작 프로그램으로 다시 검사해요 (배포본 그대로 실행되는지)
+          Expand-Archive windows-flutter/artifacts/WorkTool-Windows-x64.zip -DestinationPath zip-check
+          foreach ($f in "WorkTool.exe","App/WorkTool.exe","App/data/app.so","Data") {
+            if (-not (Test-Path "zip-check/WorkTool/$f")) { throw "ZIP에 $f 가 없어요" }
+          }
+          $p = Start-Process zip-check/WorkTool/WorkTool.exe -ArgumentList "--smoke-test","$PWD/zip-smoke","$PWD" -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "ZIP 안의 앱 검사 실패: $($p.ExitCode)" }
+          Get-Content zip-smoke/smoke-result.txt -Encoding utf8 | Select-Object -Last 1
+          Get-ChildItem zip-check/WorkTool -Recurse -File | Sort-Object Length -Descending | Select-Object -First 12 | Format-Table Length, FullName
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WorkTool-Windows-x64-flutter
+          path: |
+            windows-flutter/artifacts/WorkTool-Windows-x64.zip
+            flutter-smoke/
+          if-no-files-found: error
