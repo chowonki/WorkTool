@@ -4,8 +4,33 @@
  <Application.Resources>
   <ResourceDictionary>
    <ResourceDictionary.MergedDictionaries><XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls"/></ResourceDictionary.MergedDictionaries>
-   <FontFamily x:Key="ContentControlThemeFontFamily">ms-appx:///Assets/Fonts/Pretendard-Regular.otf#Pretendard</FontFamily>
-   <FontFamily x:Key="BodyFont">ms-appx:///Assets/Fonts/Pretendard-Regular.otf#Pretendard</FontFamily>
+   <!-- 글꼴: Windows 기본(Segoe UI Variable), 한글은 시스템이 맑은 고딕으로 이어 써요. 차량목록·원문은 고정폭. -->
+   <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas, Malgun Gothic</FontFamily>
+   <ResourceDictionary.ThemeDictionaries>
+    <!-- 강조색은 WorkTool 녹색. AccentButton·선택 막대·체크 상자가 모두 이 색을 써요. -->
+    <ResourceDictionary x:Key="Light">
+     <Color x:Key="SystemAccentColor">#267358</Color>
+     <Color x:Key="SystemAccentColorDark1">#267358</Color>
+     <Color x:Key="SystemAccentColorDark2">#1F6049</Color>
+     <Color x:Key="SystemAccentColorDark3">#174A38</Color>
+     <Color x:Key="SystemAccentColorLight1">#2E8A69</Color>
+     <Color x:Key="SystemAccentColorLight2">#4FB38C</Color>
+     <Color x:Key="SystemAccentColorLight3">#7CCCAA</Color>
+     <SolidColorBrush x:Key="NavigationViewContentBackground" Color="#FBFBFB"/>
+     <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="#E5E5E5"/>
+    </ResourceDictionary>
+    <ResourceDictionary x:Key="Dark">
+     <Color x:Key="SystemAccentColor">#4FB38C</Color>
+     <Color x:Key="SystemAccentColorDark1">#267358</Color>
+     <Color x:Key="SystemAccentColorDark2">#1F6049</Color>
+     <Color x:Key="SystemAccentColorDark3">#174A38</Color>
+     <Color x:Key="SystemAccentColorLight1">#3E9C78</Color>
+     <Color x:Key="SystemAccentColorLight2">#4FB38C</Color>
+     <Color x:Key="SystemAccentColorLight3">#7CCCAA</Color>
+     <SolidColorBrush x:Key="NavigationViewContentBackground" Color="#272727"/>
+     <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="#3A3A3A"/>
+    </ResourceDictionary>
+   </ResourceDictionary.ThemeDictionaries>
   </ResourceDictionary>
  </Application.Resources>
 </Application>

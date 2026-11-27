@@ -9,4 +9,5 @@ node_modules
 tests
 scripts
 windows
+mac
 *.md

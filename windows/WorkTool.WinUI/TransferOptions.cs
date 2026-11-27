@@ -15,7 +15,9 @@ public sealed partial class MainWindow
     private readonly List<TextBox> threadBoxes = [];
     private readonly HashSet<string> selectedTransfers = [];
     private readonly Dictionary<(string Id, string Field), Action<string>> groupedEditors = new();
-    private ComboBox transferFilter = null!, transferColumn = null!;
+    private ComboBox transferColumn = null!;
+    private SelectorBar transferSeg = null!;
+    private int transferFilterIndex;
     private TextBox transferSearch = null!;
     private readonly Dictionary<int, string> transferSearches = [];
     private bool loadingSearch;
@@ -27,7 +29,6 @@ public sealed partial class MainWindow
     private static readonly double[] DefaultTransferWidths = [155, 190, 205, 146, 125, 180, 180, 140];
     private readonly double[] transferWidths = (double[])DefaultTransferWidths.Clone();
 
-    private double TransferWidth(string key) => transferWidths[Array.FindIndex(TransferFields, field => field.Key == key)];
     private static string TransferWidthsFile => LocalState.DataFile("transfer-columns.json");
 
     private void LoadTransferWidths()
@@ -59,36 +60,63 @@ public sealed partial class MainWindow
         else
             for (var i = 0; i < boxes.Length; i++)
                 if (!double.IsNaN(boxes[i].Value)) transferWidths[i] = Math.Clamp(boxes[i].Value, 80, 480);
+        BuildTransferHeader();
         RenderTransfers();
         Directory.CreateDirectory(Path.GetDirectoryName(TransferWidthsFile)!);
         await File.WriteAllTextAsync(TransferWidthsFile, JsonSerializer.Serialize(transferWidths));
     }
 
+    // 이체 요청 입력칸: 상자 없이 입력칸 사이를 구분선으로 나눠요.
     private TextBox AddThreadInput(bool first = false)
     {
-        var box = Input("Slack 스레드", "차량번호, 은행, 계좌번호, 금액이 포함된 요청을 붙여넣으세요.");
+        var box = Input("", "차량번호, 은행, 계좌번호, 금액이 포함된 Slack 스레드를 그대로 붙여넣으세요.");
+        box.Header = null;
         box.Tag = Guid.NewGuid().ToString("N");
         box.AcceptsReturn = true;
         box.TextWrapping = TextWrapping.Wrap;
-        box.Height = first ? 220 : 150;
+        box.Height = first ? 260 : 180;
         box.MaxLength = 50_000;
-        var card = Stack(box);
-        if (!first) card.Children.Add(Button("이 입력칸 삭제", () =>
+        var title = PanelHeading($"이체 요청 {threadBoxes.Count + 1}");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(box, $"이체 요청 {threadBoxes.Count + 1} 내용");
+        var head = new Grid();
+        head.Children.Add(title);
+        var section = Stack(head, box);
+        section.Spacing = 8;
+        var border = new Border { Child = section, Padding = new Thickness(0, first ? 0 : 16, 0, 16), BorderBrush = divider, BorderThickness = new Thickness(0, first ? 0 : 1, 0, 0) };
+        if (!first)
         {
-            threadBoxes.Remove(box);
-            threadInputs.Children.Remove(card);
-        }));
+            var remove = new HyperlinkButton { Content = "이 입력칸 삭제", HorizontalAlignment = HorizontalAlignment.Right, Padding = new Thickness(0) };
+            remove.Click += (_, _) =>
+            {
+                threadBoxes.Remove(box);
+                threadInputs.Children.Remove(border);
+            };
+            head.Children.Add(remove);
+        }
         threadBoxes.Add(box);
-        threadInputs.Children.Add(card);
+        threadInputs.Children.Add(border);
         return box;
     }
 
+    // 2단계 위: Pivot 모양 보기(전체 n | 정상 n | 검토 필요 n | 오류 n) + 열 검색
     private UIElement TransferFilters()
     {
-        transferFilter = new ComboBox { Header = "검토 상태", ItemsSource = new[] { "전체", "정상", "검토 필요", "오류" }, SelectedIndex = 0, Width = 118 };
-        transferColumn = new ComboBox { Header = "검색할 열", ItemsSource = new[] { "모든 열" }.Concat(TransferFields.Select(field => field.Label)).ToArray(), SelectedIndex = 0, Width = 120 };
-        transferSearch = Input("내역 검색", "검색어", 174);
-        transferFilter.SelectionChanged += (_, _) => ValidateTransfers();
+        transferSeg = new SelectorBar();
+        foreach (var label in new[] { "전체", "정상", "검토 필요", "오류" }) transferSeg.Items.Add(new SelectorBarItem { Text = label });
+        transferSeg.SelectedItem = transferSeg.Items[0];
+        transferSeg.SelectionChanged += (_, _) =>
+        {
+            var index = transferSeg.Items.IndexOf(transferSeg.SelectedItem);
+            if (index < 0 || index == transferFilterIndex) return;
+            transferFilterIndex = index;
+            ValidateTransfers();
+        };
+        transferColumn = new ComboBox { ItemsSource = new[] { "모든 열" }.Concat(TransferFields.Select(field => field.Label)).ToArray(), SelectedIndex = 0, Width = 120, VerticalAlignment = VerticalAlignment.Center };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(transferColumn, "검색할 열");
+        transferSearch = Input("", "내역 검색", 160);
+        transferSearch.Header = null;
+        transferSearch.VerticalAlignment = VerticalAlignment.Center;
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(transferSearch, "내역 검색");
         transferColumn.SelectionChanged += (_, _) =>
         {
             loadingSearch = true;
@@ -103,20 +131,29 @@ public sealed partial class MainWindow
             else transferSearches[transferColumn.SelectedIndex] = query;
             ValidateTransfers();
         };
-        var clear = Button("필터 초기화", () =>
-        {
-            transferSearches.Clear();
-            transferSearch.Text = "";
-            transferFilter.SelectedIndex = transferColumn.SelectedIndex = 0;
-            ValidateTransfers();
-        });
-        clear.VerticalAlignment = VerticalAlignment.Bottom;
-        return WrapActions(transferFilter, transferColumn, transferSearch, clear);
+        return WrapControls(center: true, transferSeg, transferColumn, transferSearch);
     }
 
+    private void UpdateTransferSeg(int all, int ok, int warn, int bad)
+    {
+        if (transferSeg is null) return;
+        var values = new[] { all, ok, warn, bad };
+        for (var i = 0; i < 4; i++)
+            ((SelectorBarItem)transferSeg.Items[i]).Text = $"{new[] { "전체", "정상", "검토 필요", "오류" }[i]} {values[i]:N0}";
+    }
+
+    private void ClearTransferFilters()
+    {
+        transferSearches.Clear();
+        transferSearch.Text = "";
+        transferColumn.SelectedIndex = 0;
+        transferFilterIndex = 0;
+        transferSeg.SelectedItem = transferSeg.Items[0];
+        ValidateTransfers();
+    }
     private bool ShowTransfer(JsonNode? row, string state)
     {
-        var filterState = transferFilter.SelectedIndex switch { 1 => "ok", 2 => "warn", 3 => "bad", _ => "" };
+        var filterState = transferFilterIndex switch { 1 => "ok", 2 => "warn", 3 => "bad", _ => "" };
         if (filterState.Length > 0 && filterState != state) return false;
         return transferSearches.All(filter => filter.Key <= 0
             ? TransferFields.Any(field => row.Text(field.Key).Contains(filter.Value, StringComparison.OrdinalIgnoreCase))
