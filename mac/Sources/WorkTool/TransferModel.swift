@@ -285,8 +285,9 @@ final class TransferModel: ObservableObject {
 
     func copyComments(_ lines: [String]) {
         guard !lines.isEmpty else { toaster.show("이체 내역이 없어요."); return }
-        UI.copy(lines.joined(separator: "\n"))
-        toaster.show(lines.count == 1 ? "코멘트 한 줄을 복사했어요." : "송금 코멘트 \(lines.count)줄을 복사했어요.")
+        let text = lines.joined(separator: "\n")
+        UI.copy(text)
+        toaster.show(UI.copyPreview(text))
     }
 
     func resetAll() {
