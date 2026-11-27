@@ -61,6 +61,10 @@ var conflict = rules.Match(vehicles["vehicles"]!.AsArray(), new JsonArray(file.D
 Assert(conflict[0]!.Flag("feeConflict"), "conflicting fee requires choice");
 var chosen = rules.Choose(conflict[0]!, "fee", conflict[0]!["feeCandidates"]![0].Text("id"));
 Assert(!chosen.Flag("feeConflict") && chosen.Text("vat") == "6000", "candidate updates VAT");
+// 차량목록에 붙여 넣은 날짜·시간이 업체 일정 대신 탁송일정이 되고, 다르면 메모로 알려요 (Windows 앱 표·TXT·Excel에 같은 값).
+var pasted = rules.Match(rules.ParseVehicles("2026-11-27 08:00 123가4567")["vehicles"]!.AsArray(), new JsonArray(file.DeepClone()));
+Assert(pasted[0].Text("schedule") == "2026-11-27 08:00" && pasted[0]!.Flag("scheduleFromInput") && pasted[0].Text("dispatchFee") == "50000"
+    && rules.Notes(pasted[0]!).Contains("업체 일정과 다름") && rules.ExportRows(pasted)[1]![0]!.ToString() == "2026-11-27 08:00", "pasted date and time becomes the dispatch schedule");
 var slackRows = new JsonArray(
     new JsonObject { ["plate"] = "08구8701", ["cInquiry"] = true, ["status"] = "slack" },
     new JsonObject { ["plate"] = "77다1234", ["cInquiry"] = true, ["status"] = "slack" },
