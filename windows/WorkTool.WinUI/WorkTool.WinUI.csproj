@@ -23,6 +23,8 @@
     <Content Include="Assets/Fonts/*" CopyToOutputDirectory="PreserveNewest" />
     <Content Update="Assets/WorkTool.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Licenses/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- 탐색 창 '변경 이력' 화면이 읽는 저장소의 변경 이력 -->
+    <Content Include="../../CHANGELOG.md" Link="CHANGELOG.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="CopyNativeXamlResources" AfterTargets="Publish">
     <Copy SourceFiles="$(TargetDir)$(AssemblyName).pri" DestinationFolder="$(PublishDir)" />

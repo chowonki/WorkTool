@@ -25,12 +25,14 @@ public sealed partial class MainWindow
         return grid;
     }
 
-    private static Grid TableHeader(double[] widths, params string[] labels)
+    /// <summary>표 머리글: 배경 없이 12px 회색 글자, 아래 구분선</summary>
+    private Grid TableHeader(double[] widths, params string[] labels)
     {
         var row = Columns(widths, labels.Select(label =>
         {
-            var text = Text(label, 13);
+            var text = Text(label, 12);
             text.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+            text.Foreground = mutedInk;
             if (label is "주유·충전비" or "탁송비" or "부가세" or "입금액")
                 text.TextAlignment = TextAlignment.Right;
             if (label == "차량번호")
@@ -42,32 +44,14 @@ public sealed partial class MainWindow
             if (label is "완료" or "상세") text.TextAlignment = TextAlignment.Center;
             return text;
         }).ToArray());
-        row.Background = ThemeBrush("LayerFillColorDefaultBrush");
+        row.MinHeight = 36;
+        row.BorderBrush = divider;
+        row.BorderThickness = new Thickness(0, 0, 0, 1);
         return row;
     }
 
     private static Panel WrapActions(params UIElement[] controls)
         => WrapControls(center: false, controls);
-
-    private static void SetActiveStep(Button[] buttons, int activeIndex, WorkTone tone)
-    {
-        for (var i = 0; i < buttons.Length; i++)
-        {
-            var button = buttons[i];
-            if (i == activeIndex)
-            {
-                button.Background = tone.Fill;
-                button.Foreground = tone.Ink;
-                button.BorderBrush = tone.Accent;
-            }
-            else
-            {
-                button.ClearValue(Control.BackgroundProperty);
-                button.ClearValue(Control.ForegroundProperty);
-                button.ClearValue(Control.BorderBrushProperty);
-            }
-        }
-    }
 
     private static Panel WrapControls(bool center, params UIElement[] controls)
     {
@@ -75,22 +59,6 @@ public sealed partial class MainWindow
         foreach (var control in controls) panel.Children.Add(control);
         return panel;
     }
-
-    private static Border PageHeading(string title, string glyph, WorkTone tone, Button action)
-    {
-        action.HorizontalAlignment = HorizontalAlignment.Right;
-        var text = TitleText(title);
-        text.Foreground = tone.Ink;
-        text.TextWrapping = TextWrapping.Wrap;
-        var heading = Columns([33, 0, 102], ToneIcon(tone, glyph), text, action);
-        heading.Padding = new Thickness(14, 9, 14, 9);
-        return new Border
-        {
-            Child = heading, Background = tone.Surface, BorderBrush = tone.Accent,
-            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10)
-        };
-    }
-
     private static ScrollViewer VerticalScroll(UIElement content) => new()
     {
         Content = content,
@@ -99,11 +67,10 @@ public sealed partial class MainWindow
         VerticalScrollBarVisibility = ScrollBarVisibility.Auto
     };
 
-    private Border TableRow(UIElement content) => new()
+    private Border TableRow(UIElement content, int index = 0) => new()
     {
         Child = content,
-        BorderThickness = new Thickness(0, 0, 0, 1),
-        BorderBrush = cardStroke
+        Background = index % 2 == 1 ? rowAlt : transparent
     };
 
     private static ScrollViewer Horizontal(UIElement content) => new()

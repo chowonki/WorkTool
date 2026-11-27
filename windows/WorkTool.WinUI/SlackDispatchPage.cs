@@ -16,33 +16,53 @@ public sealed partial class MainWindow
     private int slackPage;
     private const int SlackPageSize = 10;
 
+    // 오른쪽 패널의 '슬랙봇 회신' 모드: 회신 붙여넣기 → 반영, 아래에 확인 대상 목록
     private FrameworkElement CreateSlackDispatchStage()
     {
-        slackReplies = Input("슬랙봇 확인 내용", "08구8701 - X\n77다1234 - 12,350원\n12가3456 - 확인 중");
-        slackReplies.AcceptsReturn = true;
-        slackReplies.TextWrapping = TextWrapping.Wrap;
-        slackReplies.Height = 176;
-        slackReplyReport = Text("");
+        slackReplies = new TextBox
+        {
+            PlaceholderText = "08구8701 - X\n77다1234 - 12,350원\n12가3456 - 확인 중", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
+            Height = 170, FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["MonoFont"], FontSize = 13
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(slackReplies, "슬랙봇 확인 내용");
+        slackReplyReport = Text("", 13);
         slackReplyReport.Visibility = Visibility.Collapsed;
-        slackDispatchSummary = Text("");
+        slackDispatchSummary = Muted("", 13);
         slackDispatchList = new ListView { SelectionMode = ListViewSelectionMode.None, IsItemClickEnabled = false };
         ScrollViewer.SetVerticalScrollBarVisibility(slackDispatchList, ScrollBarVisibility.Disabled);
         ScrollViewer.SetVerticalScrollMode(slackDispatchList, ScrollMode.Disabled);
-        previousSlackPage = Button("이전", () => ChangeSlackPage(-1));
-        nextSlackPage = Button("다음", () => ChangeSlackPage(1));
-        slackPageLabel = Text("");
-        showSlackResults = Button("반영된 차량 표에서 보기", ShowSlackResults);
-        var entry = Card(Stack(Text("슬랙봇 회신 붙여넣기", 21),
-            Text("한 줄에 차량번호 - 값 형식으로 입력해 주세요. 금액은 10원 단위로 반올림하고, X는 0원, 확인 중은 그대로 반영돼요."),
-            slackReplies, WrapActions(Button("확인 내용 반영", ApplySlackReplies, true), showSlackResults,
-                Button("다음: 복사·저장", () => ShowDispatchStage(DispatchStage.Save))),
-            slackReplyReport));
-        var list = Card(Stack(Text("확인 대상", 21), slackDispatchSummary,
-            Button("미확인 차량번호 복사", CopyOutstandingSlackNumbers), slackDispatchList,
-            WrapActions(previousSlackPage, slackPageLabel, nextSlackPage)));
-        return VerticalScroll(SplitLayout(entry, list, 820));
+        previousSlackPage = new Button { Content = new FontIcon { Glyph = "\uE76B", FontSize = 12 }, Padding = new Thickness(8, 5, 8, 5) };
+        nextSlackPage = new Button { Content = new FontIcon { Glyph = "\uE76C", FontSize = 12 }, Padding = new Thickness(8, 5, 8, 5) };
+        previousSlackPage.Click += (_, _) => ChangeSlackPage(-1);
+        nextSlackPage.Click += (_, _) => ChangeSlackPage(1);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(previousSlackPage, "이전 페이지");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(nextSlackPage, "다음 페이지");
+        slackPageLabel = Muted("", 13);
+        slackPageLabel.VerticalAlignment = VerticalAlignment.Center;
+        showSlackResults = new Button { Content = "반영된 차량 표에서 보기" };
+        showSlackResults.Click += (_, _) => ShowSlackResults();
+        var back = new Button { Content = new FontIcon { Glyph = "\uE72B", FontSize = 14 }, Background = transparent, BorderThickness = new Thickness(0), Padding = new Thickness(6) };
+        ToolTipService.SetToolTip(back, "입력으로 돌아가기");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(back, "입력으로 돌아가기");
+        back.Click += (_, _) => ShowSlackPanel(false);
+        var title = Text("슬랙봇 회신", 20); title.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+        var head = Bar(back, title); head.VerticalAlignment = VerticalAlignment.Center;
+        var apply = Button("확인 내용 반영", ApplySlackReplies, true);
+        apply.HorizontalAlignment = HorizontalAlignment.Stretch;
+        var copyOutstanding = new HyperlinkButton { Content = "미확인 차량번호 복사", Padding = new Thickness(0, 4, 0, 4) };
+        copyOutstanding.Click += (_, _) => CopyOutstandingSlackNumbers();
+        var entry = Stack(PanelHeading("회신 붙여넣기"),
+            Muted("한 줄에 ‘차량번호 - 값’ 형식이에요. 금액은 10원 단위로 반올림하고, X는 0원, 확인 중은 그대로 반영돼요.", 12),
+            slackReplies, apply, showSlackResults, slackReplyReport);
+        entry.Spacing = 8;
+        var targets = Stack(PanelHeading("확인 대상"), slackDispatchSummary, copyOutstanding, slackDispatchList, Bar(previousSlackPage, slackPageLabel, nextSlackPage));
+        targets.Spacing = 6;
+        var sep = Divider(); sep.Margin = new Thickness(-20, 6, -20, 6);
+        var body = Stack(head, entry, sep, targets);
+        body.Spacing = 12;
+        body.Padding = new Thickness(20, 16, 20, 20);
+        return VerticalScroll(body);
     }
-
     private void RefreshSlackDispatchList()
     {
         var eligible = results.OfType<JsonObject>().Where(row => row.Flag("cInquiry")).DistinctBy(row => row.Text("plate")).ToArray();
@@ -84,8 +104,9 @@ public sealed partial class MainWindow
         report.AddRange(result.Issues.Take(8));
         if (result.Issues.Count > 8) report.Add($"외 {result.Issues.Count - 8:N0}건");
         slackReplyReport.Text = string.Join(Environment.NewLine, report);
-        slackReplyReport.Foreground = result.Issues.Count > 0 ? attentionTone.Ink : successTone.Ink;
+        slackReplyReport.Foreground = result.Issues.Count > 0 ? warningInk : successInk;
         slackReplyReport.Visibility = Visibility.Visible;
+        RecountDispatch();
         RefreshSlackDispatchList();
         if (result.Applied > 0 && result.Issues.Count == 0)
         {
@@ -103,9 +124,10 @@ public sealed partial class MainWindow
         dispatchSearches.Clear();
         search.Text = "";
         dispatchPage = 0;
-        filter.SelectedItem = filter.Items.OfType<ComboBoxItem>().First(item => Equals(item.Tag, "slack-replies"));
+        SyncDispatchBoxes();
+        dispatchFilter = "slack-replies";
         RenderDispatch();
-        ShowDispatchStage(DispatchStage.Review);
+        Go("dispatch");
     }
 
     private void CopyOutstandingSlackNumbers()

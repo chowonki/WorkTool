@@ -59,10 +59,7 @@ public sealed partial class MainWindow
     {
         if (dispatchTable.Children.Count > 1) dispatchTable.Children.RemoveAt(0);
         dispatchTable.MinWidth = Math.Max(1020, dispatchColumns.Sum() + 120);
-        var header = TableHeader(dispatchColumns, DispatchHeadings);
-        header.Background = dispatchTone.Surface;
-        foreach (var text in header.Children.OfType<TextBlock>()) text.Foreground = dispatchTone.Ink;
-        dispatchTable.Children.Insert(0, header);
+        dispatchTable.Children.Insert(0, TableHeader(dispatchColumns, DispatchHeadings));
     }
 
     private async Task EditDispatchWidths()
@@ -105,37 +102,56 @@ public sealed partial class MainWindow
 
     private void RenderDispatchFiles()
     {
-        fileSummary.Text = files.Count == 0 ? "업체 Excel 파일을 첨부하거나 여기로 끌어오세요." : $"첨부 {files.Count:N0}개";
+        // 비어 있으면 안내 글자만, 있으면 파일명·업체·건수와 빼기(x) 단추
+        fileSummary.Visibility = files.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         dispatchFiles.Children.Clear();
+        var first = true;
         foreach (var file in files.ToArray())
         {
-            var remove = Button("제거", () =>
+            var remove = new Button { Content = new FontIcon { Glyph = "\uE711", FontSize = 11 }, Padding = new Thickness(7), Background = transparent, BorderThickness = new Thickness(0), VerticalAlignment = VerticalAlignment.Center };
+            remove.Click += (_, _) =>
             {
                 if (importingDispatch) return;
                 files.Remove(file);
                 RenderDispatchFiles();
                 InvalidateDispatch();
-            });
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(remove, file.Text("name") + " 제거");
-            var count = file!["records"]!.AsArray().Count;
+            };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(remove, file.Text("name") + " 빼기");
+            ToolTipService.SetToolTip(remove, "빼기");
+            var records = file!["records"]!.AsArray();
+            var vendors = string.Join(" · ", records.Select(r => VendorName(r.Text("vendor"))).Where(v => v.Length > 0).Distinct());
+            var name = Text(file.Text("name"), 13);
+            name.TextWrapping = TextWrapping.NoWrap; name.TextTrimming = TextTrimming.CharacterEllipsis;
+            ToolTipService.SetToolTip(name, file.Text("name"));
+            var info = Stack(name, Muted($"{(vendors.Length > 0 ? vendors + " · " : "")}{records.Count:N0}건"));
+            info.Spacing = 0;
             var warnings = LocalState.Strings(file["warnings"]).ToArray();
-            var label = Text($"{file.Text("name")} ({count:N0}건)");
-            if (warnings.Length == 0) { dispatchFiles.Children.Add(Columns([0, 65], label, remove)); continue; }
-            var warning = Text($"⚠ 양식 확인 필요 · {warnings.Length}건", 12);
-            warning.Foreground = ThemeBrush("SystemFillColorCautionBrush");
-            ToolTipService.SetToolTip(warning, string.Join(Environment.NewLine, warnings));
-            dispatchFiles.Children.Add(Columns([0, 65], Stack(label, warning), remove));
+            if (warnings.Length > 0)
+            {
+                var warning = Text($"⚠ 양식 확인 필요 · {warnings.Length}건", 12);
+                warning.Foreground = warningInk;
+                ToolTipService.SetToolTip(warning, string.Join(Environment.NewLine, warnings));
+                info.Children.Add(warning);
+            }
+            var icon = new FontIcon { Glyph = "\uE9F9", FontSize = 16, Foreground = successInk, VerticalAlignment = VerticalAlignment.Center };
+            var line = Columns([24, 0, 32], icon, info, remove);
+            line.Padding = new Thickness(0, 6, 0, 6);
+            line.ColumnSpacing = 8;
+            dispatchFiles.Children.Add(new Border { Child = line, BorderBrush = divider, BorderThickness = new Thickness(0, first ? 0 : 1, 0, 0) });
+            first = false;
         }
     }
 
+    private static string VendorName(string vendor) => vendor switch { "A" => "한빛탁송", "B" => "오픈마일", "C" => "렌톡", _ => vendor };
     private void InvalidateDispatch()
     {
         if (results.Count == 0) return;
         results.Clear();
         selected.Clear();
         ClearSlackReplies();
+        ShowSlackPanel(false);
+        RecountDispatch();
         RenderDispatch();
-        ShowDispatchStage(DispatchStage.Input);
     }
 
     private async Task ResetDispatch()
@@ -153,11 +169,13 @@ public sealed partial class MainWindow
         dispatchSearches.Clear();
         dispatchFrom = dispatchTo = null;
         dispatchDescending = false;
-        filter.SelectedIndex = scope.SelectedIndex = 0;
+        scope.SelectedIndex = 0;
+        dispatchFilter = "all";
         InvalidateDispatch();
         RenderDispatchFiles();
+        RecountDispatch();
         RenderDispatch();
-        ShowDispatchStage(DispatchStage.Input);
+        Go("dispatch");
     }
 
     private JsonArray SelectedOrVisibleDispatch() => selected.Count == 0
@@ -174,7 +192,7 @@ public sealed partial class MainWindow
             SaveWorkMarks();
             RenderDispatch();
         }
-        if ((filter.SelectedItem as ComboBoxItem)?.Tag?.ToString() != "slack")
+        if (dispatchFilter != "slack")
         {
             Copy(string.Join(Environment.NewLine, rows.Select(row => row.Text("plate"))), MarkCopied);
             return;
@@ -243,6 +261,7 @@ public sealed partial class MainWindow
             dispatchDescending = descending.IsChecked == true;
         }
         dispatchPage = 0;
+        SyncDispatchBoxes();
         RenderDispatch();
     }
 

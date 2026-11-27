@@ -1,6 +1,6 @@
 # WorkTool for Windows
 
-WinUI 3 컨트롤로 작성한 Windows 데스크톱 앱입니다. Pretendard를 앱에 포함하며 헤더에 Windows 기본 최소화·최대화·닫기 단추를 통합합니다. 시스템 창 이동, 크기 조절, 최대화와 Snap Layouts를 유지합니다.
+WinUI 3 컨트롤로 작성한 Windows 데스크톱 앱입니다. Windows 11 Fluent 모양(Mica 배경, 왼쪽 NavigationView, CommandBar, Segoe UI Variable 글꼴)을 따르며 헤더에 Windows 기본 최소화·최대화·닫기 단추를 통합합니다. 시스템 창 이동, 크기 조절, 최대화와 Snap Layouts를 유지합니다.
 
 ## 실행과 빌드
 
