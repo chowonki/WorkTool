@@ -2,7 +2,7 @@
 # WorkTool.app을 만들어요 (Apple Silicon + Intel 범용). 결과: dist/WorkTool.app, dist/WorkTool-macOS.zip
 set -euo pipefail
 cd "$(dirname "$0")/.."
-VERSION="${VERSION:-0.3.0}"
+VERSION="${VERSION:-0.3.2}"
 APP=dist/WorkTool.app
 
 swift build -c release --arch arm64 --arch x86_64 --product WorkTool
