@@ -61,10 +61,10 @@ Future<void> main(List<String> args) async {
   runApp(WorkToolApp(failure: failure));
 }
 
-/// 시작 오류를 실행 폴더(안 되면 임시 폴더)의 startup-error.txt에 남겨요.
+/// 시작 오류를 맨 위 폴더(시작 프로그램 옆, 안 되면 임시 폴더)의 startup-error.txt에 남겨요.
 void _log(String where, Object e, StackTrace? st) {
   final text = '[${DateTime.now()}] $where: $e\n$st\n';
-  for (final dir in [File(Platform.resolvedExecutable).parent.path, Directory.systemTemp.path]) {
+  for (final dir in [AppPaths.rootDir.path, Directory.systemTemp.path]) {
     try {
       File('$dir${Platform.pathSeparator}startup-error.txt').writeAsStringSync(text, mode: FileMode.append);
       return;

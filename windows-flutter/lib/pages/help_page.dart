@@ -86,10 +86,12 @@ class _ChangelogPageState extends State<ChangelogPage> {
       if (res.statusCode != 200) return;
       final body = await res.transform(const SystemEncoding().decoder).join();
       c.close();
-      if (mounted && body.contains('## ')) setState(() {
-        text = body;
-        source = 'GitHub 최신';
-      });
+      if (mounted && body.contains('## ')) {
+        setState(() {
+          text = body;
+          source = 'GitHub 최신';
+        });
+      }
     } catch (_) {}
   }
 

@@ -71,24 +71,17 @@ jobs:
       - name: Portable ZIP
         shell: pwsh
         run: |
-          $src = "windows-flutter/build/windows/x64/runner/Release"
-          $dst = "windows-flutter/artifacts/WorkTool"
-          New-Item -ItemType Directory -Force $dst | Out-Null
-          Copy-Item "$src/*" $dst -Recurse
-          New-Item -ItemType File -Force "$dst/portable.mode" | Out-Null
-          # Flutter 엔진 파일(data\app.so 등)이 빠지면 실행이 안 돼요. 꼭 있는지 확인해요.
-          foreach ($f in "WorkTool.exe","flutter_windows.dll","worktool_js.dll","data/app.so","data/icudtl.dat","data/flutter_assets/assets/js/excel.js") {
-            if (-not (Test-Path "$dst/$f")) { throw "포터블 폴더에 $f 가 없어요" }
-          }
-          Copy-Item windows-flutter/assets/fonts/Pretendard-LICENSE.txt $dst
-          Compress-Archive -Path $dst -DestinationPath windows-flutter/artifacts/WorkTool-Windows-x64.zip -CompressionLevel Optimal
-          Get-ChildItem windows-flutter/artifacts/WorkTool-Windows-x64.zip | Format-Table Name, Length
-          # ZIP을 새 폴더에 풀어서 그 안의 exe로 다시 검사해요 (배포본 그대로 실행되는지)
+          # WorkTool\WorkTool.exe(시작 프로그램) · App\(앱 파일) · Data\(설정) 구조로 묶어요.
+          ./windows-flutter/tool/package.ps1
+          # ZIP을 새 폴더에 풀어서 맨 위 시작 프로그램으로 다시 검사해요 (배포본 그대로 실행되는지)
           Expand-Archive windows-flutter/artifacts/WorkTool-Windows-x64.zip -DestinationPath zip-check
-          if (-not (Test-Path zip-check/WorkTool/data/app.so)) { throw "ZIP에 data/app.so 가 없어요" }
+          foreach ($f in "WorkTool.exe","App/WorkTool.exe","App/data/app.so","Data") {
+            if (-not (Test-Path "zip-check/WorkTool/$f")) { throw "ZIP에 $f 가 없어요" }
+          }
           $p = Start-Process zip-check/WorkTool/WorkTool.exe -ArgumentList "--smoke-test","$PWD/zip-smoke","$PWD" -Wait -PassThru -NoNewWindow
           if ($p.ExitCode -ne 0) { throw "ZIP 안의 앱 검사 실패: $($p.ExitCode)" }
-          Get-ChildItem $dst -Recurse -File | Sort-Object Length -Descending | Select-Object -First 12 | Format-Table Length, FullName
+          Get-Content zip-smoke/smoke-result.txt -Encoding utf8 | Select-Object -Last 1
+          Get-ChildItem zip-check/WorkTool -Recurse -File | Sort-Object Length -Descending | Select-Object -First 12 | Format-Table Length, FullName
       - uses: actions/upload-artifact@v4
         with:
           name: WorkTool-Windows-x64-flutter

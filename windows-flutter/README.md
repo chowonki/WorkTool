@@ -38,9 +38,26 @@ cd windows-flutter
 flutter build windows --release
 ```
 
-결과: `build/windows/x64/runner/Release/` 폴더 전체. 포터블 ZIP은 이 폴더에 `portable.mode`를 넣어 묶어요(설정·오늘 기록이 `UserData` 폴더에 저장돼요).
+결과: `build/windows/x64/runner/Release/`(앱)와 `build/windows/x64/launcher/Release/WorkTool.exe`(시작 프로그램).
 
-GitHub Actions `Windows Flutter`가 빌드·검사·화면 캡처·포터블 ZIP(`WorkTool-Windows-x64.zip`)을 만들어요.
+포터블 ZIP은 `tool/package.ps1`이 만들어요 (`artifacts/WorkTool-Windows-x64.zip`).
+
+```powershell
+pwsh tool/package.ps1
+```
+
+```
+WorkTool\
+  WorkTool.exe   시작 프로그램 (windows/launcher). App\WorkTool.exe를 실행해요.
+  App\           앱 파일: WorkTool.exe, DLL, data\(Flutter 엔진·규칙), portable.mode
+  Data\          설정·오늘 기록 (worktool-state.json)
+```
+
+- 사용자 자료는 `Data`에만 둬요. 새 버전으로 바꿀 때는 `App`과 `WorkTool.exe`만 덮어쓰면 돼요.
+- `App\portable.mode`가 있으면 포터블 방식이에요. 없으면 설정을 사용자 폴더(AppData)에 저장해요.
+- 시작 오류는 맨 위 폴더의 `startup-error.txt`에 남아요.
+
+GitHub Actions `Windows Flutter`가 빌드·검사·화면 캡처·포터블 ZIP을 만들어요.
 
 ## 검사
 

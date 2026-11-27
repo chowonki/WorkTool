@@ -5,7 +5,7 @@ import 'exports.dart';
 import 'rules.dart';
 
 /// 가상 자료로 규칙·엑셀·내보내기를 검증해요 (CI·배포본 확인용).
-/// 사용법: WorkTool.exe --smoke-test <결과 폴더> <WorkTool 저장소 폴더>
+/// 사용법: `WorkTool.exe --smoke-test <결과 폴더> <WorkTool 저장소 폴더>`
 Future<int> runSmokeTest(String outDir, String repo) async {
   final out = Directory(outDir)..createSync(recursive: true);
   final log = StringBuffer();

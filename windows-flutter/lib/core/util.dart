@@ -51,8 +51,40 @@ String copyPreview(String text) {
   return lines.length > 5 ? '$shown\n외 ${lines.length - 5}줄 (총 ${lines.length}줄 복사)' : shown;
 }
 
-/// 작은 설정·오늘 기록 저장소(JSON 파일). 포터블이면 실행 폴더의 UserData 안에 둬요.
-/// (Flutter 엔진 파일이 든 `data` 폴더와 겹치지 않게 이름을 달리해요. Windows는 대소문자를 구분하지 않아요.)
+/// 실행 파일 위치로 정해지는 폴더들이에요.
+///
+/// 포터블 배포본은 이렇게 생겼어요:
+/// ```
+/// WorkTool\
+///   WorkTool.exe   시작 프로그램
+///   App\           앱 파일 (이 실행 파일, DLL, Flutter 엔진의 data 폴더)
+///   Data\          설정·오늘 기록
+/// ```
+/// 사용자 자료를 App 밖의 Data에 두기 때문에 엔진의 `App\data`와 섞이지 않아요.
+class AppPaths {
+  AppPaths._();
+
+  static final String _sep = Platform.pathSeparator;
+
+  /// 실행 파일이 있는 폴더.
+  static final Directory exeDir = File(Platform.resolvedExecutable).parent;
+
+  /// 실행 파일이 포터블 배포본의 App 폴더 안에 있는지.
+  static final bool _inAppFolder = exeDir.path.split(RegExp(r'[\\/]')).last.toLowerCase() == 'app';
+
+  /// 포터블 방식인지 (실행 파일 옆에 `portable.mode`가 있는 Windows 배포본).
+  static final bool portable = Platform.isWindows && File('${exeDir.path}${_sep}portable.mode').existsSync();
+
+  /// 사용자가 보는 맨 위 폴더 (시작 프로그램이 있는 곳). App 구조가 아니면 실행 폴더예요.
+  static final Directory rootDir = _inAppFolder ? exeDir.parent : exeDir;
+
+  /// 포터블 방식에서 설정을 두는 폴더.
+  /// App 구조가 아닌 곳(빌드 폴더에서 바로 실행 등)에서는 엔진의 data와 겹치지 않게 UserData를 써요.
+  static final Directory portableDataDir =
+      Directory(_inAppFolder ? '${rootDir.path}${_sep}Data' : '${exeDir.path}${_sep}UserData');
+}
+
+/// 작은 설정·오늘 기록 저장소(JSON 파일). 포터블이면 [AppPaths.portableDataDir], 아니면 사용자 폴더에 둬요.
 class Store {
   Store._(this._file, this._data);
   static late Store shared;
@@ -62,10 +94,8 @@ class Store {
   static Future<Store> load() async {
     Directory dir = Directory.systemTemp;
     try {
-      final exeDir = File(Platform.resolvedExecutable).parent;
-      final portable = Directory('${exeDir.path}${Platform.pathSeparator}UserData');
-      if (Platform.isWindows && (File('${exeDir.path}${Platform.pathSeparator}portable.mode').existsSync())) {
-        dir = portable;
+      if (AppPaths.portable) {
+        dir = AppPaths.portableDataDir;
         dir.createSync(recursive: true);
         // 쓰기 되는지 확인 (Program Files처럼 막힌 곳이면 사용자 폴더를 써요)
         File('${dir.path}${Platform.pathSeparator}.write-test').writeAsStringSync('ok');

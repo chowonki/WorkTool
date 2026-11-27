@@ -52,6 +52,9 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 
+# 포터블 배포본 맨 위에 놓는 시작 프로그램; see launcher/CMakeLists.txt.
+add_subdirectory("launcher")
+
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
