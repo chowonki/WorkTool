@@ -21,7 +21,8 @@ class Rules {
   static const dispatchFilters = ['all', 'review', 'confirmed', 'progress', 'missing', 'jeju', 'carrier', 'slack', 'slack-replies'];
 
   static Future<Rules> load() async {
-    final excel = await rootBundle.loadString('assets/js/excel.js');
+    // Windows의 QuickJS는 u 플래그 정규식 안의 `\-`를 받지 않아요. 같은 뜻인 `\x2d`로 바꿔 불러와요 (문자열 안에만 있어요).
+    final excel = (await rootBundle.loadString('assets/js/excel.js')).replaceAll(r'\\-', r'\\x2d');
     final dispatch = await rootBundle.loadString('assets/js/dispatch.js');
     final transfer = await rootBundle.loadString('assets/js/transfer.js');
     final engine = JsEngine([('dispatch.js', dispatch), ('transfer.js', transfer)]);
