@@ -14,6 +14,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
     wchar_t app_directory[32768];
     wchar_t app_path[32768];
     wchar_t data_path[32768];
+    wchar_t command_line[32768];
     DWORD length = GetModuleFileNameW(NULL, root, ARRAYSIZE(root));
     if (length == 0 || length >= ARRAYSIZE(root))
         return show_error(L"WorkTool 실행 파일의 위치를 확인할 수 없습니다.");
@@ -34,12 +35,20 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
             return show_error(L"Data 폴더를 만들 수 없습니다. ZIP을 쓰기 가능한 폴더에 풀어 주세요.");
     }
 
+    BOOL wait_for_app = arguments != NULL && *arguments != L'\0';
+    if (wait_for_app && FAILED(StringCchPrintfW(command_line, ARRAYSIZE(command_line), L"\"%ls\" %ls", app_path, arguments)))
+        return show_error(L"실행 인자가 너무 깁니다.");
+
     STARTUPINFOW startup = { sizeof(startup) };
     PROCESS_INFORMATION process;
-    if (!CreateProcessW(app_path, NULL, NULL, NULL, FALSE, 0, NULL, app_directory, &startup, &process))
+    if (!CreateProcessW(app_path, wait_for_app ? command_line : NULL, NULL, NULL, FALSE, 0, NULL, app_directory, &startup, &process))
         return show_error(L"WorkTool을 시작할 수 없습니다. ZIP 전체를 푼 뒤 다시 실행해 주세요.");
 
+    DWORD result = 0;
+    if (wait_for_app && (WaitForSingleObject(process.hProcess, INFINITE) != WAIT_OBJECT_0 ||
+        !GetExitCodeProcess(process.hProcess, &result)))
+        result = 1;
     CloseHandle(process.hThread);
     CloseHandle(process.hProcess);
-    return 0;
+    return (int)result;
 }

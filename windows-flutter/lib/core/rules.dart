@@ -21,11 +21,12 @@ class Rules {
   static const dispatchFilters = ['all', 'review', 'confirmed', 'progress', 'missing', 'jeju', 'carrier', 'slack', 'slack-replies'];
 
   static Future<Rules> load() async {
+    final host = await rootBundle.loadString('assets/js/host.js');
     final excel = _patchExcel(await rootBundle.loadString('assets/js/excel.js'));
     final dispatch = await rootBundle.loadString('assets/js/dispatch.js');
     final transfer = await rootBundle.loadString('assets/js/transfer.js');
-    final engine = JsEngine([('dispatch.js', dispatch), ('transfer.js', transfer)]);
-    final worker = await _Worker.start([('excel.js', excel), ('dispatch.js', dispatch), ('transfer.js', transfer)]);
+    final engine = JsEngine([('host.js', host), ('dispatch.js', dispatch), ('transfer.js', transfer)]);
+    final worker = await _Worker.start([('host.js', host), ('excel.js', excel), ('dispatch.js', dispatch), ('transfer.js', transfer)]);
     return shared = Rules._(engine, worker);
   }
 

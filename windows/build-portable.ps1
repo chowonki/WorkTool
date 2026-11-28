@@ -1,5 +1,6 @@
 param(
-    [string]$OutputZip = "$PSScriptRoot/artifacts/WorkTool-Portable-Windows-x64.zip"
+    [string]$OutputZip = "$PSScriptRoot/artifacts/WorkTool-Portable-Windows-x64.zip",
+    [string]$QuickJsSource
 )
 
 $ErrorActionPreference = 'Stop'
@@ -8,13 +9,14 @@ if (Test-Path -LiteralPath $zipPath) {
     throw "Output already exists. Specify a different OutputZip: $zipPath"
 }
 
-$packageRoot = Join-Path ([IO.Path]::GetTempPath()) ("WorkTool-Portable-" + [guid]::NewGuid())
+$artifacts = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'artifacts'))
+$packageRoot = Join-Path $artifacts ("stage-native-" + [guid]::NewGuid())
 $publishDirectory = Join-Path $packageRoot 'App'
 $dataDirectory = Join-Path $packageRoot 'Data'
 try {
     [IO.Directory]::CreateDirectory($publishDirectory) | Out-Null
     [IO.Directory]::CreateDirectory($dataDirectory) | Out-Null
-    & "$PSScriptRoot/build.ps1" -OutputDirectory $publishDirectory
+    & "$PSScriptRoot/build-native.ps1" -OutputDirectory $publishDirectory -QuickJsSource $QuickJsSource
 
     if (!(Test-Path -LiteralPath (Join-Path $publishDirectory 'WorkTool.WinUI.exe') -PathType Leaf)) {
         throw 'WorkTool.WinUI.exe is missing from the publish output.'
@@ -31,7 +33,7 @@ try {
     $launcherPath = Join-Path $packageRoot 'WorkTool.exe'
     $launcherObject = Join-Path $packageRoot 'WorkToolLauncher.obj'
     $launcherResource = Join-Path $packageRoot 'WorkToolLauncher.res'
-    & rc.exe /nologo "/fo$launcherResource" "$PSScriptRoot/WorkToolLauncher.rc"
+    & rc.exe /nologo "/i$PSScriptRoot" "/fo$launcherResource" "$PSScriptRoot/WorkToolLauncher.rc"
     if ($LASTEXITCODE -ne 0) {
         throw 'Portable launcher icon resource build failed.'
     }
@@ -54,5 +56,7 @@ try {
     Write-Host "Portable ZIP: $zipPath"
 }
 finally {
-    Remove-Item -LiteralPath $packageRoot -Recurse -Force
+    if ((Split-Path ([IO.Path]::GetFullPath($packageRoot))) -eq $artifacts -and (Test-Path -LiteralPath $packageRoot)) {
+        Remove-Item -LiteralPath $packageRoot -Recurse -Force
+    }
 }
