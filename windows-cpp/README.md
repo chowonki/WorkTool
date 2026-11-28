@@ -15,6 +15,7 @@ Visual Studio 2026(C++ 데스크톱 개발, v145 도구 집합)과 Windows SDK�
 ```powershell
 ./build.ps1          # build\Release\WorkTool.exe
 ./build.ps1 -Test    # 빌드 후 가상 자료로 화면 검증
+./build-portable.ps1 # 포터블 ZIP: build\WorkTool-Windows-x64-cpp.zip (WorkTool\WorkTool.exe 실행기 + App + Data)
 ```
 
 `build\Release` 폴더 전체가 배포 단위예요(Windows App SDK 런타임 포함, 설치 필요 없음). 실행 파일 하나만 복사하면 실행되지 않아요. 코드 서명은 없어요.
