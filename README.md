@@ -124,6 +124,7 @@ WorkTool/
 ├── scripts/e2e-dispatch.cjs  # 탁송체크 조회·캡처 브라우저 테스트
 ├── scripts/fixtures/     # 가상 업체 엑셀 (make-guide-fixtures.py로 생성)
 ├── windows/              # Windows 앱 (WinUI 3)
+├── windows-cpp/          # Windows 앱 C++판 (C++/WinRT + WinUI 3, 규칙은 quickjs-ng로 실행)
 └── mac/                  # Mac 앱 (SwiftUI, 규칙은 JavaScriptCore로 실행)
 ```
 

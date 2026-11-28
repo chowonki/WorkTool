@@ -1,0 +1,7 @@
+// 실행 파일 아이콘 (작업 표시줄·탐색기)
+1 ICON "..\\Assets\\WorkTool.ico"
+
+// 웹과 같은 업무 규칙. 실행 파일 안에 넣어서 따로 바꿔치기할 수 없게 해요.
+DISPATCH_JS RCDATA "..\\Rules\\dispatch.js"
+TRANSFER_JS RCDATA "..\\Rules\\transfer.js"
+EXCEL_JS    RCDATA "..\\Rules\\excel.js"

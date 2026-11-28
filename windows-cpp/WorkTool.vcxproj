@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>18.0</VCProjectVersion>
+    <ProjectGuid>{6B0C3B6E-5B1D-4E0B-9C55-2B6F3C1F7A10}</ProjectGuid>
+    <ProjectName>WorkTool</ProjectName>
+    <RootNamespace>WorkTool</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion>10.0.19041.0</WindowsTargetPlatformMinVersion>
+    <!-- NuGet: vcxproj에서도 PackageReference로 복원해요. -->
+    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+    <!-- C++/WinRT · Windows App SDK (포장 없이, 런타임을 실행 폴더에 함께 배포) -->
+    <CppWinRTOptimized>true</CppWinRTOptimized>
+    <CppWinRTRootNamespaceAutoMerge>true</CppWinRTRootNamespaceAutoMerge>
+    <UseWinUI>true</UseWinUI>
+    <AppxPackage>false</AppxPackage>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseDebugLibraries Condition="'$(Configuration)'=='Debug'">true</UseDebugLibraries>
+    <UseDebugLibraries Condition="'$(Configuration)'=='Release'">false</UseDebugLibraries>
+    <WholeProgramOptimization Condition="'$(Configuration)'=='Release'">true</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)build\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)build\obj\$(Configuration)\</IntDir>
+    <TargetName>WorkTool</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <ConformanceMode>true</ConformanceMode>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)third_party\quickjs;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;WINRT_LEAN_AND_MEAN;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <StackReserveSize>8388608</StackReserveSize>
+    </Link>
+    <Manifest>
+      <AdditionalManifestFiles>$(ProjectDir)src\app.manifest;%(AdditionalManifestFiles)</AdditionalManifestFiles>
+    </Manifest>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.CppWinRT" Version="2.0.250303.1" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Base" Version="2.6.5" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Foundation" Version="2.6.5" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="2.6.5" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.6.5" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.DWrite" Version="2.6.5" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.6.5" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2957" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\*.h" />
+    <ClCompile Include="src\*.cpp" Exclude="src\pch.cpp" />
+    <ClCompile Include="src\pch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
+    <!-- quickjs-ng (MIT): 규칙 JavaScript 실행 엔진. 파일·네트워크 기능(quickjs-libc)은 넣지 않아요. -->
+    <ClCompile Include="third_party\quickjs\quickjs.c;third_party\quickjs\libregexp.c;third_party\quickjs\libunicode.c;third_party\quickjs\dtoa.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <Optimization>MaxSpeed</Optimization>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <AdditionalOptions>/experimental:c11atomics %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>_GNU_SOURCE;_WIN32_WINNT=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ResourceCompile Include="src\WorkTool.rc" />
+    <Manifest Include="src\app.manifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <AppContent Include="Assets\**\*" />
+    <AppContent Include="Licenses\*" />
+    <AppContent Include="CHANGELOG.md" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <!-- 글꼴·아이콘·규칙·변경 이력을 실행 파일 옆에 둬요. -->
+  <Target Name="CopyAppContent" AfterTargets="Build" Inputs="@(AppContent)" Outputs="@(AppContent->'$(OutDir)%(Identity)')">
+    <Copy SourceFiles="@(AppContent)" DestinationFiles="@(AppContent->'$(OutDir)%(Identity)')" SkipUnchangedFiles="true" />
+  </Target>
+</Project>
