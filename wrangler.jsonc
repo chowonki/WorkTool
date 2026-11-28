@@ -9,5 +9,7 @@
   },
   "assets": {
     "directory": "."
-  }
+  },
+  // PR 브랜치 미리보기(npx wrangler preview)에 필요해요. 비어 있어도 위 설정을 그대로 써요.
+  "previews": {}
 }
