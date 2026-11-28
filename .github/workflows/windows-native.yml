@@ -1,27 +1,36 @@
 name: Windows native
 on:
   push:
-    paths: ['windows/**', 'transfer.html', 'dispatch.html', '.github/workflows/windows-native.yml']
+    paths: ['windows/**', 'windows-flutter/native/**', 'windows-flutter/assets/js/host.js', 'mac/Sources/WorkToolCore/Resources/js/**', 'transfer.html', 'dispatch.html', '.github/workflows/windows-native.yml']
   pull_request:
-    paths: ['windows/**', 'transfer.html', 'dispatch.html', '.github/workflows/windows-native.yml']
+    paths: ['windows/**', 'windows-flutter/native/**', 'windows-flutter/assets/js/host.js', 'mac/Sources/WorkToolCore/Resources/js/**', 'transfer.html', 'dispatch.html', '.github/workflows/windows-native.yml']
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Build and verify
+      - name: Build, verify and package the native app
         shell: pwsh
-        run: ./windows/build.ps1
+        run: ./windows/build-portable.ps1
+      - name: Start the extracted portable app
+        shell: pwsh
+        run: |
+          Expand-Archive windows/artifacts/WorkTool-Portable-Windows-x64.zip -DestinationPath windows/artifacts/native-zip-check
+          $report = "$PWD/windows/artifacts/native-smoke/ui-startup.txt"
+          $process = Start-Process -WindowStyle Hidden windows/artifacts/native-zip-check/WorkTool.exe -ArgumentList '--ui-smoke', ('"{0}"' -f $report) -PassThru
+          if (!$process.WaitForExit(30000)) { $process.Kill(); throw 'WinUI launch timed out.' }
+          Get-Content $report
+          if ($process.ExitCode -ne 0 -or (Get-Content $report -Raw) -notmatch 'PASS WinUI window loaded') { throw 'WinUI launch failed.' }
       - uses: actions/upload-artifact@v4
         with:
-          name: WorkTool-Windows-x64
-          path: windows/artifacts/WorkTool-Windows-x64/
+          name: WorkTool-Native-Windows-x64
+          if-no-files-found: error
+          path: |
+            windows/artifacts/WorkTool-Portable-Windows-x64.zip
+            windows/artifacts/native-smoke/
